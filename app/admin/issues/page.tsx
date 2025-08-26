@@ -76,9 +76,13 @@ export default function AdminIssuesPage() {
     )
   }
 
-  const handleAssignDepartment = async (issueId: string, department: string) => {
-    // In a real app, you'd call your API
-    console.log(`Assigning issue ${issueId} to ${department}`)
+  const handleAssignDepartment = async (issueId: number, department: string) => {
+    try {
+      // TODO: Implement department assignment API
+      alert(`Issue ${issueId} assigned to ${department} department`)
+    } catch (error) {
+      console.error('Error assigning department:', error)
+    }
   }
 
   return (

@@ -25,6 +25,8 @@ export interface Issue {
   comments: Comment[]
   votes: Vote[]
   assignments: Assignment[]
+  votes_count?: number  // API response field
+  comments_count?: number  // API response field
   createdAt: Date
   updatedAt: Date
 }

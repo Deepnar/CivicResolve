@@ -2,8 +2,13 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 import { UserModel } from './models';
 
-// Use hardcoded secret for middleware compatibility
-const JWT_SECRET = 'your_jwt_secret_key_here_make_it_very_long_and_secure';
+// Use environment variable with fallback for development
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here_make_it_very_long_and_secure';
+
+// Warn if using default secret in production
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'your_jwt_secret_key_here_make_it_very_long_and_secure') {
+  console.warn('⚠️  WARNING: Using default JWT secret in production! Set JWT_SECRET environment variable.');
+}
 
 export interface JWTPayload {
   userId: number;
@@ -48,13 +53,9 @@ export class AuthUtils {
 
   static verifyToken(token: string): JWTPayload | null {
     try {
-      console.log("🔑 Verifying token with secret length:", JWT_SECRET.length);
-      console.log("🔑 Token length:", token.length);
       const result = jwt.verify(token, JWT_SECRET) as JWTPayload;
-      console.log("🔑 Verification successful, payload:", result);
       return result;
     } catch (error) {
-      console.log("🔑 Token verification failed:", error);
       return null;
     }
   }

@@ -15,7 +15,7 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar } from "lucide-react"
+import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar, BarChart3 } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatsCard } from "@/components/ui/stats-card"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       <div className="container mx-auto px-4 py-8">
-        <PageHeader title="Admin Dashboard" description="Municipal management and analytics overview" icon={BarChart}>
+        <PageHeader title="Admin Dashboard" description="Municipal management and analytics overview" icon={BarChart3}>
           <div className="flex gap-3">
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-32 bg-white/80">
@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
                       {categoryChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />

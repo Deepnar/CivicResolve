@@ -269,7 +269,7 @@ export default function ProfilePage() {
                         <IssueCard
                           issue={issue}
                           showReporter={false}
-                          onClick={() => console.log("Navigate to issue", issue.id)}
+                          onClick={() => window.location.href = `/issues/${issue.id}`}
                         />
                       </motion.div>
                     ))}

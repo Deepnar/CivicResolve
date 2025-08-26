@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
 import type { IssueCategory } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 // Load LocationPicker dynamically with SSR disabled
 const LocationPicker = dynamic(() => import("@/components/location-picker"), {
@@ -42,6 +43,7 @@ type ReportIssueForm = z.infer<typeof reportIssueSchema>
 
 export default function ReportIssuePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -64,7 +66,11 @@ export default function ReportIssuePage() {
     const file = event.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert("Please select an image smaller than 5MB")
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Please select an image smaller than 5MB"
+        })
         return
       }
       
@@ -116,7 +122,11 @@ export default function ReportIssuePage() {
       // Get auth token
       const token = localStorage.getItem("auth-token")
       if (!token) {
-        alert("Please login to report an issue")
+        toast({
+          variant: "destructive",
+          title: "Authentication required",
+          description: "Please login to report an issue"
+        })
         return
       }
 
@@ -148,16 +158,22 @@ export default function ReportIssuePage() {
       }
 
       const result = await response.json()
-      console.log("Issue submitted successfully:", result)
       
       // Show success message
-      alert("Issue reported successfully!")
+      toast({
+        title: "Success!",
+        description: "Issue reported successfully!"
+      })
       
       // Reset form or redirect
-      window.location.href = "/"
+      router.push("/")
     } catch (error) {
       console.error("Error submitting issue:", error)
-      alert(error instanceof Error ? error.message : "Failed to submit issue")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit issue"
+      })
     } finally {
       setIsSubmitting(false)
     }

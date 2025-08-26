@@ -153,7 +153,6 @@ export class IssueModel {
       LIMIT 50
     `;
     
-    console.log('Executing simple SQL:', sql);
     return await Database.query(sql, []);
   }
 

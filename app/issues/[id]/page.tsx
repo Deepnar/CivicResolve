@@ -207,7 +207,7 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                       <PriorityIndicator priority={issue.priority} />
                     </div>
                     <VoteButton 
-                      votes={(issue as any).votes_count || 0} 
+                      voteCount={(issue as any).votes_count || 0} 
                       onVote={handleVote}
                       isVoted={false} // TODO: Check if user has voted
                     />
@@ -347,7 +347,7 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Priority</span>
-                    <PriorityIndicator priority={issue.priority} variant="text" />
+                    <PriorityIndicator priority={issue.priority} variant="full" />
                   </div>
                 </CardContent>
               </Card>
