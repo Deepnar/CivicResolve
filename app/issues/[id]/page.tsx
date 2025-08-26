@@ -10,7 +10,6 @@ import { StatusBadge } from "@/components/ui/badge-status"
 import { CategoryBadge } from "@/components/ui/badge-category"
 import { PriorityIndicator } from "@/components/ui/priority-indicator"
 import { VoteButton } from "@/components/ui/vote-button"
-import { CommentItem } from "@/components/ui/comment-item"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -32,6 +31,8 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [hasVoted, setHasVoted] = useState(false)
+  const [voteCount, setVoteCount] = useState(0)
 
   useEffect(() => {
     const fetchIssue = async () => {
@@ -50,6 +51,8 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
         
         const data = await response.json()
         setIssue(data.issue)
+        setHasVoted(data.issue.hasVoted || false)
+        setVoteCount(data.issue.votes_count || 0)
       } catch (err) {
         console.error('Error fetching issue:', err)
         setError('Failed to load issue')
@@ -66,10 +69,12 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
 
     setIsSubmittingComment(true)
     try {
+      const token = localStorage.getItem("auth-token")
       const response = await fetch(`/api/issues/${resolvedParams.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           content: newComment,
@@ -102,10 +107,12 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
     if (!user || !issue) return
 
     try {
+      const token = localStorage.getItem("auth-token")
       const response = await fetch(`/api/issues/${resolvedParams.id}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -115,18 +122,9 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
 
       const data = await response.json()
       
-      // Update the issue with new vote count
-      if (data.voted) {
-        setIssue({
-          ...issue,
-          votes_count: (issue as any).votes_count + 1,
-        })
-      } else {
-        setIssue({
-          ...issue,
-          votes_count: (issue as any).votes_count - 1,
-        })
-      }
+      // Update local state with API response
+      setHasVoted(data.hasVoted)
+      setVoteCount(data.votesCount)
     } catch (error) {
       console.error('Error voting:', error)
     }
@@ -207,9 +205,9 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                       <PriorityIndicator priority={issue.priority} />
                     </div>
                     <VoteButton 
-                      voteCount={(issue as any).votes_count || 0} 
+                      voteCount={voteCount} 
                       onVote={handleVote}
-                      isVoted={false} // TODO: Check if user has voted
+                      isVoted={hasVoted}
                     />
                   </div>
                 </CardHeader>
@@ -252,8 +250,25 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                 <CardContent>
                   <div className="space-y-4">
                     {issue.comments && issue.comments.length > 0 ? (
-                      issue.comments.map((comment) => (
-                        <CommentItem key={comment.id} comment={comment} />
+                      issue.comments
+                        .filter((comment: any) => comment && comment.id && comment.author_name)
+                        .map((comment: any) => (
+                        <div key={comment.id} className="flex gap-3 p-4 rounded-lg bg-gray-50/80 backdrop-blur-sm">
+                          <Avatar className="h-8 w-8 flex-shrink-0">
+                            <AvatarFallback className="text-sm bg-blue-100 text-blue-700">
+                              {comment.author_name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm text-gray-900">{comment.author_name}</span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(comment.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 leading-relaxed">{comment.content}</p>
+                          </div>
+                        </div>
                       ))
                     ) : (
                       <p className="text-gray-500 text-center py-8">No comments yet. Be the first to comment!</p>

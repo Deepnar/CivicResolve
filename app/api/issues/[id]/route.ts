@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { IssueModel } from "@/lib/models"
+import { IssueModel, VoteModel, CommentModel, AuthUtils } from "@/lib/db"
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -20,6 +20,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!rawIssue) {
       return Response.json({ error: "Issue not found" }, { status: 404 })
     }
+
+    // Check if user is authenticated and get their vote status
+    let hasVoted = false
+    try {
+      const user = await AuthUtils.getCurrentUser(request)
+      if (user) {
+        const userVote = await VoteModel.findByIssueAndUser(issueId, user.id)
+        hasVoted = !!userVote
+      }
+    } catch (error) {
+      // User not authenticated, hasVoted remains false
+    }
+
+    // Get comments for this issue
+    const comments = await CommentModel.getByIssueId(issueId)
+    console.log('Comments fetched:', comments) // Debug log
+    
+    // Filter out any undefined comments and ensure they have required fields
+    const validComments = (comments || []).filter(comment => 
+      comment && comment.id && comment.content && comment.author_name
+    )
 
     // Transform the data to match the expected Issue type structure
     const issue = {
@@ -44,11 +65,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         createdAt: new Date(),
         updatedAt: new Date()
       },
-      comments: [],
+      comments: validComments,
       votes: [],
       assignments: [],
       votes_count: (rawIssue as any).votes_count || 0,
       comments_count: (rawIssue as any).comments_count || 0,
+      hasVoted, // Include user's vote status
       createdAt: new Date((rawIssue as any).created_at),
       updatedAt: new Date((rawIssue as any).updated_at)
     }
