@@ -16,23 +16,6 @@ import { Navbar } from "@/components/navigation/navbar"
 import { useAuth } from "@/hooks/use-auth"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
-const statusTabs = [
-  { id: "all", label: "All Issues" },
-  { id: "PENDING", label: "Pending" },
-  { id: "IN_PROGRESS", label: "In Progress" },
-  { id: "RESOLVED", label: "Resolved" },
-]
-
-const categoryTabs = [
-  { id: "all", label: "All Categories" },
-  { id: "ROADS", label: "Roads" },
-  { id: "LIGHTING", label: "Lighting" },
-  { id: "SANITATION", label: "Sanitation" },
-  { id: "PARKS", label: "Parks" },
-  { id: "UTILITIES", label: "Utilities" },
-  { id: "SAFETY", label: "Safety" },
-]
-
 export default function HomePage() {
   const { user, isLoading } = useAuth()
   const [issues, setIssues] = useState<Issue[]>([])
@@ -40,6 +23,14 @@ export default function HomePage() {
   const [activeStatusTab, setActiveStatusTab] = useState("all")
   const [activeCategoryTab, setActiveCategoryTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [stats, setStats] = useState({
+    totalIssues: 0,
+    resolvedIssues: 0,
+    pendingIssues: 0,
+    inProgressIssues: 0,
+    totalVotes: 0,
+    totalComments: 0
+  })
 
   useEffect(() => {
     const fetchIssues = async () => {
@@ -52,7 +43,25 @@ export default function HomePage() {
         }
         
         const data = await response.json()
-        setIssues(data.issues || [])
+        const fetchedIssues = data.issues || []
+        setIssues(fetchedIssues)
+        
+        // Calculate dynamic stats
+        const totalIssues = fetchedIssues.length
+        const resolvedIssues = fetchedIssues.filter((issue: Issue) => issue.status === "RESOLVED").length
+        const pendingIssues = fetchedIssues.filter((issue: Issue) => issue.status === "PENDING").length
+        const inProgressIssues = fetchedIssues.filter((issue: Issue) => issue.status === "IN_PROGRESS").length
+        const totalVotes = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.votes_count || 0), 0)
+        const totalComments = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.comments_count || 0), 0)
+        
+        setStats({
+          totalIssues,
+          resolvedIssues,
+          pendingIssues,
+          inProgressIssues,
+          totalVotes,
+          totalComments
+        })
       } catch (error) {
         console.error('Error fetching issues:', error)
         setIssues([]) // Set empty array on error
@@ -63,6 +72,35 @@ export default function HomePage() {
 
     fetchIssues()
   }, [])
+
+  // Create dynamic tabs with counts
+  const statusTabs = [
+    { id: "all", label: "All Issues", count: stats.totalIssues },
+    { id: "PENDING", label: "Pending", count: stats.pendingIssues },
+    { id: "IN_PROGRESS", label: "In Progress", count: stats.inProgressIssues },
+    { id: "RESOLVED", label: "Resolved", count: stats.resolvedIssues },
+  ]
+
+  // Calculate category counts
+  const categoryCounts = {
+    all: issues.length,
+    ROADS: issues.filter(issue => issue.category === "ROADS").length,
+    LIGHTING: issues.filter(issue => issue.category === "LIGHTING").length,
+    SANITATION: issues.filter(issue => issue.category === "SANITATION").length,
+    PARKS: issues.filter(issue => issue.category === "PARKS").length,
+    UTILITIES: issues.filter(issue => issue.category === "UTILITIES").length,
+    SAFETY: issues.filter(issue => issue.category === "SAFETY").length,
+  }
+
+  const categoryTabs = [
+    { id: "all", label: "All Categories", count: categoryCounts.all },
+    { id: "ROADS", label: "Roads", count: categoryCounts.ROADS },
+    { id: "LIGHTING", label: "Lighting", count: categoryCounts.LIGHTING },
+    { id: "SANITATION", label: "Sanitation", count: categoryCounts.SANITATION },
+    { id: "PARKS", label: "Parks", count: categoryCounts.PARKS },
+    { id: "UTILITIES", label: "Utilities", count: categoryCounts.UTILITIES },
+    { id: "SAFETY", label: "Safety", count: categoryCounts.SAFETY },
+  ]
 
   const filteredIssues = issues.filter((issue) => {
     const matchesStatus = activeStatusTab === "all" || issue.status === activeStatusTab
@@ -137,26 +175,38 @@ export default function HomePage() {
         >
           <StatsCard
             title="Total Issues"
-            value="1,234"
-            description="Reported this month"
+            value={stats.totalIssues.toString()}
+            description="Issues reported"
             icon={AlertCircle}
-            trend={{ value: 12, label: "from last month", isPositive: true }}
+            trend={{ 
+              value: stats.totalVotes, 
+              label: "community votes", 
+              isPositive: true 
+            }}
             color="#3b82f6"
           />
           <StatsCard
             title="Resolved Issues"
-            value="892"
+            value={stats.resolvedIssues.toString()}
             description="Successfully completed"
             icon={TrendingUp}
-            trend={{ value: 8, label: "resolution rate", isPositive: true }}
+            trend={{ 
+              value: stats.resolvedIssues > 0 ? Math.round((stats.resolvedIssues / stats.totalIssues) * 100) : 0, 
+              label: "resolution rate", 
+              isPositive: true 
+            }}
             color="#10b981"
           />
           <StatsCard
-            title="Active Citizens"
-            value="2,456"
-            description="Community members"
+            title="Community Engagement"
+            value={stats.totalComments.toString()}
+            description="Comments & discussions"
             icon={Users}
-            trend={{ value: 15, label: "new this week", isPositive: true }}
+            trend={{ 
+              value: stats.pendingIssues, 
+              label: "pending issues", 
+              isPositive: false 
+            }}
             color="#f59e0b"
           />
         </motion.div>

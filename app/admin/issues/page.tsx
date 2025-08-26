@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
+import { convertToIST } from "@/lib/date-utils"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
 export default function AdminIssuesPage() {
@@ -282,7 +283,7 @@ export default function AdminIssuesPage() {
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-gray-600">
-                              {formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}
+                              {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
                             </span>
                           </TableCell>
                           <TableCell>

@@ -2,116 +2,81 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { User, Award, TrendingUp, MapPin, Settings } from "lucide-react"
+import { User, Award, TrendingUp, MapPin, Settings, Calendar, Eye } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatsCard } from "@/components/ui/stats-card"
 import { IssueCard } from "@/components/ui/issue-card"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/badge-status"
+import { CategoryBadge } from "@/components/ui/badge-category"
+import { PriorityIndicator } from "@/components/ui/priority-indicator"
 import { BADGES } from "@/lib/constants"
-import type { User as UserType, Issue } from "@/lib/types"
+import { useAuth } from "@/hooks/use-auth"
+import { formatDistanceToNow } from "date-fns"
+import { convertToIST } from "@/lib/date-utils"
+import type { Issue } from "@/lib/types"
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserType | null>(null)
+  const { user, isLoading: authLoading } = useAuth()
   const [userIssues, setUserIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalIssues: 0,
+    resolvedIssues: 0,
+    totalVotes: 0,
+    totalComments: 0
+  })
 
-  // Mock data for demonstration
   useEffect(() => {
-    const mockUser: UserType = {
-      id: "current-user",
-      name: "John Doe",
-      email: "john.doe@email.com",
-      role: "CITIZEN",
-      points: 350,
-      badges: ["FIRST_REPORT", "COMMUNITY_HELPER", "ENGAGEMENT_STAR"],
-      createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
-      updatedAt: new Date(),
+    const fetchUserIssues = async () => {
+      if (!user) return
+      
+      try {
+        setLoading(true)
+        // Fetch all issues and filter by current user
+        const response = await fetch('/api/issues')
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch issues')
+        }
+        
+        const data = await response.json()
+        const allIssues = data.issues || []
+        
+        // Filter issues reported by current user
+        const myIssues = allIssues.filter((issue: Issue) => issue.reporterId === user.id)
+        setUserIssues(myIssues)
+        
+        // Calculate stats
+        const resolvedCount = myIssues.filter((issue: Issue) => issue.status === "RESOLVED").length
+        const totalVotes = myIssues.reduce((sum: number, issue: Issue) => sum + (issue.votes_count || 0), 0)
+        const totalComments = myIssues.reduce((sum: number, issue: Issue) => sum + (issue.comments_count || 0), 0)
+        
+        setStats({
+          totalIssues: myIssues.length,
+          resolvedIssues: resolvedCount,
+          totalVotes,
+          totalComments
+        })
+        
+      } catch (error) {
+        console.error('Error fetching user issues:', error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    const mockIssues: Issue[] = [
-      {
-        id: "1",
-        title: "Large pothole on Main Street",
-        description: "Significant pothole causing vehicle damage",
-        category: "ROADS",
-        status: "PENDING",
-        priority: "HIGH",
-        latitude: 40.7128,
-        longitude: -74.006,
-        address: "123 Main Street, New York, NY 10001",
-        reporterId: "current-user",
-        reporter: mockUser,
-        comments: [],
-        votes: [
-          {
-            id: "1",
-            issueId: "1",
-            userId: "user-2",
-            user: {
-              id: "user-2",
-              name: "Jane",
-              email: "",
-              role: "CITIZEN",
-              points: 0,
-              badges: [],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            createdAt: new Date(),
-          },
-          {
-            id: "2",
-            issueId: "1",
-            userId: "user-3",
-            user: {
-              id: "user-3",
-              name: "Mike",
-              email: "",
-              role: "CITIZEN",
-              points: 0,
-              badges: [],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            createdAt: new Date(),
-          },
-        ],
-        assignments: [],
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-      },
-      {
-        id: "2",
-        title: "Broken streetlight in Central Park",
-        description: "Streetlight has been out for over a week",
-        category: "LIGHTING",
-        status: "RESOLVED",
-        priority: "MEDIUM",
-        latitude: 40.7829,
-        longitude: -73.9654,
-        address: "Central Park Entrance, New York, NY 10024",
-        reporterId: "current-user",
-        reporter: mockUser,
-        comments: [],
-        votes: [],
-        assignments: [],
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-      },
-    ]
+    if (user && !authLoading) {
+      fetchUserIssues()
+    }
+  }, [user, authLoading])
 
-    setTimeout(() => {
-      setUser(mockUser)
-      setUserIssues(mockIssues)
-      setLoading(false)
-    }, 1000)
-  }, [])
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 flex items-center justify-center">
         <LoadingSpinner size="lg" text="Loading profile..." />
@@ -130,8 +95,8 @@ export default function ProfilePage() {
     )
   }
 
-  const resolvedIssues = userIssues.filter((issue) => issue.status === "RESOLVED").length
-  const totalVotes = userIssues.reduce((sum, issue) => sum + issue.votes.length, 0)
+  const resolvedIssues = stats.resolvedIssues
+  const totalVotes = stats.totalVotes
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
@@ -186,26 +151,35 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {user.badges.map((badgeKey) => {
-                      const badge = BADGES[badgeKey as keyof typeof BADGES]
-                      return (
-                        <motion.div
-                          key={badgeKey}
-                          className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg"
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Award className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{badge.name}</p>
-                            <p className="text-sm text-gray-600">{badge.description}</p>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
+                    {user.badges && user.badges.length > 0 ? (
+                      user.badges.map((badgeKey: string) => {
+                        const badge = BADGES[badgeKey as keyof typeof BADGES]
+                        if (!badge) return null
+                        return (
+                          <motion.div
+                            key={badgeKey}
+                            className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <Award className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{badge.name}</p>
+                              <p className="text-sm text-gray-600">{badge.description}</p>
+                            </div>
+                          </motion.div>
+                        )
+                      })
+                    ) : (
+                      <div className="text-center py-4">
+                        <Award className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No badges earned yet</p>
+                        <p className="text-xs text-gray-400">Keep reporting issues to earn badges!</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -216,35 +190,42 @@ export default function ProfilePage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Stats Overview */}
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
             >
               <StatsCard
                 title="Issues Reported"
-                value={userIssues.length}
+                value={stats.totalIssues}
                 description="Total reports submitted"
                 icon={MapPin}
                 color="#3b82f6"
               />
               <StatsCard
                 title="Issues Resolved"
-                value={resolvedIssues}
+                value={stats.resolvedIssues}
                 description="Successfully completed"
                 icon={TrendingUp}
                 color="#10b981"
               />
               <StatsCard
                 title="Community Votes"
-                value={totalVotes}
+                value={stats.totalVotes}
                 description="Received on your reports"
                 icon={Award}
                 color="#f59e0b"
               />
+              <StatsCard
+                title="Total Comments"
+                value={stats.totalComments}
+                description="Community discussions"
+                icon={Calendar}
+                color="#8b5cf6"
+              />
             </motion.div>
 
-            {/* Recent Issues */}
+            {/* My Issues Table */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -254,26 +235,76 @@ export default function ProfilePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    My Recent Reports
+                    My Submitted Issues ({userIssues.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {userIssues.map((issue, index) => (
-                      <motion.div
-                        key={issue.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                      >
-                        <IssueCard
-                          issue={issue}
-                          showReporter={false}
-                          onClick={() => window.location.href = `/issues/${issue.id}`}
-                        />
-                      </motion.div>
-                    ))}
-                  </div>
+                  {userIssues.length === 0 ? (
+                    <div className="text-center py-8">
+                      <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No issues reported yet.</p>
+                      <p className="text-sm text-gray-400">Start by reporting an issue in your community!</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Issue</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Priority</TableHead>
+                            <TableHead>Engagement</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {userIssues.map((issue) => (
+                            <TableRow key={issue.id} className="hover:bg-gray-50/50">
+                              <TableCell>
+                                <div className="max-w-xs">
+                                  <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>
+                                  <p className="text-sm text-gray-600 line-clamp-1">{issue.address}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <CategoryBadge category={issue.category} />
+                              </TableCell>
+                              <TableCell>
+                                <StatusBadge status={issue.status} />
+                              </TableCell>
+                              <TableCell>
+                                <PriorityIndicator priority={issue.priority} variant="icon" />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-3 text-sm text-gray-600">
+                                  <span className="flex items-center gap-1">👍 {issue.votes_count || 0}</span>
+                                  <span className="flex items-center gap-1">💬 {issue.comments_count || 0}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm text-gray-600">
+                                  {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => window.location.href = `/issues/${issue.id}`}
+                                  className="gap-1"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

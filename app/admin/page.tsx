@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
+import { formatDistanceToNow } from "date-fns"
+import { convertToIST } from "@/lib/date-utils"
 
 interface AnalyticsData {
   overview: {
@@ -42,11 +44,26 @@ interface AnalyticsData {
 
 export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [recentIssues, setRecentIssues] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("30d")
 
   // Mock analytics data
   useEffect(() => {
+    const fetchRecentIssues = async () => {
+      try {
+        const response = await fetch('/api/issues?limit=4')
+        if (response.ok) {
+          const data = await response.json()
+          setRecentIssues(data.issues || [])
+        }
+      } catch (error) {
+        console.error('Error fetching recent issues:', error)
+      }
+    }
+
+    fetchRecentIssues()
+
     const mockAnalytics: AnalyticsData = {
       overview: {
         totalIssues: 1234,
@@ -302,38 +319,55 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-3 bg-green-50/80 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">Issue Resolved</p>
-                      <p className="text-sm text-gray-600">Pothole on Main Street fixed by Public Works</p>
-                      <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
+                  {recentIssues.length > 0 ? (
+                    recentIssues.map((issue, index) => {
+                      let icon = AlertCircle
+                      let bgColor = "bg-blue-50/80"
+                      let iconColor = "text-blue-600"
+                      let actionText = "Issue Reported"
+
+                      if (issue.status === "RESOLVED") {
+                        icon = CheckCircle
+                        bgColor = "bg-green-50/80"
+                        iconColor = "text-green-600"
+                        actionText = "Issue Resolved"
+                      } else if (issue.status === "IN_PROGRESS") {
+                        icon = Clock
+                        bgColor = "bg-yellow-50/80"
+                        iconColor = "text-yellow-600"
+                        actionText = "Issue In Progress"
+                      } else if (issue.priority === "URGENT") {
+                        icon = XCircle
+                        bgColor = "bg-red-50/80"
+                        iconColor = "text-red-600"
+                        actionText = "Urgent Issue Reported"
+                      }
+
+                      const IconComponent = icon
+
+                      return (
+                        <div key={issue.id} className={`flex items-start gap-3 p-3 ${bgColor} rounded-lg`}>
+                          <IconComponent className={`h-5 w-5 ${iconColor} mt-0.5`} />
+                          <div>
+                            <p className="font-medium text-gray-900">{actionText}</p>
+                            <p className="text-sm text-gray-600">{issue.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="flex items-start gap-3 p-3 bg-gray-50/80 rounded-lg">
+                      <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-900">No Recent Activity</p>
+                        <p className="text-sm text-gray-600">No recent issues to display</p>
+                        <p className="text-xs text-gray-500 mt-1">Check back later</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-blue-50/80 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">New Issue Reported</p>
-                      <p className="text-sm text-gray-600">Broken streetlight in Central Park</p>
-                      <p className="text-xs text-gray-500 mt-1">4 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-yellow-50/80 rounded-lg">
-                    <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">Issue Assigned</p>
-                      <p className="text-sm text-gray-600">Sanitation issue assigned to Environmental Services</p>
-                      <p className="text-xs text-gray-500 mt-1">6 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-red-50/80 rounded-lg">
-                    <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-gray-900">High Priority Alert</p>
-                      <p className="text-sm text-gray-600">Urgent safety issue requires immediate attention</p>
-                      <p className="text-xs text-gray-500 mt-1">8 hours ago</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

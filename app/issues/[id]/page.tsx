@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Navbar } from "@/components/navigation/navbar"
 import { useAuth } from "@/hooks/use-auth"
+import { convertToIST } from "@/lib/date-utils"
 import type { Issue, Comment } from "@/lib/types"
 
 interface IssueDetailPageProps {
@@ -263,7 +264,7 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium text-sm text-gray-900">{comment.author_name}</span>
                               <span className="text-xs text-gray-500">
-                                {new Date(comment.created_at).toLocaleDateString()}
+                                {formatDistanceToNow(convertToIST(comment.created_at), { addSuffix: true })}
                               </span>
                             </div>
                             <p className="text-sm text-gray-700 leading-relaxed">{comment.content}</p>

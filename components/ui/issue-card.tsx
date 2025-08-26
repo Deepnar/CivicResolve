@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
 import { cn } from "@/lib/utils"
+import { convertToIST } from "@/lib/date-utils"
 import { StatusBadge } from "./badge-status"
 import { CategoryBadge } from "./badge-category"
 import { PriorityIndicator } from "./priority-indicator"
@@ -103,7 +104,7 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
                   <span className="text-xs font-medium">{issue.reporter.name}</span>
                 </motion.div>
               )}
-              <span className="text-xs">{formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}</span>
+              <span className="text-xs">{formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}</span>
             </div>
           </div>
         </CardContent>
