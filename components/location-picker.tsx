@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
+import { useState, useRef, useEffect } from "react"
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet"
 import { LatLng } from "leaflet"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,8 @@ L.Icon.Default.mergeOptions({
 interface LocationPickerProps {
   onLocationSelect: (lat: number, lng: number, address: string) => void
   initialAddress?: string
+  initialLat?: number
+  initialLng?: number
 }
 
 function MapClickHandler({ onLocationSelect }: { onLocationSelect: (latlng: LatLng) => void }) {
@@ -31,13 +33,43 @@ function MapClickHandler({ onLocationSelect }: { onLocationSelect: (latlng: LatL
   return null
 }
 
-export default function LocationPicker({ onLocationSelect, initialAddress = "" }: LocationPickerProps) {
-  const [selectedPosition, setSelectedPosition] = useState<LatLng | null>(null)
+// Component to update map view when position changes
+function MapUpdater({ position }: { position: LatLng | null }) {
+  const map = useMap()
+  
+  if (position) {
+    map.setView([position.lat, position.lng], 16)
+  }
+  
+  return null
+}
+
+export default function LocationPicker({ 
+  onLocationSelect, 
+  initialAddress = "", 
+  initialLat, 
+  initialLng 
+}: LocationPickerProps) {
+  const [selectedPosition, setSelectedPosition] = useState<LatLng | null>(
+    initialLat && initialLng ? new LatLng(initialLat, initialLng) : null
+  )
   const [address, setAddress] = useState(initialAddress)
   const [isGeocoding, setIsGeocoding] = useState(false)
 
   // Default to Mumbai, India
   const defaultCenter: [number, number] = [19.0760, 72.8777]
+
+  // Update position when initial coordinates change
+  useEffect(() => {
+    if (initialLat && initialLng) {
+      setSelectedPosition(new LatLng(initialLat, initialLng))
+    }
+  }, [initialLat, initialLng])
+
+  // Update address when initial address changes
+  useEffect(() => {
+    setAddress(initialAddress)
+  }, [initialAddress])
 
   const handleMapClick = async (latlng: LatLng) => {
     setSelectedPosition(latlng)
@@ -95,7 +127,7 @@ export default function LocationPicker({ onLocationSelect, initialAddress = "" }
       <div className="flex-1 relative">
         <MapContainer
           center={selectedPosition ? [selectedPosition.lat, selectedPosition.lng] : defaultCenter}
-          zoom={13}
+          zoom={selectedPosition ? 16 : 13}
           style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
@@ -104,13 +136,16 @@ export default function LocationPicker({ onLocationSelect, initialAddress = "" }
           />
 
           <MapClickHandler onLocationSelect={handleMapClick} />
+          
+          {/* Update map view when position changes */}
+          <MapUpdater position={selectedPosition} />
 
           {selectedPosition && <Marker position={[selectedPosition.lat, selectedPosition.lng]} />}
         </MapContainer>
 
         {/* Instructions overlay */}
         <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
-          <p className="text-sm text-gray-700">Click on the map to select a location</p>
+          <p className="text-sm text-gray-700">Click on the map or search for an address to select a location</p>
         </div>
       </div>
 

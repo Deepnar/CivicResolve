@@ -62,6 +62,8 @@ export default function ReportIssuePage() {
 
   const selectedCategory = watch("category")
   const currentAddress = watch("address")
+  const currentLatitude = watch("latitude")
+  const currentLongitude = watch("longitude")
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -121,6 +123,10 @@ export default function ReportIssuePage() {
     setValue("latitude", lat)
     setValue("longitude", lng)
     setValue("address", selectedAddress)
+    // If location picker is open, we want to show this location on the map
+    if (showLocationPicker) {
+      // The location picker will automatically update its map when the address changes
+    }
   }
 
   const onSubmit = async (data: ReportIssueForm) => {
@@ -143,11 +149,13 @@ export default function ReportIssuePage() {
         description: data.description,
         category: data.category,
         priority: "MEDIUM", // Default priority
-        latitude: data.latitude || 0,
-        longitude: data.longitude || 0,
+        latitude: data.latitude || 19.0760, // Default to Mumbai center if not set
+        longitude: data.longitude || 72.8777, // Default to Mumbai center if not set
         address: data.address,
-        image_url: imagePreview && imagePreview.length > 100000 ? undefined : imagePreview, // Skip very large images
+        image_url: imagePreview && imagePreview.startsWith('data:') ? imagePreview : null, // Only send valid data URLs
       }
+
+      console.log('Submitting issue data:', apiData) // Debug log
 
       // Submit to API
       const response = await fetch("/api/issues", {
@@ -161,7 +169,23 @@ export default function ReportIssuePage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to submit issue")
+        console.error('API Error:', errorData) // Debug log
+        
+        if (errorData.details) {
+          // Show specific validation errors
+          const errorMessages = Object.entries(errorData.details).map(([field, messages]) => 
+            `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`
+          ).join('\n')
+          
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: errorMessages
+          })
+        } else {
+          throw new Error(errorData.error || "Failed to submit issue")
+        }
+        return
       }
 
       const result = await response.json()
@@ -419,7 +443,12 @@ export default function ReportIssuePage() {
               </div>
               <div className="flex-1" style={{ overflow: 'visible' }}>
                 {/* Location Picker Component */}
-                <LocationPicker onLocationSelect={handleLocationSelect} initialAddress={currentAddress} />
+                <LocationPicker 
+                  onLocationSelect={handleLocationSelect} 
+                  initialAddress={currentAddress} 
+                  initialLat={currentLatitude}
+                  initialLng={currentLongitude}
+                />
               </div>
             </div>
           </div>

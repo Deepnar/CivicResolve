@@ -10,7 +10,7 @@ const createIssueSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   address: z.string().min(5, "Address is required"),
-  image_url: z.string().url().optional(),
+  image_url: z.string().optional().nullable(), // Allow data URLs and null values
 })
 
 // GET /api/issues - Get all issues with filters
@@ -77,12 +77,24 @@ export async function POST(request: NextRequest) {
     const user = await AuthUtils.requireAuth(request)
     
     const body = await request.json()
-    const issueData = createIssueSchema.parse(body)
+    console.log('Received issue data:', JSON.stringify(body, null, 2)) // Debug log
+    
+    const validationResult = createIssueSchema.safeParse(body)
+    if (!validationResult.success) {
+      console.error('Validation errors:', validationResult.error.flatten())
+      return Response.json({ 
+        error: "Validation failed", 
+        details: validationResult.error.flatten().fieldErrors 
+      }, { status: 400 })
+    }
+    
+    const issueData = validationResult.data
 
     // Create the issue
     const issueId = await IssueModel.create({
       ...issueData,
       reporter_id: user.id,
+      image_url: issueData.image_url || undefined, // Convert null to undefined
     })
 
     // Get the created issue with all details
