@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
 import type { IssueCategory } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
@@ -114,6 +115,12 @@ export default function ReportIssuePage() {
     setValue("longitude", lng)
     setValue("address", address)
     setShowLocationPicker(false)
+  }
+
+  const handleAddressSelect = (lat: number, lng: number, selectedAddress: string) => {
+    setValue("latitude", lat)
+    setValue("longitude", lng)
+    setValue("address", selectedAddress)
   }
 
   const onSubmit = async (data: ReportIssueForm) => {
@@ -257,10 +264,11 @@ export default function ReportIssuePage() {
                   <div className="space-y-2">
                     <Label htmlFor="address">Location *</Label>
                     <div className="flex gap-2">
-                      <Input
-                        id="address"
-                        placeholder="Enter address or location"
-                        {...register("address")}
+                      <AddressAutocomplete
+                        value={currentAddress || ""}
+                        onChange={(value) => setValue("address", value)}
+                        onSelect={handleAddressSelect}
+                        placeholder="Start typing an address in Mumbai..."
                         className={`flex-1 ${errors.address ? "border-red-500" : ""}`}
                       />
                       <Button
@@ -402,14 +410,14 @@ export default function ReportIssuePage() {
         {/* Location Picker Modal */}
         {showLocationPicker && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-[600px] flex flex-col">
+            <div className="bg-white rounded-lg w-full max-w-4xl h-[600px] flex flex-col" style={{ overflow: 'visible' }}>
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="font-heading text-lg">Select Location</h3>
                 <Button variant="ghost" size="sm" onClick={() => setShowLocationPicker(false)}>
                   ✕
                 </Button>
               </div>
-              <div className="flex-1">
+              <div className="flex-1" style={{ overflow: 'visible' }}>
                 {/* Location Picker Component */}
                 <LocationPicker onLocationSelect={handleLocationSelect} initialAddress={currentAddress} />
               </div>

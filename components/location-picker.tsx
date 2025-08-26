@@ -4,8 +4,8 @@ import { useState } from "react"
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
 import { LatLng } from "leaflet"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import "leaflet/dist/leaflet.css"
 
 // Fix for default markers in react-leaflet
@@ -36,8 +36,8 @@ export default function LocationPicker({ onLocationSelect, initialAddress = "" }
   const [address, setAddress] = useState(initialAddress)
   const [isGeocoding, setIsGeocoding] = useState(false)
 
-  // Default to New York City
-  const defaultCenter: [number, number] = [40.7128, -74.006]
+  // Default to Mumbai, India
+  const defaultCenter: [number, number] = [19.0760, 72.8777]
 
   const handleMapClick = async (latlng: LatLng) => {
     setSelectedPosition(latlng)
@@ -61,27 +61,10 @@ export default function LocationPicker({ onLocationSelect, initialAddress = "" }
     }
   }
 
-  const handleAddressSearch = async () => {
-    if (!address.trim()) return
-
-    setIsGeocoding(true)
-    try {
-      // Forward geocoding using Nominatim
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-      )
-      const data = await response.json()
-
-      if (data.length > 0) {
-        const result = data[0]
-        const latlng = new LatLng(Number.parseFloat(result.lat), Number.parseFloat(result.lon))
-        setSelectedPosition(latlng)
-      }
-    } catch (error) {
-      console.error("Geocoding error:", error)
-    } finally {
-      setIsGeocoding(false)
-    }
+  const handleAddressSelect = (lat: number, lng: number, selectedAddress: string) => {
+    const latlng = new LatLng(lat, lng)
+    setSelectedPosition(latlng)
+    setAddress(selectedAddress)
   }
 
   const handleConfirmLocation = () => {
@@ -93,20 +76,17 @@ export default function LocationPicker({ onLocationSelect, initialAddress = "" }
   return (
     <div className="h-full flex flex-col">
       {/* Address Input */}
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-gray-50" style={{ overflow: 'visible', position: 'relative', zIndex: 10 }}>
         <div className="space-y-2">
           <Label htmlFor="address-search">Search Address</Label>
-          <div className="flex gap-2">
-            <Input
-              id="address-search"
+          <div style={{ position: 'relative', zIndex: 10 }}>
+            <AddressAutocomplete
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Enter an address..."
-              onKeyPress={(e) => e.key === "Enter" && handleAddressSearch()}
+              onChange={setAddress}
+              onSelect={handleAddressSelect}
+              placeholder="Start typing an address in Mumbai..."
+              className="w-full"
             />
-            <Button onClick={handleAddressSearch} disabled={isGeocoding} variant="outline">
-              {isGeocoding ? "..." : "Search"}
-            </Button>
           </div>
         </div>
       </div>

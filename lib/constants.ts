@@ -41,8 +41,8 @@ export const BADGES = {
 } as const
 
 export const DEFAULT_MAP_CENTER = {
-  lat: 40.7128,
-  lng: -74.006, // New York City as default
+  lat: 19.0760,
+  lng: 72.8777, // Mumbai, India as default
 } as const
 
 export const MAP_ZOOM_LEVELS = {
