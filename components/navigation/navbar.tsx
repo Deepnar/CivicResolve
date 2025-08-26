@@ -1,0 +1,175 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { motion } from "framer-motion"
+import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/use-auth"
+
+export function Navbar() {
+  const [isOpen, setIsOpen] = useState(false)
+  const { user, logout } = useAuth()
+
+  const navigation = [
+    { name: "Dashboard", href: "/", icon: BarChart3 },
+    { name: "Map View", href: "/map", icon: MapPin },
+    { name: "Report Issue", href: "/report", icon: PlusCircle },
+  ]
+
+  const adminNavigation = [
+    { name: "Admin Dashboard", href: "/admin", icon: BarChart3 },
+    { name: "Manage Issues", href: "/admin/issues", icon: Settings },
+    { name: "Users", href: "/admin/users", icon: User },
+  ]
+
+  return (
+    <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <MapPin className="h-5 w-5 text-white" />
+            </div>
+            <span className="font-heading font-bold text-xl text-gray-900">CivicResolve</span>
+          </Link>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            {user && (
+              <>
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                ))}
+
+                {user.role === "ADMIN" && (
+                  <>
+                    <div className="w-px h-6 bg-gray-300" />
+                    {adminNavigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={`https://avatar.vercel.sh/${user.email}`} alt={user.name} />
+                      <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{user.name}</p>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>
+                      <p className="text-xs text-blue-600">{user.points} points</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" asChild>
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/register">Sign Up</Link>
+                </Button>
+              </div>
+            )}
+
+            {/* Mobile menu button */}
+            <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isOpen && user && (
+          <motion.div
+            className="md:hidden"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <div className="px-2 pt-2 pb-3 space-y-1 border-t border-gray-200">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.name}</span>
+                </Link>
+              ))}
+
+              {user.role === "ADMIN" && (
+                <>
+                  <div className="border-t border-gray-200 my-2" />
+                  {adminNavigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </nav>
+  )
+}

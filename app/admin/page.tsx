@@ -1,0 +1,345 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import {
+  BarChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from "recharts"
+import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar } from "lucide-react"
+import { PageHeader } from "@/components/ui/page-header"
+import { StatsCard } from "@/components/ui/stats-card"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ISSUE_CATEGORIES } from "@/lib/constants"
+
+interface AnalyticsData {
+  overview: {
+    totalIssues: number
+    pendingIssues: number
+    inProgressIssues: number
+    resolvedIssues: number
+    totalUsers: number
+    totalComments: number
+    totalVotes: number
+    avgResolutionTime: number
+  }
+  issuesByCategory: Array<{ category: string; count: number }>
+  issuesOverTime: Array<{ date: string; pending: number; inProgress: number; resolved: number }>
+  topReporters: Array<{ id: string; name: string; points: number; issueCount: number }>
+}
+
+export default function AdminDashboardPage() {
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState("30d")
+
+  // Mock analytics data
+  useEffect(() => {
+    const mockAnalytics: AnalyticsData = {
+      overview: {
+        totalIssues: 1234,
+        pendingIssues: 156,
+        inProgressIssues: 89,
+        resolvedIssues: 989,
+        totalUsers: 2456,
+        totalComments: 3421,
+        totalVotes: 5678,
+        avgResolutionTime: 4.2,
+      },
+      issuesByCategory: [
+        { category: "ROADS", count: 345 },
+        { category: "LIGHTING", count: 234 },
+        { category: "SANITATION", count: 189 },
+        { category: "PARKS", count: 156 },
+        { category: "UTILITIES", count: 134 },
+        { category: "SAFETY", count: 98 },
+        { category: "OTHER", count: 78 },
+      ],
+      issuesOverTime: [
+        { date: "Week 1", pending: 45, inProgress: 23, resolved: 67 },
+        { date: "Week 2", pending: 52, inProgress: 31, resolved: 78 },
+        { date: "Week 3", pending: 38, inProgress: 28, resolved: 84 },
+        { date: "Week 4", pending: 41, inProgress: 35, resolved: 92 },
+      ],
+      topReporters: [
+        { id: "1", name: "John Doe", points: 450, issueCount: 23 },
+        { id: "2", name: "Jane Smith", points: 380, issueCount: 19 },
+        { id: "3", name: "Mike Wilson", points: 320, issueCount: 16 },
+        { id: "4", name: "Sarah Johnson", points: 290, issueCount: 14 },
+        { id: "5", name: "David Brown", points: 250, issueCount: 12 },
+      ],
+    }
+
+    setTimeout(() => {
+      setAnalytics(mockAnalytics)
+      setLoading(false)
+    }, 1000)
+  }, [timeRange])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading admin dashboard..." />
+      </div>
+    )
+  }
+
+  if (!analytics) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Unable to Load Dashboard</h1>
+          <p className="text-gray-600">Please try refreshing the page.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const categoryChartData = analytics.issuesByCategory.map((item) => ({
+    name: ISSUE_CATEGORIES[item.category as keyof typeof ISSUE_CATEGORIES]?.label || item.category,
+    value: item.count,
+    color: ISSUE_CATEGORIES[item.category as keyof typeof ISSUE_CATEGORIES]?.color || "#6b7280",
+  }))
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+      <div className="container mx-auto px-4 py-8">
+        <PageHeader title="Admin Dashboard" description="Municipal management and analytics overview" icon={BarChart}>
+          <div className="flex gap-3">
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-32 bg-white/80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" className="gap-2 bg-white/80">
+              <Download className="h-4 w-4" />
+              Export Report
+            </Button>
+          </div>
+        </PageHeader>
+
+        {/* Overview Stats */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <StatsCard
+            title="Total Issues"
+            value={analytics.overview.totalIssues.toLocaleString()}
+            description="All time reports"
+            icon={AlertCircle}
+            trend={{ value: 12, label: "from last month", isPositive: true }}
+            color="#3b82f6"
+          />
+          <StatsCard
+            title="Pending Issues"
+            value={analytics.overview.pendingIssues}
+            description="Awaiting assignment"
+            icon={Clock}
+            trend={{ value: -8, label: "from last week", isPositive: true }}
+            color="#f59e0b"
+          />
+          <StatsCard
+            title="Resolved Issues"
+            value={analytics.overview.resolvedIssues.toLocaleString()}
+            description="Successfully completed"
+            icon={CheckCircle}
+            trend={{ value: 15, label: "this month", isPositive: true }}
+            color="#10b981"
+          />
+          <StatsCard
+            title="Avg Resolution Time"
+            value={`${analytics.overview.avgResolutionTime} days`}
+            description="Time to completion"
+            icon={TrendingUp}
+            trend={{ value: -12, label: "improvement", isPositive: true }}
+            color="#8b5cf6"
+          />
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Issues by Category Chart */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart className="h-5 w-5" />
+                  Issues by Category
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={categoryChartData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {categoryChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Issues Over Time Chart */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Issues Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={analytics.issuesOverTime}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="pending" stroke="#f59e0b" strokeWidth={2} />
+                    <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" strokeWidth={2} />
+                    <Line type="monotone" dataKey="resolved" stroke="#10b981" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Top Reporters Leaderboard */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+          >
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Top Community Contributors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analytics.topReporters.map((reporter, index) => (
+                    <motion.div
+                      key={reporter.id}
+                      className="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-semibold text-sm">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{reporter.name}</p>
+                          <p className="text-sm text-gray-600">{reporter.issueCount} issues reported</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-blue-600">{reporter.points} pts</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Recent Activity */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.5 }}
+          >
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-3 bg-green-50/80 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">Issue Resolved</p>
+                      <p className="text-sm text-gray-600">Pothole on Main Street fixed by Public Works</p>
+                      <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-blue-50/80 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">New Issue Reported</p>
+                      <p className="text-sm text-gray-600">Broken streetlight in Central Park</p>
+                      <p className="text-xs text-gray-500 mt-1">4 hours ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-yellow-50/80 rounded-lg">
+                    <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">Issue Assigned</p>
+                      <p className="text-sm text-gray-600">Sanitation issue assigned to Environmental Services</p>
+                      <p className="text-xs text-gray-500 mt-1">6 hours ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-red-50/80 rounded-lg">
+                    <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">High Priority Alert</p>
+                      <p className="text-sm text-gray-600">Urgent safety issue requires immediate attention</p>
+                      <p className="text-xs text-gray-500 mt-1">8 hours ago</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  )
+}
