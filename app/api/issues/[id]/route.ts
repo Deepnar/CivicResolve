@@ -81,3 +81,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return Response.json({ error: "Failed to fetch issue" }, { status: 500 })
   }
 }
+
+// PATCH /api/issues/[id] - Update issue (admin only)
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params
+    const issueId = Number.parseInt(id)
+    
+    if (isNaN(issueId)) {
+      return Response.json({ error: "Invalid issue ID" }, { status: 400 })
+    }
+
+    // Check if user is authenticated and is admin
+    const currentUser = await AuthUtils.getCurrentUser(request)
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { status, priority } = body
+
+    // Update the issue status
+    if (status) {
+      await IssueModel.updateStatus(issueId, status)
+    }
+
+    return Response.json({ success: true })
+  } catch (error) {
+    console.error("Error updating issue:", error)
+    return Response.json({ error: "Failed to update issue" }, { status: 500 })
+  }
+}

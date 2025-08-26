@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Search, Filter, Download, Edit, Eye, MoreHorizontal, AlertCircle, Clock, CheckCircle } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
@@ -20,19 +21,28 @@ import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
-const statusTabs = [
-  { id: "all", label: "All Issues", count: 1234 },
-  { id: "PENDING", label: "Pending", count: 156 },
-  { id: "IN_PROGRESS", label: "In Progress", count: 89 },
-  { id: "RESOLVED", label: "Resolved", count: 989 },
-]
-
 export default function AdminIssuesPage() {
+  const router = useRouter()
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+
+  // Calculate dynamic status counts
+  const statusCounts = {
+    all: issues.length,
+    PENDING: issues.filter((i) => i.status === "PENDING").length,
+    IN_PROGRESS: issues.filter((i) => i.status === "IN_PROGRESS").length,
+    RESOLVED: issues.filter((i) => i.status === "RESOLVED").length,
+  }
+
+  const statusTabs = [
+    { id: "all", label: "All Issues", count: statusCounts.all },
+    { id: "PENDING", label: "Pending", count: statusCounts.PENDING },
+    { id: "IN_PROGRESS", label: "In Progress", count: statusCounts.IN_PROGRESS },
+    { id: "RESOLVED", label: "Resolved", count: statusCounts.RESOLVED },
+  ]
 
   useEffect(() => {
     const fetchIssues = async () => {
@@ -48,7 +58,6 @@ export default function AdminIssuesPage() {
         setIssues(data.issues || [])
       } catch (error) {
         console.error('Error fetching issues:', error)
-        setIssues([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
@@ -56,6 +65,21 @@ export default function AdminIssuesPage() {
 
     fetchIssues()
   }, [])
+
+  const refreshIssues = async () => {
+    try {
+      const response = await fetch('/api/issues')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch issues')
+      }
+      
+      const data = await response.json()
+      setIssues(data.issues || [])
+    } catch (error) {
+      console.error('Error refreshing issues:', error)
+    }
+  }
 
   const filteredIssues = issues.filter((issue) => {
     const matchesStatus = activeTab === "all" || issue.status === activeTab
@@ -70,10 +94,38 @@ export default function AdminIssuesPage() {
   })
 
   const handleStatusUpdate = async (issueId: string, newStatus: IssueStatus) => {
-    // In a real app, you'd call your API
-    setIssues((prev) =>
-      prev.map((issue) => (issue.id === issueId ? { ...issue, status: newStatus, updatedAt: new Date() } : issue)),
-    )
+    try {
+      const token = localStorage.getItem("auth-token")
+      const response = await fetch(`/api/issues/${issueId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update issue status')
+      }
+
+      // Refresh issues from server to get updated counts
+      await refreshIssues()
+    } catch (error) {
+      console.error('Error updating issue status:', error)
+      alert('Failed to update issue status')
+    }
+  }
+
+  const handleViewDetails = (issueId: string) => {
+    router.push(`/issues/${issueId}`)
+  }
+
+  const handleEditIssue = (issueId: string) => {
+    // For now, navigate to view page - you can create an edit page later
+    router.push(`/issues/${issueId}`)
   }
 
   const handleAssignDepartment = async (issueId: number, department: string) => {
@@ -224,8 +276,8 @@ export default function AdminIssuesPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3 text-sm text-gray-600">
-                              <span className="flex items-center gap-1">👍 {issue.votes.length}</span>
-                              <span className="flex items-center gap-1">💬 {issue.comments.length}</span>
+                              <span className="flex items-center gap-1">👍 {issue.votes_count || 0}</span>
+                              <span className="flex items-center gap-1">💬 {issue.comments_count || 0}</span>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -241,11 +293,11 @@ export default function AdminIssuesPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleViewDetails(issue.id)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditIssue(issue.id)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Issue
                                 </DropdownMenuItem>
