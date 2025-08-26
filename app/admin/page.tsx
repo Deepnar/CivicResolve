@@ -43,67 +43,53 @@ interface AnalyticsData {
 }
 
 export default function AdminDashboardPage() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [recentIssues, setRecentIssues] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState("30d")
 
-  // Mock analytics data
   useEffect(() => {
-    const fetchRecentIssues = async () => {
-      try {
-        const response = await fetch('/api/issues?limit=4')
-        if (response.ok) {
-          const data = await response.json()
-          setRecentIssues(data.issues || [])
-        }
-      } catch (error) {
-        console.error('Error fetching recent issues:', error)
-      }
-    }
-
+    fetchAnalytics()
     fetchRecentIssues()
+  }, [])
 
-    const mockAnalytics: AnalyticsData = {
-      overview: {
-        totalIssues: 1234,
-        pendingIssues: 156,
-        inProgressIssues: 89,
-        resolvedIssues: 989,
-        totalUsers: 2456,
-        totalComments: 3421,
-        totalVotes: 5678,
-        avgResolutionTime: 4.2,
-      },
-      issuesByCategory: [
-        { category: "ROADS", count: 345 },
-        { category: "LIGHTING", count: 234 },
-        { category: "SANITATION", count: 189 },
-        { category: "PARKS", count: 156 },
-        { category: "UTILITIES", count: 134 },
-        { category: "SAFETY", count: 98 },
-        { category: "OTHER", count: 78 },
-      ],
-      issuesOverTime: [
-        { date: "Week 1", pending: 45, inProgress: 23, resolved: 67 },
-        { date: "Week 2", pending: 52, inProgress: 31, resolved: 78 },
-        { date: "Week 3", pending: 38, inProgress: 28, resolved: 84 },
-        { date: "Week 4", pending: 41, inProgress: 35, resolved: 92 },
-      ],
-      topReporters: [
-        { id: "1", name: "John Doe", points: 450, issueCount: 23 },
-        { id: "2", name: "Jane Smith", points: 380, issueCount: 19 },
-        { id: "3", name: "Mike Wilson", points: 320, issueCount: 16 },
-        { id: "4", name: "Sarah Johnson", points: 290, issueCount: 14 },
-        { id: "5", name: "David Brown", points: 250, issueCount: 12 },
-      ],
-    }
-
-    setTimeout(() => {
-      setAnalytics(mockAnalytics)
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch('/api/analytics')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      setAnalyticsData(data.analytics)
+    } catch (err) {
+      console.error('Error fetching analytics:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load analytics')
+    } finally {
       setLoading(false)
-    }, 1000)
-  }, [timeRange])
+    }
+  }
+
+  const fetchRecentIssues = async () => {
+    try {
+      const response = await fetch('/api/issues?limit=4')
+      if (response.ok) {
+        const data = await response.json()
+        setRecentIssues(data.issues || [])
+      }
+    } catch (error) {
+      console.error('Error fetching recent issues:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -113,7 +99,20 @@ export default function AdminDashboardPage() {
     )
   }
 
-  if (!analytics) {
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={fetchAnalytics}>Try Again</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!analyticsData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
@@ -124,7 +123,7 @@ export default function AdminDashboardPage() {
     )
   }
 
-  const categoryChartData = analytics.issuesByCategory.map((item) => ({
+  const categoryChartData = analyticsData.issuesByCategory.map((item) => ({
     name: ISSUE_CATEGORIES[item.category as keyof typeof ISSUE_CATEGORIES]?.label || item.category,
     value: item.count,
     color: ISSUE_CATEGORIES[item.category as keyof typeof ISSUE_CATEGORIES]?.color || "#6b7280",
@@ -162,7 +161,7 @@ export default function AdminDashboardPage() {
         >
           <StatsCard
             title="Total Issues"
-            value={analytics.overview.totalIssues.toLocaleString()}
+            value={analyticsData.overview.totalIssues.toLocaleString()}
             description="All time reports"
             icon={AlertCircle}
             trend={{ value: 12, label: "from last month", isPositive: true }}
@@ -170,7 +169,7 @@ export default function AdminDashboardPage() {
           />
           <StatsCard
             title="Pending Issues"
-            value={analytics.overview.pendingIssues}
+            value={analyticsData.overview.pendingIssues.toString()}
             description="Awaiting assignment"
             icon={Clock}
             trend={{ value: -8, label: "from last week", isPositive: true }}
@@ -178,7 +177,7 @@ export default function AdminDashboardPage() {
           />
           <StatsCard
             title="Resolved Issues"
-            value={analytics.overview.resolvedIssues.toLocaleString()}
+            value={analyticsData.overview.resolvedIssues.toLocaleString()}
             description="Successfully completed"
             icon={CheckCircle}
             trend={{ value: 15, label: "this month", isPositive: true }}
@@ -186,11 +185,48 @@ export default function AdminDashboardPage() {
           />
           <StatsCard
             title="Avg Resolution Time"
-            value={`${analytics.overview.avgResolutionTime} days`}
+            value={`${analyticsData.overview.avgResolutionTime} days`}
             description="Time to completion"
             icon={TrendingUp}
             trend={{ value: -12, label: "improvement", isPositive: true }}
             color="#8b5cf6"
+          />
+        </motion.div>
+
+        {/* Additional Stats Row */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        >
+          <StatsCard
+            title="Total Users"
+            value={analyticsData.overview.totalUsers.toLocaleString()}
+            description="Registered citizens"
+            icon={Users}
+            color="#6366f1"
+          />
+          <StatsCard
+            title="In Progress"
+            value={analyticsData.overview.inProgressIssues.toString()}
+            description="Currently being worked on"
+            icon={Clock}
+            color="#3b82f6"
+          />
+          <StatsCard
+            title="Total Votes"
+            value={analyticsData.overview.totalVotes.toLocaleString()}
+            description="Community engagement"
+            icon={TrendingUp}
+            color="#f59e0b"
+          />
+          <StatsCard
+            title="Comments"
+            value={analyticsData.overview.totalComments.toLocaleString()}
+            description="Community feedback"
+            icon={AlertCircle}
+            color="#10b981"
           />
         </motion.div>
 
@@ -246,14 +282,14 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analytics.issuesOverTime}>
+                  <LineChart data={analyticsData.issuesOverTime}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <Tooltip />
-                    <Line type="monotone" dataKey="pending" stroke="#f59e0b" strokeWidth={2} />
-                    <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" strokeWidth={2} />
-                    <Line type="monotone" dataKey="resolved" stroke="#10b981" strokeWidth={2} />
+                    <Line type="monotone" dataKey="pending" stroke="#f59e0b" strokeWidth={2} name="Pending" />
+                    <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" strokeWidth={2} name="In Progress" />
+                    <Line type="monotone" dataKey="resolved" stroke="#10b981" strokeWidth={2} name="Resolved" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -277,28 +313,34 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {analytics.topReporters.map((reporter, index) => (
-                    <motion.div
-                      key={reporter.id}
-                      className="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-semibold text-sm">
-                          {index + 1}
+                  {analyticsData.topReporters.length > 0 ? (
+                    analyticsData.topReporters.map((reporter, index) => (
+                      <motion.div
+                        key={reporter.id}
+                        className="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-semibold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{reporter.name}</p>
+                            <p className="text-sm text-gray-600">{reporter.issueCount} issues reported</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{reporter.name}</p>
-                          <p className="text-sm text-gray-600">{reporter.issueCount} issues reported</p>
+                        <div className="text-right">
+                          <p className="font-semibold text-blue-600">{reporter.points} pts</p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-blue-600">{reporter.points} pts</p>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-center p-8 text-gray-500">
+                      <p>No reporters data available</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -352,7 +394,10 @@ export default function AdminDashboardPage() {
                             <p className="font-medium text-gray-900">{actionText}</p>
                             <p className="text-sm text-gray-600">{issue.title}</p>
                             <p className="text-xs text-gray-500 mt-1">
-                              {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
+                              {issue.createdAt ? 
+                                formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true }) :
+                                'No date available'
+                              }
                             </p>
                           </div>
                         </div>
