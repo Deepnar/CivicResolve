@@ -112,3 +112,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return Response.json({ error: "Failed to update issue" }, { status: 500 })
   }
 }
+
+// DELETE /api/issues/[id] - Delete issue and all related data (admin only)
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params
+    const issueId = Number.parseInt(id)
+    
+    if (isNaN(issueId)) {
+      return Response.json({ error: "Invalid issue ID" }, { status: 400 })
+    }
+
+    // Check if user is authenticated and is admin
+    const currentUser = await AuthUtils.getCurrentUser(request)
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+      return Response.json({ error: "Unauthorized - Admin access required" }, { status: 401 })
+    }
+
+    // Check if issue exists
+    const issue = await IssueModel.findById(issueId)
+    if (!issue) {
+      return Response.json({ error: "Issue not found" }, { status: 404 })
+    }
+
+    // Delete related data first (votes and comments) - CASCADE should handle this
+    // But let's be explicit to ensure data integrity
+    await VoteModel.deleteByIssueId(issueId)
+    await CommentModel.deleteByIssueId(issueId)
+    
+    // Finally delete the issue itself
+    await IssueModel.delete(issueId)
+
+    return Response.json({ 
+      success: true, 
+      message: "Issue and all related data deleted successfully" 
+    })
+  } catch (error) {
+    console.error("Error deleting issue:", error)
+    return Response.json({ error: "Failed to delete issue" }, { status: 500 })
+  }
+}

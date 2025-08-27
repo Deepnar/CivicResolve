@@ -234,6 +234,11 @@ export class CommentModel {
     const sql = 'DELETE FROM comments WHERE id = ?';
     await Database.delete(sql, [id]);
   }
+
+  static async deleteByIssueId(issueId: number): Promise<void> {
+    const sql = 'DELETE FROM comments WHERE issue_id = ?';
+    await Database.delete(sql, [issueId]);
+  }
 }
 
 // Vote model
@@ -257,5 +262,10 @@ export class VoteModel {
     const sql = 'SELECT COUNT(*) as count FROM votes WHERE issue_id = ?';
     const result = await Database.queryOne(sql, [issueId]);
     return result ? result.count : 0;
+  }
+
+  static async deleteByIssueId(issueId: number): Promise<void> {
+    const sql = 'DELETE FROM votes WHERE issue_id = ?';
+    await Database.delete(sql, [issueId]);
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Search, Filter, Download, Edit, Eye, MoreHorizontal, AlertCircle, Clock, CheckCircle } from "lucide-react"
+import { Search, Filter, Download, Edit, Eye, MoreHorizontal, AlertCircle, Clock, CheckCircle, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatusBadge } from "@/components/ui/badge-status"
 import { CategoryBadge } from "@/components/ui/badge-category"
@@ -135,6 +135,50 @@ export default function AdminIssuesPage() {
       alert(`Issue ${issueId} assigned to ${department} department`)
     } catch (error) {
       console.error('Error assigning department:', error)
+    }
+  }
+
+  const handleDeleteIssue = async (issueId: string, issueTitle: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the issue "${issueTitle}"?\n\n` +
+      `This will permanently delete:\n` +
+      `• The issue and all its details\n` +
+      `• All comments on this issue\n` +
+      `• All votes on this issue\n\n` +
+      `This action cannot be undone.`
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+
+      const response = await fetch(`/api/issues/${issueId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete issue')
+      }
+
+      // Show success message
+      alert('Issue deleted successfully')
+
+      // Refresh the issues list
+      await refreshIssues()
+    } catch (error) {
+      console.error('Error deleting issue:', error)
+      alert(`Failed to delete issue: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -315,6 +359,13 @@ export default function AdminIssuesPage() {
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
                                   Mark Resolved
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteIssue(issue.id, issue.title)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Issue
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

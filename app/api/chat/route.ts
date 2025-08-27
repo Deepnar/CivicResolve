@@ -477,7 +477,7 @@ export async function GET() {
   return NextResponse.json({
     service: 'CivicResolve Chat Assistant',
     status: 'operational',
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.0-flash-lite',
     features: [
       'Platform guidance',
       'Issue reporting help',
