@@ -87,6 +87,29 @@ export class UserModel {
     await Database.update(sql, [points, userId]);
   }
 
+  static async updateProfile(userId: number, profileData: { name?: string; email?: string }): Promise<void> {
+    const updates: string[] = [];
+    const values: any[] = [];
+    
+    if (profileData.name) {
+      updates.push('name = ?');
+      values.push(profileData.name);
+    }
+    
+    if (profileData.email) {
+      updates.push('email = ?');
+      values.push(profileData.email);
+    }
+    
+    if (updates.length === 0) return;
+    
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(userId);
+    
+    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    await Database.update(sql, values);
+  }
+
   static async getAll(): Promise<User[]> {
     const sql = 'SELECT id, email, name, role, points, created_at, updated_at FROM users ORDER BY created_at DESC';
     return await Database.query(sql);

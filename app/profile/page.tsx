@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { User, Award, TrendingUp, MapPin, Settings, Calendar, Eye } from "lucide-react"
+import { User, Award, TrendingUp, MapPin, Settings, Calendar, Eye, Save, X } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatsCard } from "@/components/ui/stats-card"
 import { IssueCard } from "@/components/ui/issue-card"
@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/ui/badge-status"
 import { CategoryBadge } from "@/components/ui/badge-category"
 import { PriorityIndicator } from "@/components/ui/priority-indicator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { BADGES } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
 import { formatDistanceToNow } from "date-fns"
@@ -25,12 +28,28 @@ export default function ProfilePage() {
   const { user, isLoading: authLoading } = useAuth()
   const [userIssues, setUserIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: ""
+  })
   const [stats, setStats] = useState({
     totalIssues: 0,
     resolvedIssues: 0,
     totalVotes: 0,
     totalComments: 0
   })
+
+  // Initialize form data when user is loaded
+  useEffect(() => {
+    if (user) {
+      setEditFormData({
+        name: user.name,
+        email: user.email
+      })
+    }
+  }, [user])
 
   useEffect(() => {
     const fetchUserIssues = async () => {
@@ -48,8 +67,12 @@ export default function ProfilePage() {
         const data = await response.json()
         const allIssues = data.issues || []
         
-        // Filter issues reported by current user
-        const myIssues = allIssues.filter((issue: Issue) => issue.reporterId === user.id)
+        // Filter issues reported by current user - convert both to string for comparison
+        const myIssues = allIssues.filter((issue: any) => {
+          const issueReporterId = issue.reporterId?.toString()
+          const currentUserId = user.id?.toString()
+          return issueReporterId === currentUserId
+        })
         setUserIssues(myIssues)
         
         // Calculate stats
@@ -75,6 +98,43 @@ export default function ProfilePage() {
       fetchUserIssues()
     }
   }, [user, authLoading])
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+
+    try {
+      setIsUpdating(true)
+      const response = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile')
+      }
+
+      // Update local user state
+      const updatedUser = { ...user, ...editFormData }
+      // Note: You might need to update the AuthContext here
+      setEditDialogOpen(false)
+      
+      // Show success message
+      alert('Profile updated successfully!')
+      
+      // Refresh the page to get updated user data
+      window.location.reload()
+      
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      alert('Failed to update profile. Please try again.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   if (authLoading || loading) {
     return (
@@ -102,10 +162,61 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
       <div className="container mx-auto px-4 py-8">
         <PageHeader title="My Profile" description="View your civic engagement activity and achievements" icon={User}>
-          <Button variant="outline" className="gap-2 bg-transparent">
-            <Settings className="h-4 w-4" />
-            Edit Profile
-          </Button>
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 bg-transparent">
+                <Settings className="h-4 w-4" />
+                Edit Profile
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Profile</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Your full name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="your.email@example.com"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                    disabled={isUpdating}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isUpdating}>
+                    {isUpdating ? (
+                      <LoadingSpinner size="sm" className="mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {isUpdating ? 'Updating...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </PageHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
