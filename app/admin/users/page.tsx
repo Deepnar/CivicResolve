@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
+import { convertToIST } from "@/lib/date-utils"
 import type { User } from "@/lib/types"
 import { BADGES } from "@/lib/constants"
 
@@ -25,102 +26,60 @@ interface UserWithStats extends User {
   rank: number
 }
 
+interface UserStats {
+  totalUsers: number
+  activeUsers: number
+  avgPoints: number
+  totalIssues: number
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithStats[]>([])
+  const [stats, setStats] = useState<UserStats>({
+    totalUsers: 0,
+    activeUsers: 0,
+    avgPoints: 0,
+    totalIssues: 0
+  })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Mock data for demonstration
   useEffect(() => {
-    const mockUsers: UserWithStats[] = [
-      {
-        id: "1",
-        name: "John Doe",
-        email: "john.doe@email.com",
-        role: "CITIZEN",
-        points: 450,
-        badges: ["FIRST_REPORT", "COMMUNITY_HELPER", "CIVIC_CHAMPION"],
-        createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        issueCount: 23,
-        resolvedCount: 18,
-        totalVotes: 67,
-        rank: 1,
-      },
-      {
-        id: "2",
-        name: "Jane Smith",
-        email: "jane.smith@email.com",
-        role: "CITIZEN",
-        points: 380,
-        badges: ["FIRST_REPORT", "COMMUNITY_HELPER", "ENGAGEMENT_STAR"],
-        createdAt: new Date(Date.now() - 75 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        issueCount: 19,
-        resolvedCount: 15,
-        totalVotes: 52,
-        rank: 2,
-      },
-      {
-        id: "3",
-        name: "Mike Wilson",
-        email: "mike.wilson@email.com",
-        role: "CITIZEN",
-        points: 320,
-        badges: ["FIRST_REPORT", "COMMUNITY_HELPER"],
-        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        issueCount: 16,
-        resolvedCount: 12,
-        totalVotes: 43,
-        rank: 3,
-      },
-      {
-        id: "4",
-        name: "Sarah Johnson",
-        email: "sarah.johnson@email.com",
-        role: "CITIZEN",
-        points: 290,
-        badges: ["FIRST_REPORT", "ENGAGEMENT_STAR"],
-        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        issueCount: 14,
-        resolvedCount: 10,
-        totalVotes: 38,
-        rank: 4,
-      },
-      {
-        id: "5",
-        name: "David Brown",
-        email: "david.brown@email.com",
-        role: "CITIZEN",
-        points: 250,
-        badges: ["FIRST_REPORT", "PROBLEM_SOLVER"],
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-        issueCount: 12,
-        resolvedCount: 9,
-        totalVotes: 31,
-        rank: 5,
-      },
-    ]
-
-    setTimeout(() => {
-      setUsers(mockUsers)
-      setLoading(false)
-    }, 1000)
+    fetchUsers()
   }, [])
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch('/api/users')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      setUsers(data.users || [])
+      setStats(data.stats)
+    } catch (err) {
+      console.error('Error fetching users:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load users')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()),
   )
-
-  const totalUsers = users.length
-  const activeUsers = users.filter((user) => user.issueCount > 0).length
-  const avgPoints = Math.round(users.reduce((sum, user) => sum + user.points, 0) / users.length)
-  const totalIssues = users.reduce((sum, user) => sum + user.issueCount, 0)
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -133,6 +92,27 @@ export default function AdminUsersPage() {
       default:
         return <Star className="h-4 w-4 text-gray-300" />
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading users..." />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <Users className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Users</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={fetchUsers}>Try Again</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -156,28 +136,28 @@ export default function AdminUsersPage() {
         >
           <StatsCard
             title="Total Users"
-            value={totalUsers.toLocaleString()}
+            value={stats.totalUsers.toLocaleString()}
             description="Registered citizens"
             icon={Users}
             color="#3b82f6"
           />
           <StatsCard
             title="Active Contributors"
-            value={activeUsers}
+            value={stats.activeUsers.toString()}
             description="Users with reports"
             icon={TrendingUp}
             color="#10b981"
           />
           <StatsCard
             title="Average Points"
-            value={avgPoints}
+            value={stats.avgPoints.toString()}
             description="Per active user"
             icon={Award}
             color="#f59e0b"
           />
           <StatsCard
             title="Total Reports"
-            value={totalIssues}
+            value={stats.totalIssues.toString()}
             description="Community submissions"
             icon={TrendingUp}
             color="#8b5cf6"
@@ -281,7 +261,7 @@ export default function AdminUsersPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-green-600">{user.resolvedCount}</span>
                               <span className="text-sm text-gray-500">
-                                ({Math.round((user.resolvedCount / user.issueCount) * 100) || 0}%)
+                                ({user.issueCount > 0 ? Math.round((user.resolvedCount / user.issueCount) * 100) : 0}%)
                               </span>
                             </div>
                           </TableCell>
@@ -290,24 +270,32 @@ export default function AdminUsersPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {user.badges.slice(0, 2).map((badgeKey) => {
-                                const badge = BADGES[badgeKey as keyof typeof BADGES]
-                                return (
-                                  <Badge key={badgeKey} variant="secondary" className="text-xs">
-                                    {badge.name.split(" ")[0]}
-                                  </Badge>
-                                )
-                              })}
-                              {user.badges.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{user.badges.length - 2}
+                              {user.badges && user.badges.length > 0 ? (
+                                <>
+                                  {user.badges.slice(0, 2).map((badgeKey) => {
+                                    const badge = BADGES[badgeKey as keyof typeof BADGES]
+                                    return badge ? (
+                                      <Badge key={badgeKey} variant="secondary" className="text-xs">
+                                        {badge.name.split(" ")[0]}
+                                      </Badge>
+                                    ) : null
+                                  })}
+                                  {user.badges.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{user.badges.length - 2}
+                                    </Badge>
+                                  )}
+                                </>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-gray-500">
+                                  No badges
                                 </Badge>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-gray-600">
-                              {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
+                              {user.createdAt ? formatDistanceToNow(convertToIST(user.createdAt), { addSuffix: true }) : 'N/A'}
                             </span>
                           </TableCell>
                           <TableCell>
