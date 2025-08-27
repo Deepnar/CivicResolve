@@ -7,14 +7,23 @@ The CivicResolve AI Chat Assistant is powered by Google Gemini AI and provides i
 ## Key Features
 
 ### 🤖 **Intelligent Assistance**
-- Powered by Google Gemini AI for natural language understanding
+- Powered by Google Gemini 2.0 Flash for natural language understanding
 - Context-aware responses based on your current page
+- **Real-time data integration** with live platform statistics
 - Comprehensive knowledge of CivicResolve features and processes
 
-### 📍 **Context-Aware Help**
+### � **Real-time Data Insights**
+- **Live platform statistics** including issue counts, user engagement, and trends
+- **Location-specific analysis** for problem areas and hotspots
+- **Issue prioritization** based on severity, age, and community impact
+- **Resolution time analytics** to identify bottlenecks
+- **Community engagement metrics** and top contributor recognition
+
+### �📍 **Context-Aware Help**
 - Automatic detection of your current page and actions
 - Relevant quick-help topics for each section
 - Page-specific guidance and feature explanations
+- **Issue-specific details** when discussing particular problems
 
 ### 💬 **Interactive Chat Interface**
 - Real-time conversation with the AI assistant
@@ -57,11 +66,37 @@ The CivicResolve AI Chat Assistant is powered by Google Gemini AI and provides i
 - "How do I access my profile?"
 - "What are the different user roles?"
 
-### 📝 **Issue Reporting**
+### � **Real-time Analytics & Insights**
+- "Which areas have the most issues?"
+- "What types of issues take longest to resolve?"
+- "Which issues have been open the longest?"
+- "What should we prioritize fixing first?"
+- "Show me the community engagement trends"
+- "Which categories are most common in our area?"
+
+### �📝 **Issue Reporting**
 - "What information should I include in my report?"
 - "How do I add photos to my issue report?"
 - "What categories are available for issues?"
 - "How do I set the location for my report?"
+
+### 🔍 **Issue Management & Tracking**
+- "Tell me about issue #123" (specific issue details)
+- "What's the status of the pothole on Main Street?"
+- "How long do road repairs typically take?"
+- "Which high-priority issues need immediate attention?"
+
+### 📈 **Data-Driven Recommendations**
+- "What areas need more attention from the city?"
+- "Which issues are easiest to fix quickly?"
+- "Where should we focus our resources?"
+- "What trends do you see in community reporting?"
+
+### 🗺️ **Location-Based Insights**
+- "What's the situation on Oak Avenue?"
+- "How many issues are in the downtown area?"
+- "Which neighborhoods are most active in reporting?"
+- "Show me issues near the school district"
 
 ### 🗺️ **Using the Map**
 - "How do I filter issues on the map?"
@@ -169,20 +204,25 @@ The assistant can help you:
 
 ## Getting Started Examples
 
-### For New Users
-**You**: "I'm new to CivicResolve. How do I get started?"
+### For Real-time Insights
+**You**: "Which areas have the most issues right now?"
 
-**Assistant**: Provides a welcome tour and basic orientation
+**Assistant**: Provides current statistics showing problem areas with specific numbers and categories
 
-### For Issue Reporting
-**You**: "There's a broken streetlight on Oak Avenue. How do I report it?"
+### For Issue Analysis
+**You**: "What issues have been open the longest?"
 
-**Assistant**: Guides through the reporting process step-by-step
+**Assistant**: Lists long-standing issues with specific details, priorities, and recommendations
 
-### For Administrators
-**You**: "How can I see which issues are getting the most community engagement?"
+### For Strategic Planning
+**You**: "What should the city prioritize fixing first?"
 
-**Assistant**: Explains analytics features and community metrics
+**Assistant**: Analyzes data to recommend high-impact, easier-to-resolve issues based on current statistics
+
+### For Location-Specific Help
+**You**: "Tell me about the situation on Main Street"
+
+**Assistant**: Provides detailed breakdown of issues in that specific area with trends and patterns
 
 ## Support and Feedback
 
