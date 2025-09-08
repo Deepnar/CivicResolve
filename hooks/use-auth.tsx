@@ -50,32 +50,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = async (email: string, password: string) => {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "same-origin", // Include cookies
-      body: JSON.stringify({ email, password }),
-    })
-
-    if (!response.ok) {
-      throw new Error("Login failed")
-    }
-
-    const { data } = await response.json()
-    const { token, user: userData } = data
+    console.log("useAuth login called with email:", email) // Debug log
     
-    // Note: Token is now stored as httpOnly cookie by the server
-    // We don't store it in localStorage for security reasons
-    
-    setUser(userData)
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin", // Include cookies
+        body: JSON.stringify({ email, password }),
+      })
 
-    // Redirect based on user role
-    if (userData.role === "ADMIN") {
-      router.push("/admin")
-    } else {
-      router.push("/")
+      console.log("Login response status:", response.status) // Debug log
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Login failed" }))
+        console.error("Login failed with error:", errorData) // Debug log
+        throw new Error(errorData.message || "Login failed")
+      }
+
+      const { data } = await response.json()
+      const { token, user: userData } = data
+      
+      console.log("Login successful for user:", userData.name) // Debug log
+      
+      // Note: Token is now stored as httpOnly cookie by the server
+      // We don't store it in localStorage for security reasons
+      
+      setUser(userData)
+
+      // Redirect based on user role
+      if (userData.role === "ADMIN") {
+        router.push("/admin")
+      } else {
+        router.push("/")
+      }
+    } catch (error) {
+      console.error("Login error in useAuth:", error) // Debug log
+      throw error
     }
   }
 

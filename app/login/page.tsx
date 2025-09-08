@@ -23,6 +23,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string>("")
   const { login } = useAuth()
 
   const {
@@ -34,14 +35,27 @@ export default function LoginPage() {
   })
 
   const onSubmit = async (data: LoginForm) => {
+    console.log("Login form submitted:", { email: data.email }) // Debug log
     setIsLoading(true)
+    setError("")
+    
     try {
+      console.log("Attempting login...") // Debug log
       await login(data.email, data.password)
+      console.log("Login successful") // Debug log
     } catch (error) {
       console.error("Login failed:", error)
+      setError("Login failed. Please check your credentials and try again.")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Alternative submit handler for mobile touch issues
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Form submit event triggered") // Debug log
+    handleSubmit(onSubmit)(e)
   }
 
   return (
@@ -70,7 +84,13 @@ export default function LoginPage() {
             <CardTitle className="text-lg sm:text-xl font-heading text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+            
+            <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
                 <Input
@@ -79,6 +99,8 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   {...register("email")}
                   className={`h-11 text-base ${errors.email ? "border-red-500" : ""}`}
+                  autoComplete="email"
+                  inputMode="email"
                 />
                 {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
               </div>
@@ -92,11 +114,17 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     {...register("password")}
                     className={`pr-10 h-11 text-base ${errors.password ? "border-red-500" : ""}`}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      setShowPassword(!showPassword)
+                    }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 touch-target-small"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
