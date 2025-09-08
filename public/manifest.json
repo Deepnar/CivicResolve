@@ -68,7 +68,7 @@
       "url": "/report",
       "icons": [
         {
-          "src": "/icons/shortcut-report.png",
+          "src": "/icons/shortcut-report-v2.png",
           "sizes": "96x96",
           "type": "image/png"
         }
@@ -81,7 +81,7 @@
       "url": "/map",
       "icons": [
         {
-          "src": "/icons/shortcut-map.png",
+          "src": "/icons/shortcut-map-v2.png",
           "sizes": "96x96",
           "type": "image/png"
         }
