@@ -96,13 +96,12 @@ export default function AdminIssuesPage() {
 
   const handleStatusUpdate = async (issueId: string, newStatus: IssueStatus) => {
     try {
-      const token = localStorage.getItem("auth-token")
       const response = await fetch(`/api/issues/${issueId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'same-origin', // Include httpOnly cookies
         body: JSON.stringify({
           status: newStatus,
         }),
@@ -154,16 +153,9 @@ export default function AdminIssuesPage() {
     }
 
     try {
-      const token = localStorage.getItem("auth-token")
-      if (!token) {
-        throw new Error('No authentication token found')
-      }
-
       const response = await fetch(`/api/issues/${issueId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'same-origin', // Include httpOnly cookies
       })
 
       if (!response.ok) {

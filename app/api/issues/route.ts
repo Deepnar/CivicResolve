@@ -77,11 +77,9 @@ export async function POST(request: NextRequest) {
     const user = await AuthUtils.requireAuth(request)
     
     const body = await request.json()
-    console.log('Received issue data:', JSON.stringify(body, null, 2)) // Debug log
     
     const validationResult = createIssueSchema.safeParse(body)
     if (!validationResult.success) {
-      console.error('Validation errors:', validationResult.error.flatten())
       return Response.json({ 
         error: "Validation failed", 
         details: validationResult.error.flatten().fieldErrors 

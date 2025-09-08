@@ -1,17 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { AuthUtils, UserModel } from "@/lib/db"
+import { ApiResponseHandler } from "@/lib/api-response"
 
 export async function GET(request: NextRequest) {
   try {
     const user = await AuthUtils.getCurrentUser(request)
     if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return ApiResponseHandler.unauthorized("Authentication required")
     }
 
-    return NextResponse.json({ user })
+    return ApiResponseHandler.success({ user }, "User authenticated successfully")
   } catch (error) {
-    console.error("Auth verification error:", error)
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    return ApiResponseHandler.internal("Authentication verification failed", error as Error)
   }
 }
 
@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const user = await AuthUtils.getCurrentUser(request)
     if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return ApiResponseHandler.unauthorized("Authentication required")
     }
 
     const body = await request.json()
@@ -27,14 +27,14 @@ export async function PATCH(request: NextRequest) {
 
     // Validate input
     if (!name || !email) {
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+      return ApiResponseHandler.validation("Name and email are required", [])
     }
 
     // Check if email is already taken by another user
     if (email !== user.email) {
       const existingUser = await UserModel.findByEmail(email)
       if (existingUser && existingUser.id !== user.id) {
-        return NextResponse.json({ error: "Email is already taken" }, { status: 409 })
+        return ApiResponseHandler.conflict("Email is already taken")
       }
     }
 
@@ -43,9 +43,8 @@ export async function PATCH(request: NextRequest) {
 
     // Return updated user data
     const updatedUser = await UserModel.findById(user.id)
-    return NextResponse.json({ user: updatedUser })
+    return ApiResponseHandler.success({ user: updatedUser }, "Profile updated successfully")
   } catch (error) {
-    console.error("Profile update error:", error)
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
+    return ApiResponseHandler.internal("Failed to update profile", error as Error)
   }
 }

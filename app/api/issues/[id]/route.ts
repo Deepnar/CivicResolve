@@ -35,7 +35,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Get comments for this issue
     const comments = await CommentModel.getByIssueId(issueId)
-    console.log('Comments fetched:', comments) // Debug log
     
     // Filter out any undefined comments and ensure they have required fields
     const validComments = (comments || []).filter(comment => 

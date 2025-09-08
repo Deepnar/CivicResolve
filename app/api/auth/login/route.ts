@@ -1,27 +1,37 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { UserModel, AuthUtils } from "@/lib/db"
+import { ApiResponseHandler } from "@/lib/api-response"
+import { InputSanitizer, CommonSchemas } from "@/lib/input-sanitizer"
+import { withRateLimit } from "@/lib/rate-limiter"
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: CommonSchemas.email,
+  password: z.string().min(1, "Password is required").max(128, "Password too long"),
 })
 
-export async function POST(request: NextRequest) {
+async function loginHandler(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = loginSchema.parse(body)
+    
+    // Sanitize input
+    const sanitizedBody = InputSanitizer.sanitizeObject(body, {
+      emailFields: ['email'],
+      textFields: ['password']
+    })
+
+    const { email, password } = loginSchema.parse(sanitizedBody)
 
     // Find user by email
     const user = await UserModel.findByEmail(email)
     if (!user) {
-      return Response.json({ error: "Invalid email or password" }, { status: 401 })
+      return ApiResponseHandler.unauthorized("Invalid email or password")
     }
 
     // Verify password
     const isValidPassword = await UserModel.verifyPassword(password, user.password!)
     if (!isValidPassword) {
-      return Response.json({ error: "Invalid email or password" }, { status: 401 })
+      return ApiResponseHandler.unauthorized("Invalid email or password")
     }
 
     // Generate JWT token
@@ -34,23 +44,35 @@ export async function POST(request: NextRequest) {
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user
 
-    // Create response with cookie
-    const response = Response.json({
+    // Create successful response
+    const responseData = {
       user: userWithoutPassword,
       token,
-      message: "Login successful",
-    })
+      message: "Login successful"
+    };
 
-    // Set HTTP cookie for middleware to read
-    response.headers.set('Set-Cookie', `auth-token=${token}; Path=/; Max-Age=${7 * 24 * 60 * 60}; HttpOnly; SameSite=strict`)
+    const response = ApiResponseHandler.success(responseData, "Login successful")
+
+    // Set httpOnly cookie for security (not accessible via JavaScript)
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 // 7 days
+    });
 
     return response
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return Response.json({ error: "Validation failed", details: error.errors }, { status: 400 })
+      return ApiResponseHandler.validation("Invalid input data", error.errors)
     }
 
-    console.error("Login error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return ApiResponseHandler.internal("Login failed", error as Error)
   }
+}
+
+// Export as POST without rate limiting for now (Next.js Request type compatibility issue)
+export async function POST(request: NextRequest) {
+  return loginHandler(request)
 }

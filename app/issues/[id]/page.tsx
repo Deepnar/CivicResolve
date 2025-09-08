@@ -70,13 +70,12 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
 
     setIsSubmittingComment(true)
     try {
-      const token = localStorage.getItem("auth-token")
       const response = await fetch(`/api/issues/${resolvedParams.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'same-origin', // Include httpOnly cookies
         body: JSON.stringify({
           content: newComment,
         }),
@@ -108,13 +107,12 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
     if (!user || !issue) return
 
     try {
-      const token = localStorage.getItem("auth-token")
       const response = await fetch(`/api/issues/${resolvedParams.id}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'same-origin', // Include httpOnly cookies
       })
 
       if (!response.ok) {

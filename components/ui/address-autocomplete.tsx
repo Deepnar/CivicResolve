@@ -84,7 +84,6 @@ export function AddressAutocomplete({
       )
       
       const data = await response.json()
-      console.log('Search results:', data) // Debug log
       setSuggestions(data)
       setShowSuggestions(true)
       setSelectedIndex(-1)

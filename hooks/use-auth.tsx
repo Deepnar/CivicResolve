@@ -19,50 +19,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Helper function to get token from localStorage or cookie
-  const getToken = (): string | null => {
-    // First check localStorage
-    const localToken = localStorage.getItem("auth-token")
-    if (localToken) return localToken
-    
-    // Fallback to cookie
-    const cookies = document.cookie.split(';')
-    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth-token='))
-    if (authCookie) {
-      return authCookie.split('=')[1]
-    }
-    
-    return null
-  }
-
+  // Note: Authentication now uses httpOnly cookies only
   useEffect(() => {
     // Check for existing session on mount
-    const token = getToken()
-    if (token) {
-      // Verify token and get user data
-      fetchUser(token)
-    } else {
-      setIsLoading(false)
-    }
+    fetchUser()
   }, [])
 
-  const fetchUser = async (token: string) => {
+  const fetchUser = async () => {
     try {
+      // Token is automatically sent via httpOnly cookie
       const response = await fetch("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "same-origin", // Include cookies
       })
 
       if (response.ok) {
-        const { user: userData } = await response.json()
-        setUser(userData)
+        const { data } = await response.json()
+        setUser(data.user)
+        console.log('User authenticated:', data.user.name) // Debug log
       } else {
-        localStorage.removeItem("auth-token")
+        // Clear user state if authentication fails
+        console.log('Authentication failed, response status:', response.status) // Debug log
+        setUser(null)
       }
     } catch (error) {
       console.error("Failed to fetch user:", error)
-      localStorage.removeItem("auth-token")
+      setUser(null)
     } finally {
       setIsLoading(false)
     }
@@ -74,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin", // Include cookies
       body: JSON.stringify({ email, password }),
     })
 
@@ -81,11 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Login failed")
     }
 
-    const { token, user: userData } = await response.json()
-    localStorage.setItem("auth-token", token)
+    const { data } = await response.json()
+    const { token, user: userData } = data
     
-    // Set cookie for middleware to read
-    document.cookie = `auth-token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`
+    // Note: Token is now stored as httpOnly cookie by the server
+    // We don't store it in localStorage for security reasons
     
     setUser(userData)
 
@@ -103,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "same-origin", // Include cookies
       body: JSON.stringify({ name, email, password }),
     })
 
@@ -110,16 +93,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Registration failed")
     }
 
-    const { token, user: userData } = await response.json()
-    localStorage.setItem("auth-token", token)
+    const { data } = await response.json()
+    const { user: userData } = data
+    
+    // Note: Token is now stored as httpOnly cookie by the server
     setUser(userData)
     router.push("/")
   }
 
   const logout = () => {
-    localStorage.removeItem("auth-token")
-    // Clear cookie
-    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    // Clear httpOnly cookie by calling logout endpoint
+    fetch("/api/auth/logout", { 
+      method: "POST",
+      credentials: "same-origin"
+    }).catch(() => {
+      // Ignore errors, just ensure client state is cleared
+    })
+    
     setUser(null)
     router.push("/login")
   }

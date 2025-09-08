@@ -1,11 +1,13 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { UserModel, AuthUtils } from "@/lib/db"
+import { ApiResponseHandler } from "@/lib/api-response"
+import { CommonSchemas } from "@/lib/input-sanitizer"
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
+  email: CommonSchemas.email,
+  password: CommonSchemas.password,
 })
 
 export async function POST(request: NextRequest) {
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
     // Check if user already exists
     const existingUser = await UserModel.findByEmail(email)
     if (existingUser) {
-      return Response.json({ error: "User with this email already exists" }, { status: 400 })
+      return ApiResponseHandler.conflict("User with this email already exists")
     }
 
     // Create user
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Get the created user (without password)
     const user = await UserModel.findById(userId)
     if (!user) {
-      return Response.json({ error: "Failed to create user" }, { status: 500 })
+      return ApiResponseHandler.internal("Failed to create user")
     }
 
     // Generate JWT token
@@ -40,17 +42,30 @@ export async function POST(request: NextRequest) {
       role: user.role,
     })
 
-    return Response.json({
+    // Create successful response
+    const responseData = {
       user,
       token,
-      message: "User registered successfully",
-    })
+      message: "User registered successfully"
+    };
+
+    const response = ApiResponseHandler.success(responseData, "Registration successful")
+
+    // Set httpOnly cookie for security
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 // 7 days
+    });
+
+    return response
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return Response.json({ error: "Validation failed", details: error.errors }, { status: 400 })
+      return ApiResponseHandler.validation("Invalid registration data", error.errors)
     }
 
-    console.error("Registration error:", error)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return ApiResponseHandler.internal("Registration failed", error as Error)
   }
 }

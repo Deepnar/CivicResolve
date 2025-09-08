@@ -2,13 +2,16 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 import { UserModel } from './models';
 
-// Use environment variable with fallback for development
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here_make_it_very_long_and_secure';
+// Use environment variable - NO FALLBACK for security
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Warn if using default secret in production
-if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'your_jwt_secret_key_here_make_it_very_long_and_secure') {
-  console.warn('⚠️  WARNING: Using default JWT secret in production! Set JWT_SECRET environment variable.');
+// Throw error if JWT_SECRET not provided
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
 }
+
+// Assert JWT_SECRET is defined for TypeScript
+const jwtSecret: string = JWT_SECRET;
 
 export interface JWTPayload {
   userId: number;
@@ -19,18 +22,48 @@ export interface JWTPayload {
 }
 
 // Edge-compatible JWT verification for middleware
-export function verifyJWTForEdge(token: string): JWTPayload | null {
+export async function verifyJWTForEdge(token: string): Promise<JWTPayload | null> {
   try {
-    // Simple JWT parsing for Edge Runtime (no crypto verification)
+    // Use Web Crypto API for Edge Runtime compatibility
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     
+    const header = JSON.parse(atob(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const signature = parts[2];
     
-    // Check expiration
+    // Check expiration first (quick check)
     if (payload.exp && payload.exp < Date.now() / 1000) {
       return null;
     }
+    
+    // Verify signature using Web Crypto API
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(jwtSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify']
+      );
+      
+      const signatureBuffer = Uint8Array.from(
+        atob(signature.replace(/-/g, '+').replace(/_/g, '/')), 
+        c => c.charCodeAt(0)
+      );
+      
+      const isValid = await crypto.subtle.verify(
+        'HMAC',
+        key,
+        signatureBuffer,
+        encoder.encode(`${parts[0]}.${parts[1]}`)
+      );
+      
+      if (!isValid) return null;
+    }
+    // If crypto.subtle not available, fallback to basic validation
+    // (This should rarely happen in modern Edge runtimes)
     
     return payload as JWTPayload;
   } catch (error) {
@@ -46,15 +79,15 @@ export class AuthUtils {
         email: user.email,
         role: user.role,
       },
-      JWT_SECRET,
+      jwtSecret,
       { expiresIn: '7d' }
     );
   }
 
   static verifyToken(token: string): JWTPayload | null {
     try {
-      const result = jwt.verify(token, JWT_SECRET) as JWTPayload;
-      return result;
+      const result = jwt.verify(token, jwtSecret) as any;
+      return result as JWTPayload;
     } catch (error) {
       return null;
     }

@@ -22,6 +22,7 @@ import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
 import type { IssueCategory } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 // Load LocationPicker dynamically with SSR disabled
 const LocationPicker = dynamic(() => import("@/components/location-picker"), {
@@ -45,6 +46,7 @@ type ReportIssueForm = z.infer<typeof reportIssueSchema>
 export default function ReportIssuePage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -132,9 +134,8 @@ export default function ReportIssuePage() {
   const onSubmit = async (data: ReportIssueForm) => {
     setIsSubmitting(true)
     try {
-      // Get auth token
-      const token = localStorage.getItem("auth-token")
-      if (!token) {
+      // Check if user is authenticated (we rely on httpOnly cookies now)
+      if (!user) {
         toast({
           variant: "destructive",
           title: "Authentication required",
@@ -155,15 +156,13 @@ export default function ReportIssuePage() {
         image_url: imagePreview && imagePreview.startsWith('data:') ? imagePreview : null, // Only send valid data URLs
       }
 
-      console.log('Submitting issue data:', apiData) // Debug log
-
       // Submit to API
       const response = await fetch("/api/issues", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: "same-origin", // Include httpOnly cookies
         body: JSON.stringify(apiData),
       })
 
