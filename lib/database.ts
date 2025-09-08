@@ -1,9 +1,5 @@
 import mysql from 'mysql2/promise';
 import { logger } from './logger';
-import { validateEnvironment } from './env-validation';
-
-// Validate environment on module load
-validateEnvironment();
 
 export interface DatabaseConfig {
   host: string;
@@ -15,9 +11,20 @@ export interface DatabaseConfig {
 
 class DatabaseManager {
   private pool: mysql.Pool | null = null;
-  private config: DatabaseConfig;
+  private config: DatabaseConfig | null = null;
+  private initialized = false;
 
-  constructor() {
+  private initialize(): void {
+    if (this.initialized) return;
+
+    // Only validate environment when actually needed
+    const requiredVars = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+    for (const varName of requiredVars) {
+      if (!process.env[varName]) {
+        throw new Error(`Missing required environment variable: ${varName}`);
+      }
+    }
+
     this.config = {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -27,9 +34,12 @@ class DatabaseManager {
     };
 
     this.validateConfig();
+    this.initialized = true;
   }
 
   private validateConfig(): void {
+    if (!this.config) return;
+    
     if (!this.config.user || !this.config.password || !this.config.database) {
       throw new Error(
         'Missing required database configuration. Please check DB_USER, DB_PASSWORD, and DB_NAME environment variables.'
@@ -69,9 +79,34 @@ class DatabaseManager {
   }
 
   public getPool(): mysql.Pool {
-    if (!this.pool) {
-      this.pool = this.createPool();
+    if (!this.initialized) {
+      this.initialize();
     }
+    
+    if (!this.pool && this.config) {
+      try {
+        this.pool = mysql.createPool({
+          host: this.config.host,
+          port: this.config.port,
+          user: this.config.user,
+          password: this.config.password,
+          database: this.config.database,
+          waitForConnections: true,
+          connectionLimit: 10,
+          queueLimit: 0,
+        });
+
+        logger.info('Database connection pool created successfully');
+      } catch (error) {
+        logger.error('Failed to create database connection pool', error instanceof Error ? error : undefined, 'database');
+        throw new Error('Database pool creation failed');
+      }
+    }
+
+    if (!this.pool) {
+      throw new Error('Failed to initialize database pool');
+    }
+
     return this.pool;
   }
 
@@ -210,11 +245,7 @@ export class Database {
   }
 }
 
-// Test connection on module load in development
-if (process.env.NODE_ENV === 'development') {
-  databaseManager.testConnection().catch((error) => {
-    logger.warn('Database connection test failed during module initialization. This is expected if the database is not yet set up.');
-  });
-}
+// Note: Database connection testing is handled by individual API routes
+// to avoid Edge Runtime compatibility issues in middleware
 
 export default db;

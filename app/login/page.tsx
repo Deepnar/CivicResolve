@@ -45,58 +45,58 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 flex items-center justify-center p-4 sm:p-6 lg:p-8">
       <motion.div
         className="w-full max-w-md"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <motion.div
-            className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4"
+            className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-blue-600 rounded-2xl mb-3 sm:mb-4"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.4, delay: 0.2 }}
           >
-            <LogIn className="h-8 w-8 text-white" />
+            <LogIn className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
           </motion.div>
-          <h1 className="text-3xl font-heading font-bold text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to your CivicResolve account</p>
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-gray-900 mb-2">Welcome Back</h1>
+          <p className="text-sm sm:text-base text-gray-600">Sign in to your CivicResolve account</p>
         </div>
 
         <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl font-heading text-center">Sign In</CardTitle>
+          <CardHeader className="space-y-1 pb-4 px-4 sm:px-6 pt-4 sm:pt-6">
+            <CardTitle className="text-lg sm:text-xl font-heading text-center">Sign In</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="Enter your email"
                   {...register("email")}
-                  className={errors.email ? "border-red-500" : ""}
+                  className={`h-11 text-base ${errors.email ? "border-red-500" : ""}`}
                 />
                 {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     {...register("password")}
-                    className={`pr-10 ${errors.password ? "border-red-500" : ""}`}
+                    className={`pr-10 h-11 text-base ${errors.password ? "border-red-500" : ""}`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 touch-target-small"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -104,7 +104,11 @@ export default function LoginPage() {
                 {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white touch-target h-12 text-base font-medium" 
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -119,10 +123,10 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-4 sm:mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{" "}
-                <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+                <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium touch-target-inline">
                   Sign up here
                 </Link>
               </p>
@@ -130,8 +134,8 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500">By signing in, you agree to our Terms of Service and Privacy Policy</p>
+        <div className="mt-4 sm:mt-6 text-center">
+          <p className="text-xs text-gray-500 px-4">By signing in, you agree to our Terms of Service and Privacy Policy</p>
         </div>
       </motion.div>
     </div>

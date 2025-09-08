@@ -18,7 +18,7 @@ interface FilterTabsProps {
 
 export function FilterTabs({ tabs, activeTab, onTabChange, className }: FilterTabsProps) {
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
+    <div className={cn("flex flex-wrap gap-2 sm:gap-3", className)}>
       {tabs.map((tab, index) => (
         <motion.button
           key={tab.id}
@@ -29,17 +29,17 @@ export function FilterTabs({ tabs, activeTab, onTabChange, className }: FilterTa
           whileTap={{ scale: 0.98 }}
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            "relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            "border border-gray-200 bg-white/80 backdrop-blur-sm",
-            "hover:bg-white hover:shadow-sm",
+            "relative px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200",
+            "border border-gray-200 bg-white/80 backdrop-blur-sm touch-target-small",
+            "hover:bg-white hover:shadow-sm min-h-touch",
             activeTab === tab.id && "bg-blue-600 text-white border-blue-600 shadow-sm",
           )}
         >
-          <span>{tab.label}</span>
+          <span className="whitespace-nowrap">{tab.label}</span>
           {tab.count !== undefined && (
             <motion.span
               className={cn(
-                "ml-2 px-2 py-0.5 rounded-full text-xs",
+                "ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs",
                 activeTab === tab.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600",
               )}
               initial={{ scale: 0.8 }}

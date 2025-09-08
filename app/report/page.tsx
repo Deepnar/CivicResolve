@@ -211,15 +211,16 @@ export default function ReportIssuePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <PageHeader
           title="Report an Issue"
           description="Help improve your community by reporting civic issues"
           icon={Send}
         >
-          <Button variant="outline" className="gap-2 bg-transparent" onClick={() => router.push('/')}>
+          <Button variant="outline" className="gap-2 bg-transparent touch-target" onClick={() => router.push('/')}>
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </PageHeader>
 
@@ -229,31 +230,31 @@ export default function ReportIssuePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* Form */}
             <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-heading">Issue Details</CardTitle>
+              <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
+                <CardTitle className="font-heading text-lg sm:text-xl">Issue Details</CardTitle>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
                   {/* Title */}
                   <div className="space-y-2">
-                    <Label htmlFor="title">Issue Title *</Label>
+                    <Label htmlFor="title" className="text-sm font-medium">Issue Title *</Label>
                     <Input
                       id="title"
                       placeholder="Brief, descriptive title of the issue"
                       {...register("title")}
-                      className={errors.title ? "border-red-500" : ""}
+                      className={`h-11 text-base ${errors.title ? "border-red-500" : ""}`}
                     />
                     {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
                   </div>
 
                   {/* Category */}
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category *</Label>
+                    <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
                     <Select onValueChange={(value) => setValue("category", value as IssueCategory)}>
-                      <SelectTrigger className={errors.category ? "border-red-500" : ""}>
+                      <SelectTrigger className={`h-11 ${errors.category ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Select issue category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -272,33 +273,33 @@ export default function ReportIssuePage() {
 
                   {/* Description */}
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
+                    <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
                     <Textarea
                       id="description"
                       placeholder="Provide detailed information about the issue, including any relevant context or urgency"
                       rows={4}
                       {...register("description")}
-                      className={errors.description ? "border-red-500" : ""}
+                      className={`min-h-[100px] text-base resize-none ${errors.description ? "border-red-500" : ""}`}
                     />
                     {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
                   </div>
 
                   {/* Location */}
                   <div className="space-y-2">
-                    <Label htmlFor="address">Location *</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="address" className="text-sm font-medium">Location *</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <AddressAutocomplete
                         value={currentAddress || ""}
                         onChange={(value) => setValue("address", value)}
                         onSelect={handleAddressSelect}
                         placeholder="Start typing an address in Mumbai..."
-                        className={`flex-1 ${errors.address ? "border-red-500" : ""}`}
+                        className={`flex-1 h-11 text-base ${errors.address ? "border-red-500" : ""}`}
                       />
                       <Button
                         type="button"
                         variant="outline"
+                        className="touch-target w-full sm:w-auto shrink-0"
                         onClick={() => setShowLocationPicker(true)}
-                        className="shrink-0"
                       >
                         Pick on Map
                       </Button>
@@ -308,19 +309,20 @@ export default function ReportIssuePage() {
 
                   {/* Image Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="image">Photo (Optional)</Label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <Label htmlFor="image" className="text-sm font-medium">Photo (Optional)</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
                       {imagePreview ? (
-                        <div className="space-y-4">
+                        <div className="space-y-3 sm:space-y-4">
                           <img
                             src={imagePreview || "/placeholder.svg"}
                             alt="Preview"
-                            className="max-h-48 mx-auto rounded-lg object-cover"
+                            className="max-h-32 sm:max-h-48 mx-auto rounded-lg object-cover"
                           />
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="touch-target"
                             onClick={() => {
                               setSelectedImage(null)
                               setImagePreview(null)
@@ -332,7 +334,7 @@ export default function ReportIssuePage() {
                       ) : (
                         <div className="space-y-2">
                           <div className="text-gray-500">
-                            <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <svg className="mx-auto h-8 w-8 sm:h-12 sm:w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                               <path
                                 d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
                                 strokeWidth={2}
@@ -342,7 +344,7 @@ export default function ReportIssuePage() {
                             </svg>
                           </div>
                           <div className="text-sm text-gray-600">
-                            <label htmlFor="image-upload" className="cursor-pointer text-blue-600 hover:text-blue-500">
+                            <label htmlFor="image-upload" className="cursor-pointer text-blue-600 hover:text-blue-500 touch-target-inline">
                               Upload a photo
                             </label>
                             <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
@@ -362,7 +364,7 @@ export default function ReportIssuePage() {
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white touch-target h-12 text-base font-medium"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
@@ -382,12 +384,12 @@ export default function ReportIssuePage() {
             </Card>
 
             {/* Preview/Tips */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
-                <CardHeader>
-                  <CardTitle className="font-heading">Reporting Tips</CardTitle>
+                <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
+                  <CardTitle className="font-heading text-lg sm:text-xl">Reporting Tips</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3 sm:space-y-4">
                   <div className="space-y-3 text-sm text-gray-600">
                     <div className="flex gap-3">
                       <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0" />

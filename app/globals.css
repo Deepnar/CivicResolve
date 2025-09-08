@@ -133,3 +133,40 @@
     @apply font-heading;
   }
 }
+
+/* Mobile optimizations */
+@layer utilities {
+  /* Improved mobile touch targets */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Better mobile spacing */
+  .mobile-container {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Mobile-first text sizing */
+  .heading-mobile {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .subheading-mobile {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  /* Mobile grid layouts */
+  .mobile-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6;
+  }
+  
+  /* Mobile buttons */
+  .btn-mobile {
+    @apply w-full sm:w-auto px-4 py-2.5 text-sm;
+  }
+  
+  /* Mobile cards */
+  .card-mobile {
+    @apply p-3 sm:p-4 lg:p-6;
+  }
+}
