@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3 } from "lucide-react"
+import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -14,10 +14,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
+import { usePWAInstall } from "@/hooks/use-pwa-install"
+import { useToast } from "@/hooks/use-toast"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const { user, logout } = useAuth()
+  const { canInstall, isIOS, installApp } = usePWAInstall()
+  const { toast } = useToast()
+
+  const handleInstallApp = async () => {
+    try {
+      await installApp()
+      if (!isIOS) {
+        toast({
+          title: "Installing App",
+          description: "CivicResolve is being added to your device.",
+        })
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Installation Failed",
+        description: "Unable to install the app. Please try again.",
+      })
+    }
+  }
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -104,6 +126,16 @@ export function Navbar() {
                       Profile
                     </Link>
                   </DropdownMenuItem>
+                  {canInstall && (
+                    <DropdownMenuItem onClick={handleInstallApp} className="flex items-center text-blue-600">
+                      {isIOS ? (
+                        <Smartphone className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      {isIOS ? "Add to Home Screen" : "Install App"}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
@@ -164,6 +196,26 @@ export function Navbar() {
                       <span>{item.name}</span>
                     </Link>
                   ))}
+                </>
+              )}
+
+              {canInstall && (
+                <>
+                  <div className="border-t border-gray-200 my-2" />
+                  <button
+                    onClick={() => {
+                      handleInstallApp()
+                      setIsOpen(false)
+                    }}
+                    className="flex items-center space-x-2 px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors w-full text-left"
+                  >
+                    {isIOS ? (
+                      <Smartphone className="h-4 w-4" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    <span>{isIOS ? "Add to Home Screen" : "Install App"}</span>
+                  </button>
                 </>
               )}
             </div>

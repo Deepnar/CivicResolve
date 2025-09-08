@@ -28,6 +28,11 @@ export function PWAInstallPrompt() {
     setIsIOS(isIOSDevice)
     console.log('PWA: iOS device detected:', isIOSDevice)
 
+    // Listen for custom iOS instruction event
+    const handleShowIOSInstructions = () => {
+      setShowIOSInstructions(true)
+    }
+
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       console.log('PWA: beforeinstallprompt event fired')
@@ -58,10 +63,12 @@ export function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
+    window.addEventListener('show-ios-install-instructions', handleShowIOSInstructions)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
+      window.removeEventListener('show-ios-install-instructions', handleShowIOSInstructions)
     }
   }, [toast])
 
