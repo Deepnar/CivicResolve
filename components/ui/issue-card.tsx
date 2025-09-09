@@ -17,22 +17,19 @@ interface IssueCardProps {
   onClick?: () => void
   className?: string
   showReporter?: boolean
-  disableAnimations?: boolean
 }
 
-export function IssueCard({ issue, onClick, className, showReporter = true, disableAnimations = false }: IssueCardProps) {
+export function IssueCard({ issue, onClick, className, showReporter = true }: IssueCardProps) {
   // Handle both database count fields and array lengths
   const voteCount = (issue as any).votes_count || issue.votes?.length || 0
   const commentCount = (issue as any).comments_count || issue.comments?.length || 0
 
   return (
     <motion.div
-      {...(!disableAnimations && {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        whileHover: { y: -2, scale: 1.01 },
-        transition: { duration: 0.2 }
-      })}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, scale: 1.01 }}
+      transition={{ duration: 0.2 }}
       className={cn("cursor-pointer w-full", className)}
       onClick={onClick}
     >
@@ -42,21 +39,17 @@ export function IssueCard({ issue, onClick, className, showReporter = true, disa
             <div className="flex-1 min-w-0">
               <motion.h3
                 className="font-heading font-semibold text-gray-900 line-clamp-2 text-base sm:text-lg leading-tight"
-                {...(!disableAnimations && {
-                  initial: { opacity: 0 },
-                  animate: { opacity: 1 },
-                  transition: { delay: 0.1 }
-                })}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 }}
               >
                 {issue.title}
               </motion.h3>
               <motion.p
                 className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 line-clamp-2"
-                {...(!disableAnimations && {
-                  initial: { opacity: 0 },
-                  animate: { opacity: 1 },
-                  transition: { delay: 0.2 }
-                })}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
               >
                 {issue.description}
               </motion.p>

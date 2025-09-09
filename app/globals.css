@@ -141,14 +141,6 @@
     @apply min-h-[44px] min-w-[44px];
   }
   
-  .touch-target-small {
-    @apply min-h-[40px] min-w-[40px];
-  }
-  
-  .touch-target-inline {
-    @apply inline-block min-h-[44px] py-2 px-1;
-  }
-  
   /* Better mobile spacing */
   .mobile-container {
     @apply px-4 sm:px-6 lg:px-8;
@@ -176,53 +168,5 @@
   /* Mobile cards */
   .card-mobile {
     @apply p-3 sm:p-4 lg:p-6;
-  }
-  
-  /* Performance optimizations - reduce animations on mobile */
-  @media (max-width: 768px) {
-    * {
-      animation-duration: 0.2s !important;
-      transition-duration: 0.2s !important;
-    }
-    
-    /* Disable expensive transforms on mobile */
-    .no-mobile-transform {
-      transform: none !important;
-    }
-    
-    /* Reduce motion for users who prefer it */
-    @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-        transform: none !important;
-      }
-    }
-  }
-  
-  /* Line clamping utilities for mobile text overflow */
-  .line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  
-  .line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 }

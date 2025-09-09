@@ -14,13 +14,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Navbar } from "@/components/navigation/navbar"
 import { useAuth } from "@/hooks/use-auth"
-import { useIsMobile, useReducedMotion } from "@/hooks/use-mobile-performance"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
-  const isMobile = useIsMobile()
-  const prefersReducedMotion = useReducedMotion()
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
   const [activeStatusTab, setActiveStatusTab] = useState("all")
@@ -34,9 +31,6 @@ export default function HomePage() {
     totalVotes: 0,
     totalComments: 0
   })
-
-  // Disable animations on mobile or for users who prefer reduced motion
-  const shouldAnimate = !isMobile && !prefersReducedMotion
 
   useEffect(() => {
     const fetchIssues = async () => {
@@ -194,7 +188,6 @@ export default function HomePage() {
                 label: "this month",
                 isPositive: true,
               }}
-              disableAnimations={!shouldAnimate}
             />
             <StatsCard
               title="Resolved Issues"
@@ -206,7 +199,6 @@ export default function HomePage() {
                 label: "this month",
                 isPositive: true,
               }}
-              disableAnimations={!shouldAnimate}
             />
             <StatsCard
               title="Active Users"
@@ -218,7 +210,6 @@ export default function HomePage() {
                 label: "this month",
                 isPositive: true,
               }}
-              disableAnimations={!shouldAnimate}
             />
             <StatsCard
               title="Response Time"
@@ -230,18 +221,15 @@ export default function HomePage() {
                 label: "improved",
                 isPositive: true,
               }}
-              disableAnimations={!shouldAnimate}
             />
           </div>
         </div>
       </section>        {/* Search and Filters */}
         <motion.div
           className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 space-y-4 sm:space-y-6"
-          {...(shouldAnimate && {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.3, delay: 0.2 }
-          })}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
         >
           <div className="flex flex-col gap-4">
             <div className="w-full">
@@ -267,13 +255,7 @@ export default function HomePage() {
         </motion.div>
 
         {/* Issues List */}
-        <motion.div 
-          {...(shouldAnimate && {
-            initial: { opacity: 0 },
-            animate: { opacity: 1 },
-            transition: { duration: 0.3, delay: 0.3 }
-          })}
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.4 }}>
           {loading ? (
             <div className="flex justify-center py-8 sm:py-12">
               <LoadingSpinner size="lg" text="Loading issues..." />
@@ -293,18 +275,12 @@ export default function HomePage() {
               {filteredIssues.map((issue, index) => (
                 <motion.div
                   key={issue.id}
-                  {...(shouldAnimate && {
-                    initial: { opacity: 0, y: 20 },
-                    animate: { opacity: 1, y: 0 },
-                    transition: { duration: 0.2, delay: Math.min(index * 0.05, 0.3) }
-                  })}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
                   className="w-full"
                 >
-                  <IssueCard 
-                    issue={issue} 
-                    onClick={() => (window.location.href = `/issues/${issue.id}`)}
-                    disableAnimations={!shouldAnimate}
-                  />
+                  <IssueCard issue={issue} onClick={() => (window.location.href = `/issues/${issue.id}`)} />
                 </motion.div>
               ))}
             </div>

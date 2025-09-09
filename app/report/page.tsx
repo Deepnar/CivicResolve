@@ -23,7 +23,6 @@ import { ISSUE_CATEGORIES } from "@/lib/constants"
 import type { IssueCategory } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
-import { useIsMobile, useReducedMotion } from "@/hooks/use-mobile-performance"
 
 // Load LocationPicker dynamically with SSR disabled
 const LocationPicker = dynamic(() => import("@/components/location-picker"), {
@@ -48,15 +47,10 @@ export default function ReportIssuePage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
-  const isMobile = useIsMobile()
-  const prefersReducedMotion = useReducedMotion()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
-
-  // Disable animations on mobile or for users who prefer reduced motion
-  const shouldAnimate = !isMobile && !prefersReducedMotion
 
   const {
     register,
@@ -232,11 +226,9 @@ export default function ReportIssuePage() {
 
         <motion.div
           className="max-w-4xl mx-auto"
-          {...(shouldAnimate && {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.3, delay: 0.1 }
-          })}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* Form */}
