@@ -17,6 +17,7 @@ interface StatsCardProps {
   }
   className?: string
   color?: string
+  disableAnimations?: boolean
 }
 
 export function StatsCard({
@@ -27,13 +28,16 @@ export function StatsCard({
   trend,
   className,
   color = "#3b82f6",
+  disableAnimations = false,
 }: StatsCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      transition={{ duration: 0.2 }}
+      {...(!disableAnimations && {
+        initial: { opacity: 0, scale: 0.95 },
+        animate: { opacity: 1, scale: 1 },
+        whileHover: { scale: 1.02 },
+        transition: { duration: 0.2 }
+      })}
       className={cn("w-full", className)}
     >
       <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300">
@@ -44,8 +48,10 @@ export function StatsCard({
           <motion.div
             className="rounded-lg p-1.5 sm:p-2 flex-shrink-0"
             style={{ backgroundColor: `${color}15` }}
-            whileHover={{ rotate: 5 }}
-            transition={{ duration: 0.2 }}
+            {...(!disableAnimations && {
+              whileHover: { rotate: 5 },
+              transition: { duration: 0.2 }
+            })}
           >
             <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color }} />
           </motion.div>
