@@ -347,6 +347,10 @@ export default function ReportIssuePage() {
                             <label htmlFor="image-upload" className="cursor-pointer text-blue-600 hover:text-blue-500 touch-target-inline">
                               Upload a photo
                             </label>
+                              <span className="mx-2 text-gray-400">|</span>
+                              <label htmlFor="camera-upload" className="cursor-pointer text-green-600 hover:text-green-500 touch-target-inline">
+                                Take Photo
+                              </label>
                             <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
                           </div>
                           <input
@@ -356,6 +360,14 @@ export default function ReportIssuePage() {
                             onChange={handleImageUpload}
                             className="hidden"
                           />
+                            <input
+                              id="camera-upload"
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
                         </div>
                       )}
                     </div>
