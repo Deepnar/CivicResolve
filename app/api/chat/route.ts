@@ -3,13 +3,177 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
 
+// TypeScript interfaces for database query results
+interface IssueDetailsResult {
+  id: number
+  title: string
+  description: string
+  category: string
+  status: string
+  priority: string
+  latitude: number
+  longitude: number
+  address: string
+  image_url?: string
+  created_at: Date
+  updated_at: Date
+  reporter_name: string
+  comment_count: number
+  vote_count: number
+}
+
+interface CommentResult {
+  id: number
+  content: string
+  user_name: string
+  created_at: Date
+}
+
+interface CountResult {
+  count: number
+  total?: number
+}
+
+interface LocationStatsResult {
+  status: string
+  category: string
+  priority: string
+  count: number
+}
+
+interface StatusResult {
+  status: string
+  count: number
+}
+
+interface CategoryResult {
+  category: string
+  count: number
+}
+
+interface PriorityResult {
+  priority: string
+  count: number
+}
+
+interface LocationResult {
+  address: string
+  count: number
+}
+
+interface TrendResult {
+  week_number: number
+  count: number
+}
+
+interface UserEngagementResult {
+  user_name: string
+  total_activity: number
+}
+
+interface UrgentIssueResult {
+  id: number
+  title: string
+  category: string
+  address: string
+  created_at: Date
+}
+
+interface ResolutionTimeResult {
+  avg_days: number
+}
+
+interface VoteResult {
+  issue_id: number
+  title: string
+  category: string
+  total_votes: number
+}
+
+interface UserStatsResult {
+  issues_reported: number
+  comments_made: number
+  votes_cast: number
+}
+
+interface LongStandingIssueResult {
+  id: number
+  title: string
+  category: string
+  priority: string
+  address: string
+  created_at: Date
+  days_open: number
+}
+
+interface LocationStatsResult {
+  status: string
+  category: string
+  priority: string
+  count: number
+  avg_days_open: number
+}
+
+interface PriorityResult {
+  priority: string
+  count: number
+}
+
+interface LocationResult {
+  address: string
+  count: number
+}
+
+interface TrendResult {
+  date: string
+  issues_reported: number
+  category: string
+}
+
+interface UserEngagementResult {
+  id: number
+  name: string
+  email: string
+  issues_reported: number
+  comments_made: number
+  votes_cast: number
+}
+
+interface UrgentIssueResult {
+  id: number
+  title: string
+  category: string
+  priority: string
+  address: string
+  created_at: Date
+  description: string
+  status?: string
+}
+
+interface AvgResolutionResult {
+  avg_days: number
+  category: string
+  resolved_count: number
+}
+
+interface IssueWithVotesResult {
+  id: number
+  title: string
+  category: string
+  status: string
+  priority: string
+  address: string
+  created_at: Date
+  vote_count: number
+}
+
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Function to get specific issue details if mentioned
 async function getIssueDetails(issueId: string) {
   try {
-    const issue = await Database.queryOne(`
+    const issue = await Database.queryOne<IssueDetailsResult>(`
       SELECT i.*, u.name as reporter_name,
              COUNT(DISTINCT c.id) as comment_count,
              COUNT(DISTINCT v.id) as vote_count
@@ -43,7 +207,7 @@ async function getIssueDetails(issueId: string) {
 // Function to get location-specific statistics
 async function getLocationStats(location: string) {
   try {
-    const locationData = await Database.query(`
+    const locationData = await Database.query<LocationStatsResult>(`
       SELECT 
         status,
         category,
@@ -55,7 +219,7 @@ async function getLocationStats(location: string) {
       GROUP BY status, category, priority
     `, [`%${location}%`]);
 
-    const totalLocationIssues = await Database.queryOne(`
+    const totalLocationIssues = await Database.queryOne<CountResult>(`
       SELECT COUNT(*) as total FROM issues WHERE address LIKE ?
     `, [`%${location}%`]);
 
@@ -71,23 +235,23 @@ async function getLocationStats(location: string) {
 async function getPlatformStatistics() {
   try {
     // Get total counts with safe fallbacks
-    const totalIssuesResult = await Database.query('SELECT COUNT(*) as count FROM issues');
-    const totalUsersResult = await Database.query('SELECT COUNT(*) as count FROM users');
-    const totalCommentsResult = await Database.query('SELECT COUNT(*) as count FROM comments');
+    const totalIssuesResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM issues');
+    const totalUsersResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM users');
+    const totalCommentsResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM comments');
 
     const totalIssues = totalIssuesResult?.[0]?.count || 0;
     const totalUsers = totalUsersResult?.[0]?.count || 0;
     const totalComments = totalCommentsResult?.[0]?.count || 0;
 
     // Get issues by status
-    const issuesByStatus = await Database.query(`
+    const issuesByStatus = await Database.query<StatusResult>(`
       SELECT status, COUNT(*) as count 
       FROM issues 
       GROUP BY status
     `);
 
     // Get issues by category
-    const issuesByCategory = await Database.query(`
+    const issuesByCategory = await Database.query<CategoryResult>(`
       SELECT category, COUNT(*) as count 
       FROM issues 
       GROUP BY category 
@@ -95,14 +259,14 @@ async function getPlatformStatistics() {
     `);
 
     // Get issues by priority
-    const issuesByPriority = await Database.query(`
+    const issuesByPriority = await Database.query<PriorityResult>(`
       SELECT priority, COUNT(*) as count 
       FROM issues 
       GROUP BY priority
     `);
 
     // Get long-standing issues (older than 30 days without resolution)
-    const longStandingIssues = await Database.query(`
+    const longStandingIssues = await Database.query<LongStandingIssueResult>(`
       SELECT id, title, category, priority, address, created_at,
              DATEDIFF(NOW(), created_at) as days_open
       FROM issues 
@@ -112,7 +276,7 @@ async function getPlatformStatistics() {
     `);
 
     // Get issues by location/area
-    const issuesByLocation = await Database.query(`
+    const issuesByLocation = await Database.query<LocationResult>(`
       SELECT address, COUNT(*) as count 
       FROM issues 
       WHERE address IS NOT NULL AND address != ''
@@ -122,7 +286,7 @@ async function getPlatformStatistics() {
     `);
 
     // Get recent activity trends (last 30 days)
-    const recentTrends = await Database.query(`
+    const recentTrends = await Database.query<TrendResult>(`
       SELECT 
         DATE(created_at) as date,
         COUNT(*) as issues_reported,
@@ -134,7 +298,7 @@ async function getPlatformStatistics() {
     `);
 
     // Get user engagement stats
-    const userEngagement = await Database.query(`
+    const userEngagement = await Database.query<UserEngagementResult>(`
       SELECT 
         u.id,
         u.name,
@@ -153,7 +317,7 @@ async function getPlatformStatistics() {
     `);
 
     // Get issues needing immediate attention (high priority + recent)
-    const urgentIssues = await Database.query(`
+    const urgentIssues = await Database.query<UrgentIssueResult>(`
       SELECT id, title, category, priority, address, created_at, description
       FROM issues 
       WHERE priority = 'HIGH' AND status IN ('PENDING', 'IN_PROGRESS')
@@ -162,7 +326,7 @@ async function getPlatformStatistics() {
     `);
 
     // Calculate resolution times
-    const avgResolutionTime = await Database.query(`
+    const avgResolutionTime = await Database.query<AvgResolutionResult>(`
       SELECT 
         AVG(DATEDIFF(updated_at, created_at)) as avg_days,
         category,
@@ -173,7 +337,7 @@ async function getPlatformStatistics() {
     `);
 
     // Get issues with vote counts (most voted issues)
-    const issuesWithVotes = await Database.query(`
+    const issuesWithVotes = await Database.query<IssueWithVotesResult>(`
       SELECT 
         i.id, 
         i.title, 
@@ -217,7 +381,7 @@ async function getPlatformStatistics() {
 // Function to get current user's statistics
 async function getCurrentUserStats(userId: number) {
   try {
-    const userStats = await Database.queryOne(`
+    const userStats = await Database.queryOne<UserStatsResult>(`
       SELECT 
         u.id,
         u.name,

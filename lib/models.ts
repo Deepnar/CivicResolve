@@ -141,7 +141,7 @@ export class IssueModel {
       issueData.latitude,
       issueData.longitude,
       issueData.address,
-      issueData.image_url,
+      issueData.image_url || null,
       issueData.reporter_id,
     ]);
   }
@@ -260,7 +260,7 @@ export class VoteModel {
 
   static async getCountByIssue(issueId: number): Promise<number> {
     const sql = 'SELECT COUNT(*) as count FROM votes WHERE issue_id = ?';
-    const result = await Database.queryOne(sql, [issueId]);
+    const result = await Database.queryOne<{ count: number }>(sql, [issueId]);
     return result ? result.count : 0;
   }
 

@@ -1,20 +1,64 @@
 import type { NextRequest } from "next/server"
 import { Database } from "@/lib/db"
 
+// TypeScript interfaces for database query results
+interface CountResult {
+  count: number
+}
+
+interface CategoryResult {
+  category: string
+  count: number
+}
+
+interface StatusResult {
+  status: string
+  count: number
+}
+
+interface TopUserResult {
+  name: string
+  issueCount: number
+  points: number
+}
+
+interface AvgResolutionResult {
+  avgDays: number | null
+}
+
+interface TrendResult {
+  date: string
+  count: number
+}
+
+interface IssuesOverTimeResult {
+  date: string | null
+  pending: number
+  inProgress: number
+  resolved: number
+}
+
+interface TopReporterResult {
+  id: number
+  name: string
+  issueCount: number
+  points: number
+}
+
 // GET /api/analytics - Get comprehensive analytics for admin dashboard
 export async function GET(request: NextRequest) {
   try {
     // Get basic statistics
-    const totalIssues = await Database.queryOne("SELECT COUNT(*) as count FROM issues")
-    const resolvedIssues = await Database.queryOne("SELECT COUNT(*) as count FROM issues WHERE status = 'RESOLVED'")
-    const pendingIssues = await Database.queryOne("SELECT COUNT(*) as count FROM issues WHERE status = 'PENDING'")
-    const inProgressIssues = await Database.queryOne("SELECT COUNT(*) as count FROM issues WHERE status = 'IN_PROGRESS'")
-    const totalUsers = await Database.queryOne("SELECT COUNT(*) as count FROM users")
-    const totalVotes = await Database.queryOne("SELECT COUNT(*) as count FROM votes")
-    const totalComments = await Database.queryOne("SELECT COUNT(*) as count FROM comments")
+    const totalIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues")
+    const resolvedIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'RESOLVED'")
+    const pendingIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'PENDING'")
+    const inProgressIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'IN_PROGRESS'")
+    const totalUsers = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM users")
+    const totalVotes = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM votes")
+    const totalComments = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM comments")
 
     // Issues by category
-    const issuesByCategory = await Database.query(`
+    const issuesByCategory = await Database.query<CategoryResult>(`
       SELECT category, COUNT(*) as count 
       FROM issues 
       GROUP BY category 
@@ -22,7 +66,7 @@ export async function GET(request: NextRequest) {
     `)
 
     // Issues by status
-    const issuesByStatus = await Database.query(`
+    const issuesByStatus = await Database.query<StatusResult>(`
       SELECT status, COUNT(*) as count 
       FROM issues 
       GROUP BY status 
@@ -30,7 +74,7 @@ export async function GET(request: NextRequest) {
     `)
 
     // Issues over time (last 4 weeks) - MySQL date functions
-    const issuesOverTime = await Database.query(`
+    const issuesOverTime = await Database.query<IssuesOverTimeResult>(`
       SELECT 
         CASE 
           WHEN DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 'This Week'
@@ -55,7 +99,7 @@ export async function GET(request: NextRequest) {
     `)
 
     // Top reporters (users with most reported issues)
-    const topReporters = await Database.query(`
+    const topReporters = await Database.query<TopReporterResult>(`
       SELECT 
         u.id,
         u.name,
@@ -72,7 +116,7 @@ export async function GET(request: NextRequest) {
     `)
 
     // Calculate average resolution time (simplified - days between created and now for resolved issues)
-    const avgResolutionResult = await Database.queryOne(`
+    const avgResolutionResult = await Database.queryOne<AvgResolutionResult>(`
       SELECT AVG(DATEDIFF(NOW(), created_at)) as avgDays
       FROM issues 
       WHERE status = 'RESOLVED'
@@ -81,7 +125,7 @@ export async function GET(request: NextRequest) {
       Math.round(avgResolutionResult.avgDays * 10) / 10 : 0
 
     // Recent issues (last 30 days)
-    const recentIssues = await Database.queryOne(`
+    const recentIssues = await Database.queryOne<CountResult>(`
       SELECT COUNT(*) as count 
       FROM issues 
       WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { IssueModel, AuthUtils } from "@/lib/db"
+import { PerformanceMonitor } from "@/lib/performance"
 
 const createIssueSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -15,6 +16,8 @@ const createIssueSchema = z.object({
 
 // GET /api/issues - Get all issues with filters
 export async function GET(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('GET /api/issues')
+  
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category") || undefined
@@ -63,8 +66,10 @@ export async function GET(request: NextRequest) {
       updatedAt: new Date(issue.updated_at)
     }))
 
+    endTimer()
     return Response.json({ issues })
   } catch (error) {
+    endTimer()
     console.error("Error fetching issues:", error)
     return Response.json({ error: "Failed to fetch issues" }, { status: 500 })
   }
@@ -72,6 +77,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/issues - Create a new issue
 export async function POST(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('POST /api/issues')
+  
   try {
     // Require authentication
     const user = await AuthUtils.requireAuth(request)
@@ -101,6 +108,7 @@ export async function POST(request: NextRequest) {
     // Award points to the user for reporting an issue
     // await UserModel.updatePoints(user.id, 10) // 10 points for reporting
 
+    endTimer()
     return Response.json(
       {
         issue,
@@ -109,6 +117,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    endTimer()
     console.error("Error creating issue:", error)
     
     if (error instanceof z.ZodError) {

@@ -1,5 +1,13 @@
-import mysql from 'mysql2/promise';
-import { logger } from './logger';
+import mysql from 'mysql2/promise'
+import { logger } from './logger'
+import type { 
+  DatabaseParams, 
+  SelectResult, 
+  InsertResult, 
+  UpdateResult, 
+  DeleteResult,
+  QueryResult 
+} from './database-types'
 
 export interface DatabaseConfig {
   host: string;
@@ -126,9 +134,9 @@ class DatabaseManager {
     }
   }
 
-  public async executeQuery<T = any>(
+  public async executeQuery<T extends SelectResult<any> | InsertResult | UpdateResult | DeleteResult>(
     query: string, 
-    params: any[] = [],
+    params: DatabaseParams = [],
     operation?: string
   ): Promise<T> {
     const pool = this.getPool();
@@ -200,7 +208,7 @@ const databaseManager = new DatabaseManager();
 
 // Export the main interface
 export const db = {
-  query: <T = any>(query: string, params?: any[], operation?: string) => 
+  query: <T extends SelectResult<any>>(query: string, params?: DatabaseParams, operation?: string) => 
     databaseManager.executeQuery<T>(query, params, operation),
   
   transaction: <T>(callback: (connection: mysql.PoolConnection) => Promise<T>) => 
@@ -219,27 +227,27 @@ export { mysql };
 
 // Backward compatibility Database class for models.ts
 export class Database {
-  static async queryOne<T = any>(query: string, params: any[] = []): Promise<T | null> {
+  static async queryOne<T extends SelectResult<any>>(query: string, params: DatabaseParams = []): Promise<T | null> {
     const results = await db.query<T[]>(query, params, 'queryOne');
     return Array.isArray(results) && results.length > 0 ? results[0] : null;
   }
 
-  static async query<T = any>(query: string, params: any[] = []): Promise<T[]> {
+  static async query<T extends SelectResult<any>>(query: string, params: DatabaseParams = []): Promise<T[]> {
     const results = await db.query<T[]>(query, params, 'query');
     return Array.isArray(results) ? results : [];
   }
 
-  static async insert(query: string, params: any[] = []): Promise<number> {
+  static async insert(query: string, params: DatabaseParams = []): Promise<number> {
     const results = await db.query<mysql.ResultSetHeader>(query, params, 'insert');
     return results.insertId;
   }
 
-  static async update(query: string, params: any[] = []): Promise<number> {
+  static async update(query: string, params: DatabaseParams = []): Promise<number> {
     const results = await db.query<mysql.ResultSetHeader>(query, params, 'update');
     return results.affectedRows || 0;
   }
 
-  static async delete(query: string, params: any[] = []): Promise<number> {
+  static async delete(query: string, params: DatabaseParams = []): Promise<number> {
     const results = await db.query<mysql.ResultSetHeader>(query, params, 'delete');
     return results.affectedRows || 0;
   }

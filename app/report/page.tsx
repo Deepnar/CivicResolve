@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { logger } from "@/lib/logger"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -168,7 +169,10 @@ export default function ReportIssuePage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('API Error:', errorData) // Debug log
+        logger.error('Issue submission failed', undefined, 'ReportPage', { 
+          status: response.status, 
+          errorData 
+        })
         
         if (errorData.details) {
           // Show specific validation errors
@@ -198,7 +202,7 @@ export default function ReportIssuePage() {
       // Reset form or redirect
       router.push("/")
     } catch (error) {
-      console.error("Error submitting issue:", error)
+      logger.error('Issue submission error', error instanceof Error ? error : new Error(String(error)), 'ReportPage')
       toast({
         variant: "destructive",
         title: "Error",
