@@ -4,6 +4,7 @@ import { UserModel, AuthUtils } from "@/lib/db"
 import { ApiResponseHandler } from "@/lib/api-response"
 import { InputSanitizer, CommonSchemas } from "@/lib/input-sanitizer"
 import { withRateLimit } from "@/lib/rate-limiter"
+import { PerformanceMonitor } from "@/lib/performance"
 
 const loginSchema = z.object({
   email: CommonSchemas.email,
@@ -11,6 +12,8 @@ const loginSchema = z.object({
 })
 
 async function loginHandler(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('POST /api/auth/login')
+  
   try {
     const body = await request.json()
     
@@ -25,12 +28,14 @@ async function loginHandler(request: NextRequest) {
     // Find user by email
     const user = await UserModel.findByEmail(email)
     if (!user) {
+      endTimer()
       return ApiResponseHandler.unauthorized("Invalid email or password")
     }
 
     // Verify password
     const isValidPassword = await UserModel.verifyPassword(password, user.password!)
     if (!isValidPassword) {
+      endTimer()
       return ApiResponseHandler.unauthorized("Invalid email or password")
     }
 
@@ -62,12 +67,15 @@ async function loginHandler(request: NextRequest) {
       maxAge: 7 * 24 * 60 * 60 // 7 days
     });
 
+    endTimer()
     return response
   } catch (error) {
     if (error instanceof z.ZodError) {
+      endTimer()
       return ApiResponseHandler.validation("Invalid input data", error.errors)
     }
 
+    endTimer()
     return ApiResponseHandler.internal("Login failed", error as Error)
   }
 }

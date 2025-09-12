@@ -3,6 +3,7 @@ import { z } from "zod"
 import { UserModel, AuthUtils } from "@/lib/db"
 import { ApiResponseHandler } from "@/lib/api-response"
 import { CommonSchemas } from "@/lib/input-sanitizer"
+import { PerformanceMonitor } from "@/lib/performance"
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
@@ -11,6 +12,8 @@ const registerSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('POST /api/auth/register')
+  
   try {
     const body = await request.json()
     const { name, email, password } = registerSchema.parse(body)
@@ -18,6 +21,7 @@ export async function POST(request: NextRequest) {
     // Check if user already exists
     const existingUser = await UserModel.findByEmail(email)
     if (existingUser) {
+      endTimer()
       return ApiResponseHandler.conflict("User with this email already exists")
     }
 
@@ -60,12 +64,15 @@ export async function POST(request: NextRequest) {
       maxAge: 7 * 24 * 60 * 60 // 7 days
     });
 
+    endTimer()
     return response
   } catch (error) {
     if (error instanceof z.ZodError) {
+      endTimer()
       return ApiResponseHandler.validation("Invalid registration data", error.errors)
     }
 
+    endTimer()
     return ApiResponseHandler.internal("Registration failed", error as Error)
   }
 }

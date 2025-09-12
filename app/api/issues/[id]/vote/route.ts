@@ -1,11 +1,14 @@
 import type { NextRequest } from "next/server"
 import { VoteModel, AuthUtils } from "@/lib/db"
+import { PerformanceMonitor } from "@/lib/performance"
 
 // POST /api/issues/[id]/vote - Toggle vote for an issue
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const endTimer = PerformanceMonitor.start('POST /api/issues/[id]/vote')
+  
   try {
     // Require authentication
     const user = await AuthUtils.requireAuth(request)
@@ -14,6 +17,7 @@ export async function POST(
     const issueId = Number.parseInt(id)
     
     if (isNaN(issueId)) {
+      endTimer()
       return Response.json({ error: "Invalid issue ID" }, { status: 400 })
     }
 
@@ -39,6 +43,7 @@ export async function POST(
     // Get updated vote count
     votesCount = await VoteModel.getCountByIssue(issueId)
 
+    endTimer()
     return Response.json({
       votesCount,
       hasVoted: !existingVote,
@@ -48,9 +53,11 @@ export async function POST(
     console.error("Error toggling vote:", error)
     
     if (error instanceof Error && error.message === "Authentication required") {
+      endTimer()
       return Response.json({ error: "Authentication required" }, { status: 401 })
     }
 
+    endTimer()
     return Response.json({ error: "Failed to toggle vote" }, { status: 500 })
   }
 }
@@ -60,6 +67,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const endTimer = PerformanceMonitor.start('GET /api/issues/[id]/vote')
+  
   try {
     // Get current user (optional for this endpoint)
     const user = await AuthUtils.getCurrentUser(request)
@@ -68,6 +77,7 @@ export async function GET(
     const issueId = Number.parseInt(id)
     
     if (isNaN(issueId)) {
+      endTimer()
       return Response.json({ error: "Invalid issue ID" }, { status: 400 })
     }
 
@@ -80,12 +90,14 @@ export async function GET(
       hasVoted = !!existingVote
     }
 
+    endTimer()
     return Response.json({
       votesCount,
       hasVoted,
     })
   } catch (error) {
     console.error("Error fetching vote status:", error)
+    endTimer()
     return Response.json({ error: "Failed to fetch vote status" }, { status: 500 })
   }
 }

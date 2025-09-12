@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
+import { PerformanceMonitor } from '@/lib/performance';
 
 // TypeScript interfaces for database query results
 interface IssueDetailsResult {
@@ -405,21 +406,26 @@ async function getCurrentUserStats(userId: number) {
 }
 
 export async function POST(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('POST /api/chat')
+  
   try {
     // Verify authentication
     const user = await AuthUtils.getCurrentUser(request);
     if (!user) {
+      endTimer()
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { message, context } = await request.json();
 
     if (!message) {
+      endTimer()
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
     // Check if API key is configured
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key-here') {
+      endTimer()
       return NextResponse.json(
         { error: 'AI service not configured. Please set GEMINI_API_KEY in environment variables.' },
         { status: 500 }
@@ -606,6 +612,7 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
     const response = await result.response;
     const text = response.text();
 
+    endTimer()
     return NextResponse.json({ 
       response: text,
       timestamp: new Date().toISOString()
@@ -617,12 +624,14 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
     // Handle specific Gemini API errors
     if (error instanceof Error) {
       if (error.message.includes('API_KEY')) {
+        endTimer()
         return NextResponse.json(
           { error: 'AI service configuration error. Please contact support.' },
           { status: 500 }
         );
       }
       if (error.message.includes('SAFETY')) {
+        endTimer()
         return NextResponse.json(
           { error: 'Message content flagged for safety. Please rephrase your question.' },
           { status: 400 }
@@ -630,6 +639,7 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
       }
     }
 
+    endTimer()
     return NextResponse.json(
       { error: 'Unable to process your request. Please try again.' },
       { status: 500 }

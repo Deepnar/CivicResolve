@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server"
 import { Database } from "@/lib/db"
+import { PerformanceMonitor } from "@/lib/performance"
 
 // TypeScript interfaces for database query results
 interface CountResult {
@@ -47,6 +48,8 @@ interface TopReporterResult {
 
 // GET /api/analytics - Get comprehensive analytics for admin dashboard
 export async function GET(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('GET /api/analytics')
+  
   try {
     // Get basic statistics
     const totalIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues")
@@ -158,9 +161,11 @@ export async function GET(request: NextRequest) {
       recentIssues: recentIssues?.count || 0
     }
 
+    endTimer()
     return Response.json({ analytics: analyticsData })
   } catch (error) {
     console.error("Error fetching analytics:", error)
+    endTimer()
     return Response.json({ error: "Failed to fetch analytics" }, { status: 500 })
   }
 }

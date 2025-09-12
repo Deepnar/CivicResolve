@@ -1,8 +1,11 @@
 import type { NextRequest } from "next/server"
 import { Database } from "@/lib/database"
+import { PerformanceMonitor } from "@/lib/performance"
 
 // GET /api/users - Get users with their statistics for admin dashboard
 export async function GET(request: NextRequest) {
+  const endTimer = PerformanceMonitor.start('GET /api/users')
+  
   try {
     // Get users with their statistics using subqueries to avoid GROUP BY issues
     const users = await Database.query(`
@@ -73,7 +76,8 @@ export async function GET(request: NextRequest) {
     const avgPoints = totalUsers > 0 ? Math.round(usersWithStats.reduce((sum, user) => sum + user.points, 0) / totalUsers) : 0
     const totalIssues = usersWithStats.reduce((sum, user) => sum + user.issueCount, 0)
 
-    return Response.json({ 
+    endTimer()
+    return Response.json({
       users: usersWithStats,
       stats: {
         totalUsers,
@@ -85,6 +89,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching users:", error)
     console.error("Error details:", JSON.stringify(error, null, 2))
+    endTimer()
     return Response.json({ error: "Failed to fetch users" }, { status: 500 })
   }
 }
