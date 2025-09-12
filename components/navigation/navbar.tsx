@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { motion } from "framer-motion"
 import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -59,8 +60,14 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <MapPin className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden">
+              <Image
+                src="/icons/logo.png"
+                alt="CivicResolve Logo"
+                width={32}
+                height={32}
+                className="w-full h-full object-contain"
+              />
             </div>
             <span className="font-heading font-bold text-xl text-gray-900">CivicResolve</span>
           </Link>
