@@ -1,15 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet"
 import { LatLng } from "leaflet"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import "leaflet/dist/leaflet.css"
 
-// Fix for default markers in react-leaflet
+// Import Leaflet dynamically to avoid SSR issues
 import L from "leaflet"
+
+// Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
@@ -24,26 +25,6 @@ interface LocationPickerProps {
   initialLng?: number
 }
 
-function MapClickHandler({ onLocationSelect }: { onLocationSelect: (latlng: LatLng) => void }) {
-  useMapEvents({
-    click: (e) => {
-      onLocationSelect(e.latlng)
-    },
-  })
-  return null
-}
-
-// Component to update map view when position changes
-function MapUpdater({ position }: { position: LatLng | null }) {
-  const map = useMap()
-  
-  if (position) {
-    map.setView([position.lat, position.lng], 16)
-  }
-  
-  return null
-}
-
 export default function LocationPicker({ 
   onLocationSelect, 
   initialAddress = "", 
@@ -55,6 +36,11 @@ export default function LocationPicker({
   )
   const [address, setAddress] = useState(initialAddress)
   const [isGeocoding, setIsGeocoding] = useState(false)
+  const [mapKey] = useState(() => `map-${Date.now()}-${Math.random()}`) // Unique key for this map instance
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const mapInstanceRef = useRef<L.Map | null>(null)
+  const markerRef = useRef<L.Marker | null>(null)
 
   // Default to Mumbai, India
   const defaultCenter: [number, number] = [19.0760, 72.8777]
@@ -70,6 +56,63 @@ export default function LocationPicker({
   useEffect(() => {
     setAddress(initialAddress)
   }, [initialAddress])
+
+  // Cleanup any existing map instances when component unmounts
+  useEffect(() => {
+    // Delay mounting to ensure clean state
+    const timer = setTimeout(() => setMounted(true), 50)
+    
+    return () => {
+      clearTimeout(timer)
+      setMounted(false)
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+      if (mapContainerRef.current) {
+        mapContainerRef.current.innerHTML = ''
+      }
+    }
+  }, [])
+
+  // Initialize Leaflet map when mounted
+  useEffect(() => {
+    if (mounted && mapContainerRef.current && !mapInstanceRef.current) {
+      const center = selectedPosition ? [selectedPosition.lat, selectedPosition.lng] as [number, number] : defaultCenter
+      
+      // Create map instance
+      mapInstanceRef.current = L.map(mapContainerRef.current).setView(center, selectedPosition ? 16 : 13)
+      
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(mapInstanceRef.current)
+      
+      // Add click handler
+      mapInstanceRef.current.on('click', (e: L.LeafletMouseEvent) => {
+        handleMapClick(new LatLng(e.latlng.lat, e.latlng.lng))
+      })
+      
+      // Add initial marker if position exists
+      if (selectedPosition) {
+        markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng]).addTo(mapInstanceRef.current)
+      }
+    }
+  }, [mounted, selectedPosition])
+
+  // Update marker when position changes
+  useEffect(() => {
+    if (mapInstanceRef.current && selectedPosition) {
+      // Remove old marker
+      if (markerRef.current) {
+        mapInstanceRef.current.removeLayer(markerRef.current)
+      }
+      
+      // Add new marker
+      markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng]).addTo(mapInstanceRef.current)
+      mapInstanceRef.current.setView([selectedPosition.lat, selectedPosition.lng], 16)
+    }
+  }, [selectedPosition])
 
   const handleMapClick = async (latlng: LatLng) => {
     setSelectedPosition(latlng)
@@ -125,23 +168,19 @@ export default function LocationPicker({
 
       {/* Map */}
       <div className="flex-1 relative">
-        <MapContainer
-          center={selectedPosition ? [selectedPosition.lat, selectedPosition.lng] : defaultCenter}
-          zoom={selectedPosition ? 16 : 13}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          <MapClickHandler onLocationSelect={handleMapClick} />
-          
-          {/* Update map view when position changes */}
-          <MapUpdater position={selectedPosition} />
-
-          {selectedPosition && <Marker position={[selectedPosition.lat, selectedPosition.lng]} />}
-        </MapContainer>
+        <div key={mapKey} className="h-full w-full">
+          {mounted ? (
+            <div 
+              ref={mapContainerRef} 
+              className="h-full w-full"
+              style={{ height: "100%", width: "100%" }}
+            />
+          ) : (
+            <div className="h-full bg-gray-100 flex items-center justify-center">
+              <div className="text-gray-500">Loading map...</div>
+            </div>
+          )}
+        </div>
 
         {/* Instructions overlay */}
         <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
