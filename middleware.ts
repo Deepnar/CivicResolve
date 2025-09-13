@@ -23,13 +23,14 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     // Get origin from request
     const origin = request.headers.get('origin')
+    
+    // Get allowed origins from environment variables
+    const productionOrigin = process.env.CORS_ORIGIN || process.env.NEXT_PUBLIC_BASE_URL || 'https://dev.raunakcodes.me'
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://dev.raunakcodes.me',
-      'https://civic.raunakcodes.me',
-      // Add your production domains here
-      // 'https://yourdomain.com'
+      productionOrigin,
+      // Add additional origins if needed
     ]
 
     // In development, allow localhost

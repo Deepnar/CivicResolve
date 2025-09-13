@@ -20,7 +20,7 @@ class EmailService {
     // Set base URL with proper fallback for production
     this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
                    (process.env.NODE_ENV === 'production' 
-                    ? 'https://dev.raunakcodes.me' 
+                    ? process.env.NEXTAUTH_URL || 'https://dev.raunakcodes.me'
                     : 'http://localhost:3000');
     
     this.transporter = nodemailer.createTransport({
