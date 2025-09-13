@@ -4,6 +4,7 @@ import { UserModel, AuthUtils } from "@/lib/db"
 import { ApiResponseHandler } from "@/lib/api-response"
 import { CommonSchemas } from "@/lib/input-sanitizer"
 import { PerformanceMonitor } from "@/lib/performance"
+import { emailService } from "@/lib/email-service"
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
@@ -25,13 +26,27 @@ export async function POST(request: NextRequest) {
       return ApiResponseHandler.conflict("User with this email already exists")
     }
 
-    // Create user
+    // Generate verification token
+    const verificationToken = emailService.generateVerificationToken()
+    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+    // Create user with verification token
     const userId = await UserModel.create({
       name,
       email,
       password,
       role: "CITIZEN",
+      verification_token: verificationToken,
+      verification_token_expires: tokenExpires,
     })
+
+    // Send verification email
+    try {
+      await emailService.sendVerificationEmail(email, verificationToken, name)
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError)
+      // Continue with registration even if email fails
+    }
 
     // Get the created user (without password)
     const user = await UserModel.findById(userId)
@@ -39,30 +54,46 @@ export async function POST(request: NextRequest) {
       return ApiResponseHandler.internal("Failed to create user")
     }
 
-    // Generate JWT token
-    const token = AuthUtils.generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    })
-
-    // Create successful response
+    // Create successful response (no token until verified)
     const responseData = {
       user,
-      token,
-      message: "User registered successfully"
+      message: "User registered successfully. Please check your email to verify your account before logging in.",
+      requiresVerification: true,
+      clearAuthState: true
     };
 
-    const response = ApiResponseHandler.success(responseData, "Registration successful")
+    const response = ApiResponseHandler.success(responseData, "Registration successful - Please verify your email")
 
-    // Set httpOnly cookie for security
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    });
+    // Clear any existing authentication cookies to ensure clean state
+    const cookiesToClear = ['auth-token', 'session', 'token', 'jwt', 'authentication', 'authToken']
+    cookiesToClear.forEach(cookieName => {
+      // Clear for root path
+      response.cookies.set(cookieName, '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        expires: new Date(0),
+        path: '/',
+        maxAge: 0
+      })
+      // Clear for api path
+      response.cookies.set(cookieName, '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        expires: new Date(0),
+        path: '/api',
+        maxAge: 0
+      })
+      // Clear without httpOnly in case there are client-side cookies
+      response.cookies.set(cookieName, '', {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        expires: new Date(0),
+        path: '/',
+        maxAge: 0
+      })
+    })
 
     endTimer()
     return response

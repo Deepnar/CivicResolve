@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<any>
   logout: () => void
 }
 
@@ -19,30 +19,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Note: Authentication now uses httpOnly cookies only
   useEffect(() => {
-    // Check for existing session on mount
     fetchUser()
   }, [])
 
   const fetchUser = async () => {
     try {
-      // Token is automatically sent via httpOnly cookie
       const response = await fetch("/api/auth/me", {
-        credentials: "same-origin", // Include cookies
+        credentials: "same-origin",
       })
 
       if (response.ok) {
         const { data } = await response.json()
         setUser(data.user)
-        console.log('User authenticated:', data.user.name) // Debug log
       } else {
-        // Clear user state if authentication fails
-        console.log('Authentication failed, response status:', response.status) // Debug log
         setUser(null)
       }
     } catch (error) {
-      console.error("Failed to fetch user:", error)
+      console.error("Authentication check failed:", error)
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -50,8 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = async (email: string, password: string) => {
-    console.log("useAuth login called with email:", email) // Debug log
-    
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -62,18 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       })
 
-      console.log("Login response status:", response.status) // Debug log
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: "Login failed" }))
-        console.error("Login failed with error:", errorData) // Debug log
         throw new Error(errorData.message || "Login failed")
       }
 
       const { data } = await response.json()
       const { token, user: userData } = data
-      
-      console.log("Login successful for user:", userData.name) // Debug log
       
       // Note: Token is now stored as httpOnly cookie by the server
       // We don't store it in localStorage for security reasons
@@ -87,44 +74,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push("/")
       }
     } catch (error) {
-      console.error("Login error in useAuth:", error) // Debug log
       throw error
     }
   }
 
   const register = async (name: string, email: string, password: string) => {
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "same-origin", // Include cookies
-      body: JSON.stringify({ name, email, password }),
-    })
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({ name, email, password }),
+      })
 
-    if (!response.ok) {
-      throw new Error("Registration failed")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Registration failed")
+      }
+
+      const { data } = await response.json()
+      
+      // If server signals to clear auth state, do comprehensive cleanup
+      if (data.clearAuthState) {
+        // Call logout endpoint to clear server-side cookies
+        try {
+          await fetch("/api/auth/logout", { 
+            method: "POST",
+            credentials: "same-origin"
+          })
+        } catch (error) {
+          // Silent fail for logout endpoint
+        }
+
+        // Clear all possible client-side storage
+        if (typeof window !== 'undefined') {
+          try {
+            // Clear specific auth-related items
+            const authKeys = ['auth-token', 'token', 'jwt', 'user', 'authentication']
+            authKeys.forEach(key => {
+              localStorage.removeItem(key)
+              sessionStorage.removeItem(key)
+            })
+            
+            // Clear auth-related cookies
+            document.cookie.split(";").forEach(cookie => {
+              const eqPos = cookie.indexOf("=")
+              const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
+              if (name.includes('auth') || name.includes('token') || name.includes('session')) {
+                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/api`
+              }
+            })
+          } catch (error) {
+            // Silent fail for client storage clearing
+          }
+        }
+      }
+      
+      // Ensure user remains null after registration
+      setUser(null)
+      
+      return data
+    } catch (error) {
+      throw error
     }
-
-    const { data } = await response.json()
-    const { user: userData } = data
-    
-    // Note: Token is now stored as httpOnly cookie by the server
-    setUser(userData)
-    router.push("/")
   }
 
-  const logout = () => {
-    // Clear httpOnly cookie by calling logout endpoint
-    fetch("/api/auth/logout", { 
-      method: "POST",
-      credentials: "same-origin"
-    }).catch(() => {
-      // Ignore errors, just ensure client state is cleared
-    })
-    
-    setUser(null)
-    router.push("/login")
+  const logout = async () => {
+    try {
+      // Clear client state immediately
+      setUser(null)
+      
+      // Clear httpOnly cookie by calling logout endpoint
+      await fetch("/api/auth/logout", { 
+        method: "POST",
+        credentials: "same-origin"
+      })
+      
+      // Navigate to login page
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout failed:", error)
+      // Even if logout API fails, clear client state and redirect
+      setUser(null)
+      router.push("/login")
+    }
   }
 
   return <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>{children}</AuthContext.Provider>

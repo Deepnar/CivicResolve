@@ -39,6 +39,12 @@ async function loginHandler(request: NextRequest) {
       return ApiResponseHandler.unauthorized("Invalid email or password")
     }
 
+    // Check if email is verified
+    if (!user.is_verified) {
+      endTimer()
+      return ApiResponseHandler.unauthorized("Please verify your email before logging in. Check your inbox for the verification link.")
+    }
+
     // Generate JWT token
     const token = AuthUtils.generateToken({
       id: user.id,

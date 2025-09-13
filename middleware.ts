@@ -12,6 +12,13 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   
+  // Production security headers
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    response.headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'")
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  }
+  
   // Add CORS headers for API routes
   if (pathname.startsWith('/api/')) {
     // Get origin from request
@@ -19,6 +26,8 @@ export async function middleware(request: NextRequest) {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://dev.raunakcodes.me',
+      'https://civic.raunakcodes.me',
       // Add your production domains here
       // 'https://yourdomain.com'
     ]

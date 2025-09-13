@@ -116,6 +116,12 @@ export class AuthUtils {
       }
 
       const user = await UserModel.findById(payload.userId);
+      
+      // Check if user exists and is verified
+      if (!user || !user.is_verified) {
+        return null;
+      }
+      
       return user;
     } catch (error) {
       return null;

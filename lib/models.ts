@@ -9,6 +9,9 @@ export interface User {
   password?: string;
   role: 'CITIZEN' | 'ADMIN';
   points: number;
+  is_verified: boolean;
+  verification_token?: string;
+  verification_token_expires?: Date;
   created_at: Date;
   updated_at: Date;
 }
@@ -54,17 +57,21 @@ export class UserModel {
     name: string;
     password: string;
     role?: 'CITIZEN' | 'ADMIN';
+    verification_token?: string;
+    verification_token_expires?: Date;
   }): Promise<number> {
     const hashedPassword = await bcrypt.hash(userData.password, 12);
     const sql = `
-      INSERT INTO users (email, name, password, role, points)
-      VALUES (?, ?, ?, ?, 0)
+      INSERT INTO users (email, name, password, role, points, is_verified, verification_token, verification_token_expires)
+      VALUES (?, ?, ?, ?, 0, FALSE, ?, ?)
     `;
     return await Database.insert(sql, [
       userData.email,
       userData.name,
       hashedPassword,
       userData.role || 'CITIZEN',
+      userData.verification_token || null,
+      userData.verification_token_expires || null,
     ]);
   }
 
@@ -74,8 +81,28 @@ export class UserModel {
   }
 
   static async findById(id: number): Promise<User | null> {
-    const sql = 'SELECT id, email, name, role, points, created_at, updated_at FROM users WHERE id = ?';
+    const sql = 'SELECT id, email, name, role, points, is_verified, created_at, updated_at FROM users WHERE id = ?';
     return await Database.queryOne(sql, [id]);
+  }
+
+  static async findByVerificationToken(token: string): Promise<User | null> {
+    const sql = 'SELECT * FROM users WHERE verification_token = ? AND verification_token_expires > NOW()';
+    return await Database.queryOne(sql, [token]);
+  }
+
+  static async verifyEmail(token: string): Promise<boolean> {
+    const sql = `
+      UPDATE users 
+      SET is_verified = TRUE, verification_token = NULL, verification_token_expires = NULL 
+      WHERE verification_token = ? AND verification_token_expires > NOW()
+    `;
+    const result = await Database.update(sql, [token]);
+    return result > 0;
+  }
+
+  static async updateVerificationToken(email: string, token: string, expires: Date): Promise<void> {
+    const sql = 'UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE email = ?';
+    await Database.update(sql, [token, expires, email]);
   }
 
   static async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
@@ -111,7 +138,7 @@ export class UserModel {
   }
 
   static async getAll(): Promise<User[]> {
-    const sql = 'SELECT id, email, name, role, points, created_at, updated_at FROM users ORDER BY created_at DESC';
+    const sql = 'SELECT id, email, name, role, points, is_verified, created_at, updated_at FROM users ORDER BY created_at DESC';
     return await Database.query(sql);
   }
 }
