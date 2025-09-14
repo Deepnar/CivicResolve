@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin routes
+  // Protect admin routes - only check for valid authentication, let components handle role checks
   if (pathname.startsWith("/admin")) {
     const token =
       request.headers.get("authorization")?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
@@ -66,9 +66,11 @@ export async function middleware(request: NextRequest) {
 
     try {
       const payload = await verifyJWTForEdge(token)
-      if (!payload || payload.role !== "ADMIN") {
-        return NextResponse.redirect(new URL("/", request.url))
+      if (!payload) {
+        return NextResponse.redirect(new URL("/login", request.url))
       }
+      // Remove the role check from middleware - let the ProtectedRoute component handle it
+      // This allows for role changes to be handled gracefully with user data refresh
     } catch (error) {
       return NextResponse.redirect(new URL("/login", request.url))
     }

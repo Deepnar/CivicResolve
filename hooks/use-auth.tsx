@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<any>
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -91,7 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Registration failed")
+        // throw new Error(errorData.message || "Registration failed")
+        throw errorData // send the error directly
       }
 
       const { data } = await response.json()
@@ -163,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshUser: fetchUser }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
