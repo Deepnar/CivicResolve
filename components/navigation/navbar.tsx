@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
@@ -20,9 +20,19 @@ import { useToast } from "@/hooks/use-toast"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const { canInstall, isIOS, installApp } = usePWAInstall()
   const { toast } = useToast()
+
+  // Periodically refresh user data to catch role changes
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        refreshUser()
+      }, 30000) // Refresh every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [user, refreshUser])
 
   const handleInstallApp = async () => {
     try {
