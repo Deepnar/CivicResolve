@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { IssueModel, AuthUtils } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
+import { emailService } from "@/lib/email-service"
 
 const createIssueSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -101,6 +102,12 @@ export async function POST(request: NextRequest) {
       reporter_id: user.id,
       image_url: issueData.image_url || undefined, // Convert null to undefined
     })
+
+    try {
+      await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name)
+    } catch (emailError) {
+      console.error('Failed to send issue reported email:', emailError)
+    }
 
     // Get the created issue with all details
     const issue = await IssueModel.findById(issueId)

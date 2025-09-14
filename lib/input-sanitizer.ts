@@ -6,7 +6,7 @@ export class InputSanitizer {
    */
   static sanitizeHTML(input: string): string {
     if (typeof input !== 'string') return '';
-    
+
     // Basic HTML sanitization - remove script tags and dangerous attributes
     let cleaned = input
       .replace(/<script[^>]*>.*?<\/script>/gi, '')
@@ -15,11 +15,11 @@ export class InputSanitizer {
       .replace(/javascript:/gi, '')
       .replace(/vbscript:/gi, '')
       .replace(/data:/gi, '');
-    
+
     // Only allow safe HTML tags
     const allowedTags = ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'];
     const tagPattern = /<(\/?)([\w]+)([^>]*)>/gi;
-    
+
     cleaned = cleaned.replace(tagPattern, (match, closing, tagName, attributes) => {
       if (allowedTags.includes(tagName.toLowerCase())) {
         // For anchor tags, only allow href attribute
@@ -34,7 +34,7 @@ export class InputSanitizer {
       }
       return '';
     });
-    
+
     return cleaned;
   }
 
@@ -43,18 +43,18 @@ export class InputSanitizer {
    */
   static sanitizeText(input: string, maxLength = 1000): string {
     if (typeof input !== 'string') return '';
-    
+
     // Remove HTML tags
     let cleaned = input.replace(/<[^>]*>/g, '');
-    
+
     // Trim whitespace
     cleaned = cleaned.trim();
-    
+
     // Limit length
     if (cleaned.length > maxLength) {
       cleaned = cleaned.substring(0, maxLength);
     }
-    
+
     return cleaned;
   }
 
@@ -88,11 +88,11 @@ export class InputSanitizer {
   static sanitizeCoordinates(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
     const latNum = Number(lat);
     const lngNum = Number(lng);
-    
+
     if (isNaN(latNum) || isNaN(lngNum)) return null;
     if (latNum < -90 || latNum > 90) return null;
     if (lngNum < -180 || lngNum > 180) return null;
-    
+
     return { lat: latNum, lng: lngNum };
   }
 
@@ -149,18 +149,10 @@ export class InputSanitizer {
 // Zod schemas for common validation patterns
 export const CommonSchemas = {
   email: z.string().email().max(255),
-  password: z.string().min(8).max(128).refine(
-    (password) => {
-      // At least one uppercase, one lowercase, one number or symbol
-      const hasUpper = /[A-Z]/.test(password);
-      const hasLower = /[a-z]/.test(password);
-      const hasNumberOrSymbol = /[\d\W]/.test(password);
-      return hasUpper && hasLower && hasNumberOrSymbol;
-    },
-    {
-      message: "Password must contain uppercase, lowercase, and number/symbol"
-    }
-  ),
+  password: z.string().regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d\W]).{8,128}$/,
+    "Password must be 8-128 characters, contain uppercase, lowercase, and number/symbol" // handle length, and cases in one regex, so there is only one details
+  ), 
   coordinates: z.object({
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180)

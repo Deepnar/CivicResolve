@@ -7,6 +7,16 @@ interface EmailConfig {
   pass: string;
 }
 
+type IssueData = {
+  title: string;
+  priority: "MEDIUM" | "LOW" | "HIGH" | "URGENT"; //not used
+  description: string;
+  category: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
 class EmailService {
   private transporter: nodemailer.Transporter;
   private baseUrl: string;
@@ -18,11 +28,11 @@ class EmailService {
     }
 
     // Set base URL with proper fallback for production
-    this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                   (process.env.NODE_ENV === 'production' 
-                    ? process.env.NEXTAUTH_URL || 'https://dev.raunakcodes.me'
-                    : 'http://localhost:3000');
-    
+    this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? process.env.NEXTAUTH_URL || 'https://dev.raunakcodes.me'
+        : 'http://localhost:3000');
+
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -62,7 +72,7 @@ class EmailService {
    */
   async sendVerificationEmail(email: string, token: string, userName: string): Promise<void> {
     const verificationLink = `${this.baseUrl}/verify-email?token=${token}`;
-    
+
     const mailOptions = {
       from: {
         name: 'CivicResolve',
@@ -89,7 +99,7 @@ class EmailService {
    */
   async sendPasswordResetEmail(email: string, token: string, userName: string): Promise<void> {
     const resetLink = `${this.baseUrl}/reset-password?token=${token}`;
-    
+
     const mailOptions = {
       from: {
         name: 'CivicResolve',
@@ -112,10 +122,37 @@ class EmailService {
   }
 
   /**
+ * Send issue reported email to user
+ */
+  async sendIssueReportedEmail(email: string, issueId: number, issueData: IssueData, userName: string): Promise<void> {
+    const issueLink = `${this.baseUrl}/issues/${issueId}`;
+
+    const mailOptions = {
+      from: {
+        name: 'CivicResolve',
+        address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+      },
+      to: email,
+      subject: 'Your issue has been successfully reported - CivicResolve',
+      html: this.getIssueReportedEmailTemplate(userName, issueId, issueData, issueLink)
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Issue reported email sent successfully to ${email}`);
+      }
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      throw new Error('Failed to send issue reported email');
+    }
+  }
+
+  /**
    * HTML template for verification email
    */
-private getVerificationEmailTemplate(userName: string, verificationLink: string): string {
-  return `
+  private getVerificationEmailTemplate(userName: string, verificationLink: string): string {
+    return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -257,7 +294,7 @@ private getVerificationEmailTemplate(userName: string, verificationLink: string)
     </body>
     </html>
   `;
-}
+  }
 
 
   /**
@@ -335,6 +372,165 @@ private getVerificationEmailTemplate(userName: string, verificationLink: string)
       </html>
     `;
   }
+
+
+  /**
+   * HTML template for issue reported email
+   */
+  private getIssueReportedEmailTemplate(
+    userName: string,
+    issueId: number,
+    issueData: IssueData,
+    issueLink: string
+  ): string {
+    return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Issue Reported - CivicResolve</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        line-height: 1.6;
+        color: #2d2d2d;
+        background-color: #f3f4f6;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+      .header {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff;
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 26px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .logo img {
+        height: 32px;
+        width: auto;
+        vertical-align: middle;
+      }
+      .logo-text {
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .content {
+        padding: 30px 25px;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 22px;
+        color: #111827;
+      }
+      p {
+        margin: 12px 0;
+        font-size: 15px;
+      }
+      ul {
+        padding-left: 18px;
+        margin: 12px 0;
+      }
+      li {
+        margin: 6px 0;
+        font-size: 14px;
+      }
+      .button {
+        display: inline-block;
+        background: #2563eb;
+        color: #ffffff;
+        padding: 14px 28px;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        margin: 25px 0;
+        transition: background 0.2s ease-in-out;
+      }
+      .button:hover {
+        background: #1d4ed8;
+      }
+      .link-box {
+        word-break: break-word;
+        background: #f3f4f6;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #1f2937;
+      }
+      .footer {
+        text-align: center;
+        padding: 20px;
+        font-size: 12px;
+        color: #6b7280;
+        background: #fafafa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">
+          <img src="${this.baseUrl}/logo.png" alt="CivicResolve Logo" />
+          <span class="logo-text">CivicResolve</span>
+        </div>
+        <h1 style="margin:0;">Issue Report Submitted</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${userName},</h2>
+        <p>
+          Thank you for reporting an issue through <strong>CivicResolve</strong>. 
+          Your contribution helps make our community better.
+        </p>
+        <p><strong>Issue Details:</strong></p>
+        <ul>
+          <li><strong>ID:</strong> ${issueId}</li>
+          <li><strong>Title:</strong> ${issueData.title}</li>
+          <li><strong>Category:</strong> ${issueData.category}</li>
+          <li><strong>Description:</strong> ${issueData.description}</li>
+          <li><strong>Address:</strong> ${issueData.address}</li>
+          <li><strong>Latitude:</strong> ${issueData.latitude}</li>
+          <li><strong>Longitude:</strong> ${issueData.longitude}</li>
+        </ul>
+        <div style="text-align: center;">
+          <a href="${issueLink}" class="button">View Reported Issue</a>
+        </div>
+        <p>If the button doesn’t work, copy and paste this link into your browser:</p>
+        <div class="link-box">${issueLink}</div>
+        <p>
+          You’ll be able to track updates, comments, and progress on this issue 
+          directly from the CivicResolve platform.
+        </p>
+        <p>
+          Warm regards,<br />
+          <strong>The CivicResolve Team</strong>
+        </p>
+      </div>
+      <div class="footer">
+        <p>© 2025 CivicResolve. All rights reserved.</p>
+        <p>This is an automated message. Please do not reply.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+  }
+
 }
 
 export const emailService = new EmailService();

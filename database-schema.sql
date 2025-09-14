@@ -2,8 +2,8 @@
 -- Run these commands in your MySQL server
 
 -- Create database (if not exists)
-CREATE DATABASE IF NOT EXISTS civicresolve-dev;
-USE civicresolve-dev;
+CREATE DATABASE IF NOT EXISTS `civicresolve-dev`;
+USE `civicresolve-dev`;
 
 -- Users table
 CREATE TABLE users (

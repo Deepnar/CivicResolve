@@ -17,7 +17,10 @@ const registerSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z.string().regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d\W]).{8,128}$/,
+      "Password must be 8-128 characters, contain uppercase, lowercase, and number/symbol" // handle length, and cases in one regex
+    ),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -39,6 +42,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   })
@@ -46,11 +50,17 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true)
     setUserEmail(data.email)
-    
+
     try {
       await registerUser(data.name, data.email, data.password)
       setRegistrationComplete(true)
-    } catch (error) {
+    } catch (error: any) {
+      error.details.map((d: any) => {
+        setError(d.path[0], {
+          type: d.validation || "server",
+          message: d.message,
+        })
+      })
       console.error("Registration failed:", error)
     } finally {
       setIsLoading(false)
@@ -100,7 +110,7 @@ export default function RegisterPage() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Email Sent!</h3>
                   <p className="text-gray-600 text-sm mb-4">
-                    We've sent a verification link to <strong>{userEmail}</strong>. 
+                    We've sent a verification link to <strong>{userEmail}</strong>.
                     Please check your email and click the link to verify your account.
                   </p>
                   <p className="text-gray-500 text-xs">

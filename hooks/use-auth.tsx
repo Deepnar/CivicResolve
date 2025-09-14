@@ -91,7 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Registration failed")
+        // throw new Error(errorData.message || "Registration failed")
+        throw errorData // send the error directly
       }
 
       const { data } = await response.json()
