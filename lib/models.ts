@@ -1,5 +1,6 @@
 import { Database } from './database';
 import bcrypt from 'bcryptjs';
+import { IssueStatus } from './types';
 
 // TypeScript interfaces
 export interface User {
@@ -117,22 +118,22 @@ export class UserModel {
   static async updateProfile(userId: number, profileData: { name?: string; email?: string }): Promise<void> {
     const updates: string[] = [];
     const values: any[] = [];
-    
+
     if (profileData.name) {
       updates.push('name = ?');
       values.push(profileData.name);
     }
-    
+
     if (profileData.email) {
       updates.push('email = ?');
       values.push(profileData.email);
     }
-    
+
     if (updates.length === 0) return;
-    
+
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(userId);
-    
+
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
   }
@@ -202,14 +203,47 @@ export class IssueModel {
       ORDER BY i.created_at DESC
       LIMIT 50
     `;
-    
+
     return await Database.query(sql, []);
   }
 
-  static async updateStatus(id: number, status: string): Promise<void> {
-    const sql = 'UPDATE issues SET status = ?, updated_at = NOW() WHERE id = ?';
-    await Database.update(sql, [status, id]);
+  static async updateStatus(id: number, status: string): Promise<{ email: string, name: string, title: string } | null> {
+
+    type IssueRow = { status: IssueStatus }
+    const currentSql = `
+      SELECT status FROM issues WHERE id = ?
+    `
+    const current = await Database.queryOne<IssueRow>(currentSql, [id]);
+    if (!current) return null
+
+    const currentStatus = current.status
+    const validTransition: Record<IssueStatus, IssueStatus> = {
+      PENDING: "IN_PROGRESS",
+      IN_PROGRESS: "RESOLVED",
+      RESOLVED: "RESOLVED",
+      REMOVED: "REMOVED",
+    }
+
+    if (validTransition[currentStatus] !== status) {
+      throw new Error(`Invalid status transition: ${currentStatus} → ${status}`);
+    }
+
+    const updateSql = `
+      UPDATE issues
+      SET status = ?, updated_at = NOW()
+      WHERE id = ?;
+    `;
+    await Database.query(updateSql, [status, id]);
+
+    const selectSql = `
+      SELECT u.email, u.name, i.title
+      FROM issues i
+      JOIN users u ON i.reporter_id = u.id
+      WHERE i.id = ?;
+    `;
+    return await Database.queryOne(selectSql, [id]);
   }
+
 
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM issues WHERE id = ?';
