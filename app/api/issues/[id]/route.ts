@@ -112,13 +112,41 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Update the issue status
     if (status) {
+      // Get the current issue details before updating
+      const currentIssue = await IssueModel.findById(issueId)
+      if (!currentIssue) {
+        endTimer()
+        return Response.json({ error: "Issue not found" }, { status: 404 })
+      }
+
+      const oldStatus = (currentIssue as any).status
+      
       const issue = await IssueModel.updateStatus(issueId, status)
       if (issue) {
         console.log(issue);
         try {
-          await emailService.sendStatusUpdateEmail(issue.email, issueId, status, issue.title, issue.name, false) //isRemoved = false
+          // Use the new comprehensive status update notification
+          await emailService.sendStatusUpdateNotificationEmail(
+            issue.email,
+            issue.name,
+            issueId,
+            {
+              title: issue.title,
+              description: (currentIssue as any).description || 'No description available',
+              category: (currentIssue as any).category || 'OTHER',
+              address: (currentIssue as any).address || 'Location not specified',
+              latitude: (currentIssue as any).latitude || 0,
+              longitude: (currentIssue as any).longitude || 0,
+              priority: (currentIssue as any).priority || "MEDIUM"
+            },
+            oldStatus,
+            status,
+            (currentIssue as any).assigned_to_name || null,
+            'System Administration', // Organization name for admin updates
+            currentUser.name
+          )
         } catch (emailError) {
-          console.error('Failed to send issue updated status email:', emailError)
+          console.error('Failed to send status update notification email:', emailError)
         }
       } else {
         console.warn(`No user found for issueId=${issueId}`);

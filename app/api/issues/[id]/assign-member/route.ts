@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/auth-utils"
 import { Database } from "@/lib/database"
+import { emailService } from "@/lib/email-service"
 
 export async function POST(
   request: NextRequest,
@@ -65,6 +66,52 @@ export async function POST(
       SET assigned_to = ?, assigned_to_name = ?, assigned_at = NOW(), assigned_by = ?
       WHERE id = ?
     `, [assignedToId, assignedToName, user.id, issueId])
+
+    // Send assignment notification email
+    try {
+      // Get the assigned user's email and the issue details
+      const assignedUser = await Database.queryOne(`
+        SELECT email FROM users WHERE id = ?
+      `, [assignedToId]) as { email: string } | null
+
+      const issueDetails = await Database.queryOne(`
+        SELECT title, description, category, address, latitude, longitude 
+        FROM issues WHERE id = ?
+      `, [issueId]) as { 
+        title: string, 
+        description: string, 
+        category: string, 
+        address: string, 
+        latitude: number, 
+        longitude: number 
+      } | null
+
+      const organization = await Database.queryOne(`
+        SELECT name FROM organizations WHERE id = ?
+      `, [organizationCheck.organization_id]) as { name: string } | null
+
+      if (assignedUser && issueDetails && organization) {
+        await emailService.sendAssignmentNotificationEmail(
+          assignedUser.email,
+          assignedToName,
+          issueId,
+          {
+            title: issueDetails.title,
+            description: issueDetails.description,
+            category: issueDetails.category,
+            address: issueDetails.address,
+            latitude: issueDetails.latitude,
+            longitude: issueDetails.longitude,
+            priority: "MEDIUM"
+          },
+          user.name,
+          organization.name
+        )
+      }
+    } catch (emailError) {
+      console.error('Failed to send assignment notification email:', emailError)
+      // Continue with success response even if email fails
+    }
 
     return NextResponse.json({ 
       success: true, 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth-utils'
-import { UserModel, UserOrganizationModel } from '@/lib/models'
+import { UserModel, UserOrganizationModel, OrganizationModel } from '@/lib/models'
+import { emailService } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,6 +52,26 @@ export async function POST(request: NextRequest) {
       position: position,
       assigned_by: user.id
     })
+
+    // Send welcome email notification
+    try {
+      // Get the assigned user details and organization name
+      const assignedUser = await UserModel.findById(userId)
+      const organization = await OrganizationModel.findById(organizationId)
+      
+      if (assignedUser && organization) {
+        await emailService.sendOrganizationWelcomeEmail(
+          assignedUser.email,
+          assignedUser.name,
+          organization.name,
+          role || 'MEMBER',
+          user.name
+        )
+      }
+    } catch (emailError) {
+      console.error('Failed to send organization welcome email:', emailError)
+      // Continue with success response even if email fails
+    }
 
     return NextResponse.json({
       success: true,

@@ -238,6 +238,136 @@ class EmailService {
   }
 
   /**
+   * Send assignment notification email to a user when they are assigned an issue
+   */
+  async sendAssignmentNotificationEmail(
+    memberEmail: string, 
+    memberName: string, 
+    issueId: number, 
+    issueData: IssueData, 
+    assignedByName: string,
+    organizationName: string
+  ): Promise<void> {
+    try {
+      const issueLink = `${this.baseUrl}/issues/${issueId}`;
+      
+      const mailOptions = {
+        from: {
+          name: 'CivicResolve',
+          address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+        },
+        to: memberEmail,
+        subject: `Issue Assigned to You - ${issueData.title} - CivicResolve`,
+        html: this.getAssignmentNotificationTemplate(
+          memberName,
+          issueId,
+          issueData,
+          assignedByName,
+          organizationName,
+          issueLink
+        )
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Assignment notification sent to ${memberEmail}`);
+      }
+    } catch (error) {
+      console.error('Error sending assignment notification:', error);
+      throw new Error('Failed to send assignment notification');
+    }
+  }
+
+  /**
+   * Send welcome email when user is assigned to an organization
+   */
+  async sendOrganizationWelcomeEmail(
+    userEmail: string,
+    userName: string,
+    organizationName: string,
+    role: string,
+    assignedByName: string
+  ): Promise<void> {
+    try {
+      const dashboardLink = `${this.baseUrl}/organization`;
+      
+      const mailOptions = {
+        from: {
+          name: 'CivicResolve',
+          address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+        },
+        to: userEmail,
+        subject: `Welcome to ${organizationName} - CivicResolve`,
+        html: this.getOrganizationWelcomeTemplate(
+          userName,
+          organizationName,
+          role,
+          assignedByName,
+          dashboardLink
+        )
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Organization welcome email sent to ${userEmail}`);
+      }
+    } catch (error) {
+      console.error('Error sending organization welcome email:', error);
+      throw new Error('Failed to send organization welcome email');
+    }
+  }
+
+  /**
+   * Send status update notification email to issue reporter
+   */
+  async sendStatusUpdateNotificationEmail(
+    reporterEmail: string,
+    reporterName: string,
+    issueId: number,
+    issueData: IssueData,
+    oldStatus: string,
+    newStatus: string,
+    assignedMemberName: string | null,
+    organizationName: string,
+    updatedByName: string
+  ): Promise<void> {
+    try {
+      const issueLink = `${this.baseUrl}/issues/${issueId}`;
+      
+      const mailOptions = {
+        from: {
+          name: 'CivicResolve',
+          address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+        },
+        to: reporterEmail,
+        subject: `Issue Update: ${issueData.title} - Status Changed to ${newStatus}`,
+        html: this.getStatusUpdateNotificationTemplate(
+          reporterName,
+          issueId,
+          issueData,
+          oldStatus,
+          newStatus,
+          assignedMemberName,
+          organizationName,
+          updatedByName,
+          issueLink
+        )
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Status update notification sent to ${reporterEmail}`);
+      }
+    } catch (error) {
+      console.error('Error sending status update notification:', error);
+      throw new Error('Failed to send status update notification');
+    }
+  }
+
+  /**
    * HTML template for verification email
    */
   private getVerificationEmailTemplate(userName: string, verificationLink: string): string {
@@ -1001,6 +1131,568 @@ class EmailService {
         <div class="footer">
           <p>© 2025 CivicResolve. All rights reserved.</p>
           <p>This notification was sent to ${organizationName} members.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * HTML template for assignment notification email
+   */
+  private getAssignmentNotificationTemplate(
+    memberName: string,
+    issueId: number,
+    issueData: IssueData,
+    assignedByName: string,
+    organizationName: string,
+    issueLink: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Issue Assigned to You - CivicResolve</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 30px;
+        }
+        .assignment-alert {
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 20px 0;
+          text-align: center;
+        }
+        .issue-details {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .category-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          background: #3b82f6;
+          margin-bottom: 10px;
+        }
+        .cta-button {
+          display: inline-block;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 20px 0;
+        }
+        .footer {
+          background: #f8fafc;
+          padding: 20px;
+          text-align: center;
+          font-size: 14px;
+          color: #6b7280;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin:0;">Issue Assigned to You</h1>
+          <p style="margin:10px 0 0 0; opacity: 0.9;">CivicResolve Assignment Notification</p>
+        </div>
+        <div class="content">
+          <p>Hello <strong>${memberName}</strong>,</p>
+          
+          <div class="assignment-alert">
+            <strong>🎯 You have been assigned a new issue!</strong><br>
+            <em>Assigned by ${assignedByName} from ${organizationName}</em>
+          </div>
+          
+          <p>
+            A new issue has been assigned to you by <strong>${assignedByName}</strong> 
+            from your organization <strong>${organizationName}</strong>.
+          </p>
+          
+          <div class="issue-details">
+            <div class="category-badge">${issueData.category}</div>
+            <h3 style="margin: 10px 0;">${issueData.title}</h3>
+            <p><strong>Description:</strong> ${issueData.description}</p>
+            <p><strong>Location:</strong> ${issueData.address}</p>
+            <p><strong>Issue ID:</strong> #${issueId}</p>
+          </div>
+          
+          <p>
+            As the assigned member, you are now responsible for:
+          </p>
+          <ul>
+            <li>Reviewing the issue details</li>
+            <li>Updating the issue status as you work on it</li>
+            <li>Communicating progress with the reporter and your organization</li>
+            <li>Marking the issue as resolved when completed</li>
+          </ul>
+          
+          <center>
+            <a href="${issueLink}" class="cta-button">View Issue Details</a>
+          </center>
+          
+          <p>
+            You can also access this issue and all your assigned tasks from your 
+            <a href="${this.baseUrl}/my-issues">My Issues dashboard</a>.
+          </p>
+          
+          <p>
+            Best regards,<br>
+            <strong>The CivicResolve Team</strong>
+          </p>
+        </div>
+        <div class="footer">
+          <p>© 2025 CivicResolve. All rights reserved.</p>
+          <p>This issue was assigned to you by ${assignedByName} from ${organizationName}.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * HTML template for organization welcome email
+   */
+  private getOrganizationWelcomeTemplate(
+    userName: string,
+    organizationName: string,
+    role: string,
+    assignedByName: string,
+    dashboardLink: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Welcome to ${organizationName} - CivicResolve</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 30px;
+        }
+        .welcome-alert {
+          background: #d1fae5;
+          border: 1px solid #10b981;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 20px 0;
+          text-align: center;
+        }
+        .role-badge {
+          display: inline-block;
+          padding: 6px 16px;
+          border-radius: 16px;
+          font-size: 14px;
+          font-weight: 600;
+          color: white;
+          background: #10b981;
+          margin: 10px 0;
+        }
+        .features-list {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .cta-button {
+          display: inline-block;
+          background: #10b981;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 20px 0;
+        }
+        .footer {
+          background: #f8fafc;
+          padding: 20px;
+          text-align: center;
+          font-size: 14px;
+          color: #6b7280;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin:0;">🎉 Welcome to ${organizationName}!</h1>
+          <p style="margin:10px 0 0 0; opacity: 0.9;">You're now part of our civic engagement team</p>
+        </div>
+        <div class="content">
+          <p>Hello <strong>${userName}</strong>,</p>
+          
+          <div class="welcome-alert">
+            <strong>Welcome to the team!</strong><br>
+            <em>You have been added to ${organizationName} by ${assignedByName}</em>
+          </div>
+          
+          <p>
+            Congratulations! You have been successfully added to <strong>${organizationName}</strong> 
+            by <strong>${assignedByName}</strong>.
+          </p>
+          
+          <center>
+            <div class="role-badge">${role === 'ORGANIZATION_ADMIN' ? 'Organization Administrator' : 'Team Member'}</div>
+          </center>
+          
+          <div class="features-list">
+            <h3 style="margin-top: 0;">What you can do now:</h3>
+            <ul>
+              ${role === 'ORGANIZATION_ADMIN' ? `
+              <li><strong>Manage team members</strong> - Add and assign roles to team members</li>
+              <li><strong>Assign issues</strong> - Delegate issues to appropriate team members</li>
+              <li><strong>View organization dashboard</strong> - Monitor all issues and team performance</li>
+              ` : `
+              <li><strong>View assigned issues</strong> - See all issues assigned specifically to you</li>
+              <li><strong>Update issue status</strong> - Mark progress and completion of your tasks</li>
+              <li><strong>Collaborate with team</strong> - Work with other organization members</li>
+              `}
+              <li><strong>Access organization insights</strong> - View statistics and trends for your area</li>
+              <li><strong>Communicate with citizens</strong> - Respond to issue reports and provide updates</li>
+            </ul>
+          </div>
+          
+          <center>
+            <a href="${dashboardLink}" class="cta-button">Access Your Dashboard</a>
+          </center>
+          
+          <p>
+            ${role === 'ORGANIZATION_ADMIN' 
+              ? 'As an administrator, you have full access to manage your organization and assign issues to team members.' 
+              : 'As a team member, you can view and manage issues assigned to you through your personal dashboard at /my-issues.'}
+          </p>
+          
+          <p>
+            If you have any questions about your role or how to use the platform, 
+            don't hesitate to reach out to ${assignedByName} or consult our help documentation.
+          </p>
+          
+          <p>
+            Welcome aboard and thank you for your commitment to improving our community!
+          </p>
+          
+          <p>
+            Best regards,<br>
+            <strong>The CivicResolve Team</strong>
+          </p>
+        </div>
+        <div class="footer">
+          <p>© 2025 CivicResolve. All rights reserved.</p>
+          <p>You were added to ${organizationName} by ${assignedByName}.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * HTML template for status update notification email
+   */
+  private getStatusUpdateNotificationTemplate(
+    reporterName: string,
+    issueId: number,
+    issueData: IssueData,
+    oldStatus: string,
+    newStatus: string,
+    assignedMemberName: string | null,
+    organizationName: string,
+    updatedByName: string,
+    issueLink: string
+  ): string {
+    // Helper function to get status color
+    const getStatusColor = (status: string) => {
+      switch (status.toUpperCase()) {
+        case 'PENDING': return '#f59e0b';
+        case 'IN_PROGRESS': return '#3b82f6';
+        case 'RESOLVED': return '#10b981';
+        case 'REJECTED': return '#ef4444';
+        case 'REMOVED': return '#6b7280';
+        default: return '#6b7280';
+      }
+    };
+
+    // Helper function to get status display name
+    const getStatusDisplay = (status: string) => {
+      switch (status.toUpperCase()) {
+        case 'IN_PROGRESS': return 'In Progress';
+        case 'RESOLVED': return 'Resolved';
+        case 'REJECTED': return 'Rejected';
+        case 'REMOVED': return 'Removed';
+        case 'PENDING': return 'Pending';
+        default: return status;
+      }
+    };
+
+    const oldStatusColor = getStatusColor(oldStatus);
+    const newStatusColor = getStatusColor(newStatus);
+    const oldStatusDisplay = getStatusDisplay(oldStatus);
+    const newStatusDisplay = getStatusDisplay(newStatus);
+
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Issue Update - ${issueData.title} - CivicResolve</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 30px;
+        }
+        .status-update-alert {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          text-align: center;
+        }
+        .status-change {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin: 15px 0;
+        }
+        .status-badge {
+          display: inline-block;
+          padding: 6px 16px;
+          border-radius: 16px;
+          font-size: 14px;
+          font-weight: 600;
+          color: white;
+        }
+        .arrow {
+          font-size: 18px;
+          color: #6b7280;
+        }
+        .issue-details {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .assignment-info {
+          background: #ecfdf5;
+          border: 1px solid #10b981;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 20px 0;
+        }
+        .category-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          background: #3b82f6;
+          margin-bottom: 10px;
+        }
+        .cta-button {
+          display: inline-block;
+          background: #8b5cf6;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 20px 0;
+        }
+        .footer {
+          background: #f8fafc;
+          padding: 20px;
+          text-align: center;
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .progress-info {
+          background: #dbeafe;
+          border: 1px solid #3b82f6;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin:0;">📋 Issue Status Update</h1>
+          <p style="margin:10px 0 0 0; opacity: 0.9;">Your reported issue has been updated</p>
+        </div>
+        <div class="content">
+          <p>Hello <strong>${reporterName}</strong>,</p>
+          
+          <div class="status-update-alert">
+            <strong>🔄 Status Update for Your Issue</strong><br>
+            <em>Updated by ${updatedByName} from ${organizationName}</em>
+            
+            <div class="status-change">
+              <span class="status-badge" style="background-color: ${oldStatusColor};">${oldStatusDisplay}</span>
+              <span class="arrow">→</span>
+              <span class="status-badge" style="background-color: ${newStatusColor};">${newStatusDisplay}</span>
+            </div>
+          </div>
+          
+          <p>
+            Great news! There's been an update on the issue you reported. 
+            <strong>${updatedByName}</strong> from <strong>${organizationName}</strong> 
+            has changed the status from <strong>${oldStatusDisplay}</strong> to <strong>${newStatusDisplay}</strong>.
+          </p>
+          
+          <div class="issue-details">
+            <div class="category-badge">${issueData.category}</div>
+            <h3 style="margin: 10px 0;">${issueData.title}</h3>
+            <p><strong>Description:</strong> ${issueData.description}</p>
+            <p><strong>Location:</strong> ${issueData.address}</p>
+            <p><strong>Issue ID:</strong> #${issueId}</p>
+          </div>
+          
+          ${assignedMemberName ? `
+          <div class="assignment-info">
+            <h4 style="margin: 0 0 10px 0; color: #059669;">👤 Assigned Team Member</h4>
+            <p style="margin: 0;">
+              <strong>${assignedMemberName}</strong> from ${organizationName} is working on your issue.
+            </p>
+          </div>
+          ` : ''}
+          
+          ${newStatus.toUpperCase() === 'IN_PROGRESS' ? `
+          <div class="progress-info">
+            <h4 style="margin: 0 0 10px 0; color: #1d4ed8;">🚧 Work in Progress</h4>
+            <p style="margin: 0;">
+              Your issue is now being actively worked on. You can expect regular updates 
+              as progress is made toward resolution.
+            </p>
+          </div>
+          ` : ''}
+          
+          ${newStatus.toUpperCase() === 'RESOLVED' ? `
+          <div class="progress-info" style="background: #d1fae5; border-color: #10b981;">
+            <h4 style="margin: 0 0 10px 0; color: #059669;">✅ Issue Resolved</h4>
+            <p style="margin: 0;">
+              Congratulations! Your issue has been marked as resolved. 
+              Thank you for helping improve our community by reporting this issue.
+            </p>
+          </div>
+          ` : ''}
+          
+          <center>
+            <a href="${issueLink}" class="cta-button">View Issue Details</a>
+          </center>
+          
+          <p>
+            <strong>What this means:</strong>
+          </p>
+          <ul>
+            ${newStatus.toUpperCase() === 'PENDING' ? '<li>Your issue has been received and is waiting for assignment</li>' : ''}
+            ${newStatus.toUpperCase() === 'IN_PROGRESS' ? '<li>Work has begun on resolving your issue</li><li>You may see activity in your area related to this issue</li><li>Regular updates will be provided as work progresses</li>' : ''}
+            ${newStatus.toUpperCase() === 'RESOLVED' ? '<li>The issue has been fixed and is complete</li><li>You can verify the resolution by visiting the location</li><li>The issue is now closed</li>' : ''}
+            ${newStatus.toUpperCase() === 'REJECTED' ? '<li>After review, this issue could not be processed</li><li>This may be due to insufficient information or other factors</li><li>You can contact us for more information</li>' : ''}
+          </ul>
+          
+          <p>
+            You can track the progress of this and other issues you've reported by visiting your 
+            <a href="${this.baseUrl}/profile">profile page</a> or by bookmarking the issue link above.
+          </p>
+          
+          <p>
+            Thank you for your patience and for helping improve our community through CivicResolve.
+          </p>
+          
+          <p>
+            Best regards,<br>
+            <strong>The CivicResolve Team</strong><br>
+            <em>On behalf of ${organizationName}</em>
+          </p>
+        </div>
+        <div class="footer">
+          <p>© 2025 CivicResolve. All rights reserved.</p>
+          <p>Status updated by ${updatedByName} from ${organizationName}.</p>
         </div>
       </div>
     </body>

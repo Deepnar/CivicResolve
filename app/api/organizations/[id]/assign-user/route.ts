@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { UserModel, OrganizationModel, UserOrganizationModel } from '@/lib/models';
+import { emailService } from '@/lib/email-service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -107,6 +108,20 @@ export async function POST(
       position: position?.trim() || undefined,
       assigned_by: user.id,
     });
+
+    // Send welcome email notification
+    try {
+      await emailService.sendOrganizationWelcomeEmail(
+        targetUser.email,
+        targetUser.name,
+        organization.name,
+        role,
+        user.name
+      );
+    } catch (emailError) {
+      console.error('Failed to send organization welcome email:', emailError);
+      // Continue with success response even if email fails
+    }
 
     // Get the created assignment with user details
     const assignment = await UserOrganizationModel.getByOrganization(organizationId);
