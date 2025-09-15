@@ -5,6 +5,10 @@ export const ISSUE_CATEGORIES = {
   PARKS: { label: "Parks & Recreation", color: "#22c55e", icon: "Trees" },
   UTILITIES: { label: "Utilities", color: "#3b82f6", icon: "Zap" },
   SAFETY: { label: "Public Safety", color: "#dc2626", icon: "Shield" },
+  ENVIRONMENT: { label: "Environment", color: "#059669", icon: "Leaf" },
+  VANDALISM: { label: "Vandalism", color: "#be123c", icon: "AlertTriangle" },
+  TRANSPORTATION: { label: "Transportation", color: "#0891b2", icon: "Car" },
+  NOISE: { label: "Noise", color: "#7c2d12", icon: "Volume2" },
   OTHER: { label: "Other Issues", color: "#6b7280", icon: "AlertCircle" },
 } as const
 
@@ -13,6 +17,7 @@ export const ISSUE_STATUS = {
   IN_PROGRESS: { label: "In Progress", color: "#3b82f6", bgColor: "#dbeafe" },
   RESOLVED: { label: "Resolved", color: "#10b981", bgColor: "#d1fae5" },
   REJECTED: { label: "Rejected", color: "#ef4444", bgColor: "#fee2e2" },
+  REMOVED: { label: "Removed", color: "#6b7280", bgColor: "#f3f4f6" },
 } as const
 
 export const PRIORITY_LEVELS = {

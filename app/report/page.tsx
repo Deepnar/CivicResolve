@@ -36,7 +36,7 @@ const LocationPicker = dynamic(() => import("@/components/location-picker"), {
 const reportIssueSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  category: z.enum(["ROADS", "LIGHTING", "SANITATION", "PARKS", "UTILITIES", "SAFETY", "OTHER"]),
+  category: z.enum(["ROADS", "LIGHTING", "SANITATION", "PARKS", "UTILITIES", "SAFETY", "ENVIRONMENT", "VANDALISM", "TRANSPORTATION", "NOISE", "OTHER"]),
   address: z.string().min(5, "Address is required"),
   latitude: z.number().optional(),
   longitude: z.number().optional(),

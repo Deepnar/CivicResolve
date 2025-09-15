@@ -9,13 +9,42 @@ import type { IssueCategory } from "@/lib/types"
 import * as Icons from "lucide-react"
 
 interface CategoryBadgeProps {
-  category: IssueCategory
+  category: IssueCategory | string | undefined | null
   className?: string
   showIcon?: boolean
 }
 
 export function CategoryBadge({ category, className, showIcon = true }: CategoryBadgeProps) {
-  const categoryConfig = ISSUE_CATEGORIES[category]
+  // Handle invalid, undefined, or null categories
+  if (!category || typeof category !== 'string' || !(category in ISSUE_CATEGORIES)) {
+    return (
+      <div className={cn(
+        "inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium",
+        "bg-gray-100 text-gray-600 border border-gray-200",
+        className
+      )}>
+        {showIcon && <Icons.HelpCircle className="h-3 w-3 mr-1.5" />}
+        <span>{String(category) || 'Unknown'}</span>
+      </div>
+    )
+  }
+
+  const categoryConfig = ISSUE_CATEGORIES[category as keyof typeof ISSUE_CATEGORIES]
+  
+  // Double-check category config exists
+  if (!categoryConfig) {
+    return (
+      <div className={cn(
+        "inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium",
+        "bg-gray-100 text-gray-600 border border-gray-200",
+        className
+      )}>
+        {showIcon && <Icons.HelpCircle className="h-3 w-3 mr-1.5" />}
+        <span>{category}</span>
+      </div>
+    )
+  }
+
   const IconComponent = Icons[categoryConfig.icon as keyof typeof Icons] as React.ComponentType<any>
 
   return (

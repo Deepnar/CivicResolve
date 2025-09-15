@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone } from "lucide-react"
+import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone, Building2, Users2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -20,9 +20,33 @@ import { useToast } from "@/hooks/use-toast"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isOrganizationMember, setIsOrganizationMember] = useState(false)
   const { user, logout, refreshUser } = useAuth()
   const { canInstall, isIOS, installApp } = usePWAInstall()
   const { toast } = useToast()
+
+  // Check if user is an organization member
+  useEffect(() => {
+    const checkOrganizationMembership = async () => {
+      if (user && user.role === 'CITIZEN') {
+        try {
+          const response = await fetch('/api/user/organization-status', {
+            credentials: 'include'
+          })
+          if (response.ok) {
+            const data = await response.json()
+            setIsOrganizationMember(data.isOrganizationMember)
+          }
+        } catch (error) {
+          console.error('Error checking organization membership:', error)
+        }
+      } else {
+        setIsOrganizationMember(false)
+      }
+    }
+
+    checkOrganizationMembership()
+  }, [user])
 
   // Periodically refresh user data to catch role changes
   useEffect(() => {
@@ -62,6 +86,18 @@ export function Navbar() {
     { name: "Admin Dashboard", href: "/admin", icon: BarChart3 },
     { name: "Manage Issues", href: "/admin/issues", icon: Settings },
     { name: "Users", href: "/admin/users", icon: User },
+    { name: "Organizations", href: "/admin/organizations", icon: Building2 },
+  ]
+
+  const organizationAdminNavigation = [
+    { name: "Organization Dashboard", href: "/organization", icon: BarChart3 },
+    { name: "Organization Issues", href: "/organization/issues", icon: Settings },
+    { name: "Team Members", href: "/organization/members", icon: Users2 },
+  ]
+
+  const organizationMemberNavigation = [
+    { name: "My Issues", href: "/my-issues", icon: Settings },
+    { name: "Organization Dashboard", href: "/organization", icon: BarChart3 },
   ]
 
   return (
@@ -86,18 +122,16 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             {user && (
               <>
-                {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                ))}
-
-                {user.role === "ADMIN" && (
+                    {navigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {item.icon && <item.icon className="h-4 w-4" />}
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}                {user.role === "ADMIN" && (
                   <>
                     <div className="w-px h-6 bg-gray-300" />
                     {adminNavigation.map((item) => (
@@ -106,7 +140,39 @@ export function Navbar() {
                         href={item.href}
                         className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
                       >
-                        <item.icon className="h-4 w-4" />
+                        {item.icon && <item.icon className="h-4 w-4" />}
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}
+                  </>
+                )}
+
+                {user.role === "ORGANIZATION_ADMIN" && (
+                  <>
+                    <div className="w-px h-6 bg-gray-300" />
+                    {organizationAdminNavigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {item.icon && <item.icon className="h-4 w-4" />}
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}
+                  </>
+                )}
+
+                {user.role === "CITIZEN" && isOrganizationMember && (
+                  <>
+                    <div className="w-px h-6 bg-gray-300" />
+                    {organizationMemberNavigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {item.icon && <item.icon className="h-4 w-4" />}
                         <span>{item.name}</span>
                       </Link>
                     ))}
@@ -194,7 +260,7 @@ export function Navbar() {
                   className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
-                  <item.icon className="h-4 w-4" />
+                  {item.icon && <item.icon className="h-4 w-4" />}
                   <span>{item.name}</span>
                 </Link>
               ))}
@@ -203,6 +269,40 @@ export function Navbar() {
                 <>
                   <div className="border-t border-gray-200 my-2" />
                   {adminNavigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {user.role === "ORGANIZATION_ADMIN" && (
+                <>
+                  <div className="border-t border-gray-200 my-2" />
+                  {organizationAdminNavigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {user.role === "CITIZEN" && isOrganizationMember && (
+                <>
+                  <div className="border-t border-gray-200 my-2" />
+                  {organizationMemberNavigation.map((item) => (
                     <Link
                       key={item.name}
                       href={item.href}

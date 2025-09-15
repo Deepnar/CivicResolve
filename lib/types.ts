@@ -2,11 +2,37 @@ export interface User {
   id: string
   email: string
   name: string
-  role: "CITIZEN" | "ADMIN" | "MODERATOR"
+  role: "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN"
   points: number
   badges: string[]
   createdAt: Date
   updatedAt: Date
+}
+
+export interface Organization {
+  id: string
+  name: string
+  description?: string
+  email?: string
+  phone?: string
+  address?: string
+  is_active: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface UserOrganization {
+  id: string
+  user_id: string
+  organization_id: string
+  role: "ORGANIZATION_ADMIN" | "MEMBER"
+  employee_id?: string
+  position?: string
+  is_active: boolean
+  assigned_at: Date
+  assigned_by?: string
+  user?: User
+  organization?: Organization
 }
 
 export interface Issue {
@@ -27,6 +53,10 @@ export interface Issue {
   assignments: Assignment[]
   votes_count?: number  // API response field
   comments_count?: number  // API response field
+  assigned_to?: string  // User ID of the organization member assigned to this issue
+  assigned_to_name?: string  // Name of the organization member assigned to this issue
+  assigned_at?: Date  // When the issue was assigned
+  assigned_by?: string  // User ID who made the assignment
   createdAt: Date
   updatedAt: Date
 }
@@ -60,10 +90,11 @@ export interface Assignment {
   notes?: string
 }
 
-export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "OTHER"
+export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "ENVIRONMENT" | "VANDALISM" | "TRANSPORTATION" | "NOISE" | "OTHER"
 export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REMOVED"
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
-export type UserRole = "CITIZEN" | "ADMIN" | "MODERATOR"
+export type UserRole = "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN"
+export type OrganizationRole = "ORGANIZATION_ADMIN" | "MEMBER"
 
 export interface CreateIssueData {
   title: string

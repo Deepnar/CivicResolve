@@ -128,15 +128,6 @@ export default function AdminIssuesPage() {
     router.push(`/issues/${issueId}`)
   }
 
-  const handleAssignDepartment = async (issueId: number, department: string) => {
-    try {
-      // TODO: Implement department assignment API
-      alert(`Issue ${issueId} assigned to ${department} department`)
-    } catch (error) {
-      console.error('Error assigning department:', error)
-    }
-  }
-
   const handleDeleteIssue = async (issueId: string, issueTitle: string) => {
     // Show confirmation dialog
     const confirmed = window.confirm(

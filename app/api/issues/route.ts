@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { IssueModel, AuthUtils } from "@/lib/db"
+import { IssueAssignmentModel } from "@/lib/models"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
 
@@ -103,10 +104,22 @@ export async function POST(request: NextRequest) {
       image_url: issueData.image_url || undefined, // Convert null to undefined
     })
 
+    // Automatically assign issue to responsible organizations
     try {
-      await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name)
+      await IssueAssignmentModel.assignIssueToOrganizations(issueId, user.id);
+    } catch (assignmentError) {
+      console.error('Failed to assign issue to organizations:', assignmentError);
+    }
+
+    // Send notifications to organizations and user
+    try {
+      // Send confirmation email to the user
+      await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name);
+      
+      // Send notifications to organization members
+      await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
     } catch (emailError) {
-      console.error('Failed to send issue reported email:', emailError)
+      console.error('Failed to send email notifications:', emailError);
     }
 
     // Get the created issue with all details

@@ -176,6 +176,68 @@ class EmailService {
   }
 
   /**
+   * Send issue notification to organization members
+   */
+  async sendIssueNotificationToOrganizations(issueId: number, issueData: IssueData): Promise<void> {
+    try {
+      // Import here to avoid circular dependencies
+      const { CategoryOrganizationMappingModel, UserOrganizationModel } = await import('./models');
+
+      // Get organizations responsible for this category
+      const mappings = await CategoryOrganizationMappingModel.getByCategory(issueData.category);
+      
+      if (mappings.length === 0) {
+        console.log(`No organizations found for category: ${issueData.category}`);
+        return;
+      }
+
+      const issueLink = `${this.baseUrl}/issues/${issueId}`;
+
+      // Send notification to each organization's members
+      for (const mapping of mappings) {
+        const members = await UserOrganizationModel.getByOrganization(mapping.organization_id);
+        
+        for (const member of members) {
+          // The getByOrganization method includes user details with aliases
+          const userEmail = (member as any).user_email;
+          const userName = (member as any).user_name;
+          
+          if (userEmail) {
+            try {
+              const mailOptions = {
+                from: {
+                  name: 'CivicResolve',
+                  address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+                },
+                to: userEmail,
+                subject: `New ${issueData.category} Issue Assigned - CivicResolve`,
+                html: this.getOrganizationIssueNotificationTemplate(
+                  userName || 'Team Member',
+                  issueId,
+                  issueData,
+                  mapping.organization?.name || 'Your Organization',
+                  issueLink
+                )
+              };
+
+              await this.transporter.sendMail(mailOptions);
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Organization notification sent to ${userEmail}`);
+              }
+            } catch (error) {
+              console.error(`Error sending notification to ${userEmail}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending organization notifications:', error);
+      throw new Error('Failed to send organization notifications');
+    }
+  }
+
+  /**
    * HTML template for verification email
    */
   private getVerificationEmailTemplate(userName: string, verificationLink: string): string {
@@ -746,6 +808,204 @@ class EmailService {
   </body>
   </html>
   `;
+  }
+
+  /**
+   * HTML template for organization issue notification email
+   */
+  private getOrganizationIssueNotificationTemplate(
+    userName: string, 
+    issueId: number, 
+    issueData: IssueData, 
+    organizationName: string,
+    issueLink: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>New Issue Assignment - CivicResolve</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+          line-height: 1.6;
+          color: #2d2d2d;
+          background-color: #f3f4f6;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #2563eb, #1d4ed8);
+          color: #ffffff;
+          text-align: center;
+          padding: 40px 20px;
+        }
+        .logo {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          font-size: 26px;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+        .logo img {
+          height: 32px;
+          width: auto;
+          vertical-align: middle;
+        }
+        .logo-text {
+          color: white;
+        }
+        .content {
+          padding: 30px 25px;
+        }
+        h2 {
+          margin-top: 0;
+          font-size: 22px;
+          color: #111827;
+        }
+        p {
+          margin: 12px 0;
+          font-size: 15px;
+        }
+        ul {
+          padding-left: 18px;
+          margin: 12px 0;
+        }
+        li {
+          margin: 6px 0;
+          font-size: 14px;
+        }
+        .button {
+          display: inline-block;
+          background: #2563eb;
+          color: #ffffff;
+          padding: 14px 28px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 25px 0;
+          transition: background 0.2s ease-in-out;
+        }
+        .button:hover {
+          background: #1d4ed8;
+        }
+        .link-box {
+          word-break: break-word;
+          background: #f3f4f6;
+          padding: 12px;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #1f2937;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+          color: #6b7280;
+          background: #fafafa;
+        }
+        .issue-details {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .priority-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        .priority-high { background: #fee2e2; color: #dc2626; }
+        .priority-urgent { background: #fecaca; color: #991b1b; }
+        .priority-medium { background: #fef3c7; color: #d97706; }
+        .priority-low { background: #d1fae5; color: #065f46; }
+        .category-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          background: #dbeafe;
+          color: #1e40af;
+          margin-left: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">
+            <img src="${this.baseUrl}/logo.png" alt="CivicResolve Logo" />
+            <span class="logo-text">CivicResolve</span>
+          </div>
+          <h1 style="margin:0;">New Issue Assignment</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${userName},</h2>
+          <p>
+            A new <strong>${issueData.category}</strong> issue has been reported and assigned to 
+            <strong>${organizationName}</strong> for review and action.
+          </p>
+          
+          <div class="issue-details">
+            <h3 style="margin-top: 0; color: #1f2937;">Issue Details</h3>
+            <p><strong>Title:</strong> ${issueData.title}</p>
+            <p><strong>Description:</strong> ${issueData.description}</p>
+            <p><strong>Location:</strong> ${issueData.address}</p>
+            <p>
+              <strong>Priority:</strong> 
+              <span class="priority-badge priority-${issueData.priority.toLowerCase()}">${issueData.priority}</span>
+              <span class="category-badge">${issueData.category}</span>
+            </p>
+            <p><strong>Issue ID:</strong> #${issueId}</p>
+          </div>
+
+          <p>
+            Please review this issue and take appropriate action. You can view the full details, 
+            update the status, and communicate with the reporter through the platform.
+          </p>
+
+          <div style="text-align: center;">
+            <a href="${issueLink}" class="button">View Issue Details</a>
+          </div>
+
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <div class="link-box">${issueLink}</div>
+
+          <p>
+            <strong>Important:</strong> Citizens are counting on ${organizationName} to address 
+            their concerns promptly. Please ensure timely action and status updates.
+          </p>
+
+          <p>
+            Thank you for your service,<br />
+            <strong>The CivicResolve Team</strong>
+          </p>
+        </div>
+        <div class="footer">
+          <p>© 2025 CivicResolve. All rights reserved.</p>
+          <p>This notification was sent to ${organizationName} members.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
   }
 
 }

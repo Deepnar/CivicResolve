@@ -144,3 +144,8 @@ export class AuthUtils {
     return user;
   }
 }
+
+// Helper function for API routes
+export async function getAuthUser(request: NextRequest) {
+  return await AuthUtils.getCurrentUser(request);
+}
