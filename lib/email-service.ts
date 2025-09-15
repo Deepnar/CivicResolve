@@ -143,8 +143,35 @@ class EmailService {
         console.log(`Issue reported email sent successfully to ${email}`);
       }
     } catch (error) {
-      console.error('Error sending verification email:', error);
+      console.error('Error sending issue report email:', error);
       throw new Error('Failed to send issue reported email');
+    }
+  }
+
+  /**
+ * Send status update email to user
+ */
+  async sendStatusUpdateEmail(email: string, issueId: number, issueStatus: string, issueTitle: string, userName: string, isRemove: boolean): Promise<void> {
+    const issueLink = `${this.baseUrl}/issues/${issueId}`;
+
+    const mailOptions = {
+      from: {
+        name: 'CivicResolve',
+        address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+      },
+      to: email,
+      subject: `Update on your reported issue, ${issueId} is ${isRemove ? "removed" : issueStatus} - CivicResolve`,
+      html: this.getStatusUpdateEmailTemplate(userName, issueId, issueStatus, issueTitle, isRemove, issueLink)
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Issue updated status email sent successfully to ${email}`);
+      }
+    } catch (error) {
+      console.error('Error sending status update email:', error);
+      throw new Error('Failed to send issue updated status email');
     }
   }
 
@@ -516,6 +543,196 @@ class EmailService {
           You’ll be able to track updates, comments, and progress on this issue 
           directly from the CivicResolve platform.
         </p>
+        <p>
+          Warm regards,<br />
+          <strong>The CivicResolve Team</strong>
+        </p>
+      </div>
+      <div class="footer">
+        <p>© 2025 CivicResolve. All rights reserved.</p>
+        <p>This is an automated message. Please do not reply.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+  }
+
+  /**
+   * HTML template for status update email
+   */
+  private getStatusUpdateEmailTemplate(
+    userName: string,
+    issueId: number,
+    issueStatus: string,
+    issueTitle: string,
+    isRemove: boolean,
+    issueLink: string
+  ): string {
+
+    let statusMessage = "";
+
+    if (isRemove) {
+      if (issueStatus === "RESOLVED") {
+        statusMessage = `
+      <p>
+        This issue was already <strong>resolved</strong> and has now been removed for housekeeping.  
+        No further action is required on your part.  
+      </p>
+    `;
+      } else {
+        statusMessage = `
+      <p>
+        Your issue was <strong>removed</strong> before it could be resolved.  
+        This may be because it was a duplicate, incomplete, or did not meet our reporting guidelines. 
+      </p>
+    `;
+      }
+    } else if (issueStatus === "IN_PROGRESS") {
+      statusMessage = `
+    <p>
+      Good news! Your reported issue is now <strong>in progress</strong>.  
+      Our team has acknowledged it and is actively working on a resolution.  
+      You’ll be notified once there are further updates.
+    </p>
+  `;
+    } else if (issueStatus === "RESOLVED") {
+      statusMessage = `
+    <p>
+      We’re happy to let you know that your reported issue has been <strong>resolved</strong>.  
+      Thank you for helping us improve our community!
+    </p>
+  `;
+    } else {
+      statusMessage = `
+    <p>
+      Your issue status has been updated to <strong>${issueStatus}</strong>.  
+      You can track more details from your dashboard.
+    </p>
+  `;
+    }
+
+    return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Issue Status Update - CivicResolve</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        line-height: 1.6;
+        color: #2d2d2d;
+        background-color: #f3f4f6;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+      .header {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff;
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 26px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .logo img {
+        height: 32px;
+        width: auto;
+        vertical-align: middle;
+      }
+      .logo-text {
+        color: white;
+      }
+      .content {
+        padding: 30px 25px;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 22px;
+        color: #111827;
+      }
+      p {
+        margin: 12px 0;
+        font-size: 15px;
+      }
+      ul {
+        padding-left: 18px;
+        margin: 12px 0;
+      }
+      li {
+        margin: 6px 0;
+        font-size: 14px;
+      }
+      .button {
+        display: inline-block;
+        background: #2563eb;
+        color: #ffffff;
+        padding: 14px 28px;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        margin: 25px 0;
+        transition: background 0.2s ease-in-out;
+      }
+      .button:hover {
+        background: #1d4ed8;
+      }
+      .link-box {
+        word-break: break-word;
+        background: #f3f4f6;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #1f2937;
+      }
+      .footer {
+        text-align: center;
+        padding: 20px;
+        font-size: 12px;
+        color: #6b7280;
+        background: #fafafa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">
+          <img src="${this.baseUrl}/logo.png" alt="CivicResolve Logo" />
+          <span class="logo-text">CivicResolve</span>
+        </div>
+        <h1 style="margin:0;">Issue Status Update</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${userName},</h2>
+        ${statusMessage}
+        <p><strong>Issue Details:</strong></p>
+        <ul>
+          <li><strong>ID:</strong> ${issueId}</li>
+          <li><strong>title:</strong> ${issueTitle}</li>
+          <li><strong>${isRemove ? "Previous Status" : "Status"}:</strong> ${issueStatus}</li>
+        </ul>
+        <div style="text-align: center;">
+          <a href="${issueLink}" class="button">View Issue</a>
+        </div>
+        <p>If the button doesn’t work, copy and paste this link into your browser:</p>
+        <div class="link-box">${issueLink}</div>
         <p>
           Warm regards,<br />
           <strong>The CivicResolve Team</strong>

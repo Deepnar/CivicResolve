@@ -61,7 +61,7 @@ export interface Assignment {
 }
 
 export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "OTHER"
-export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REJECTED"
+export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REMOVED"
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
 export type UserRole = "CITIZEN" | "ADMIN" | "MODERATOR"
 

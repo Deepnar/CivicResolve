@@ -50,11 +50,11 @@ export default function AdminIssuesPage() {
       try {
         setLoading(true)
         const response = await fetch('/api/issues')
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch issues')
         }
-        
+
         const data = await response.json()
         setIssues(data.issues || [])
       } catch (error) {
@@ -70,11 +70,11 @@ export default function AdminIssuesPage() {
   const refreshIssues = async () => {
     try {
       const response = await fetch('/api/issues')
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch issues')
       }
-      
+
       const data = await response.json()
       setIssues(data.issues || [])
     } catch (error) {
@@ -338,20 +338,19 @@ export default function AdminIssuesPage() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Issue
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
+
+                                {issue.status === "PENDING" && (<DropdownMenuItem
                                   onClick={() => handleStatusUpdate(issue.id, "IN_PROGRESS")}
-                                  disabled={issue.status === "IN_PROGRESS"}
                                 >
                                   <Clock className="h-4 w-4 mr-2" />
                                   Mark In Progress
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
+                                </DropdownMenuItem>)}
+                                {issue.status === "IN_PROGRESS" && <DropdownMenuItem
                                   onClick={() => handleStatusUpdate(issue.id, "RESOLVED")}
-                                  disabled={issue.status === "RESOLVED"}
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
                                   Mark Resolved
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
                                 <DropdownMenuItem
                                   onClick={() => handleDeleteIssue(issue.id, issue.title)}
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
