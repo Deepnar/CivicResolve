@@ -15,22 +15,43 @@ CivicResolve is a **production-ready**, enterprise-grade Next.js 15 full-stack a
 - **📦 Build Optimization**: Advanced code splitting, tree shaking, and bundle optimization
 - **🔧 Type Safety**: Eliminated all unsafe `any` types with comprehensive TypeScript interfaces
 - **📈 Analytics Enhancement**: Advanced performance tracking and monitoring capabilities
+- **🎯 Assignment System**: Complete organization-based issue assignment workflow
+- **📧 Email Notifications**: Comprehensive email notification system for all workflow events
+- **🏢 Organization Management**: Multi-organization support with category-based routing
 
 ## Key Features
 
+### 🏢 Organization Management System (NEW)
+- **Multi-Organization Support**: Multiple civic organizations with dedicated workflows
+- **Category-Based Routing**: Automatic issue routing based on category to responsible organizations  
+- **Role-Based Access**: Organization administrators and members with distinct permissions
+- **Assignment Workflow**: Organization admins can assign issues to specific team members
+- **Organization Dashboard**: Dedicated interface for organization issue management
+
+### 📧 Comprehensive Email Notification System (NEW)
+- **Assignment Notifications**: Team members receive detailed emails when issues are assigned
+- **Status Update Notifications**: Reporters receive updates when issue status changes
+- **Organization Welcome Emails**: New members get welcome emails with role-specific guidance
+- **Professional Templates**: Responsive HTML email templates with organization branding
+- **Smart Content**: Status-specific content and role-based customization
+
 ### Authentication & User Management
 - JWT-based secure authentication system with production security hardening
-- Role-based access control (CITIZEN/ADMIN) with comprehensive permission validation
+- **Enhanced Role System**: CITIZEN/ADMIN/ORGANIZATION_ADMIN with granular permissions
+- **Organization Membership**: Users can be assigned to organizations with specific roles
 - User registration and profile management with input sanitization
 - Password encryption with bcryptjs and security best practices
 
 ### Issue Reporting & Management
 - **Issue Creation**: Citizens can report issues with descriptions, photos, and precise location data
+- **Automated Routing**: Issues automatically routed to appropriate organizations based on category
+- **Assignment System**: Organization administrators can assign issues to team members
 - **Issue Tracking**: Complete lifecycle management (PENDING → IN_PROGRESS → RESOLVED)
+- **Member Dashboard**: "My Issues" page showing only issues assigned to the user
 - **Priority System**: Issues categorized by priority (LOW, MEDIUM, HIGH, URGENT)
-- **Category Classification**: Infrastructure, Road Maintenance, Utilities, Environment, Safety, Other
+- **Category Classification**: Infrastructure, Road Maintenance, Utilities, Environment, Safety, Transportation, Noise, Vandalism, Other
 - **Location-Based Filtering**: Interactive map integration with Leaflet
-- **Status Updates**: Real-time issue status tracking with performance monitoring
+- **Status Updates**: Real-time issue status tracking with automatic email notifications
 
 ### Interactive Map System
 - **Location Picker**: Precise issue location selection using Leaflet maps
@@ -65,6 +86,111 @@ CivicResolve is a **production-ready**, enterprise-grade Next.js 15 full-stack a
 - **Memory Usage Monitoring**: Real-time memory consumption and optimization alerts
 - **System Health Metrics**: Server uptime, resource usage, and performance trends
 - **Admin Performance Portal**: Dedicated admin interface at `/admin/monitoring/performance`
+
+## 🔄 Complete Workflow System
+
+### Civic Issue Resolution Workflow
+
+#### 1. **Issue Reporting by Citizens**
+```
+🏠 Citizen → 📝 Report Issue → 🎯 Category Selection → 📍 Location Mapping
+```
+- Citizens report issues through web interface
+- Choose appropriate category (Roads, Utilities, Environment, etc.)
+- Add description, photos, and precise location
+- Issue automatically receives unique ID and PENDING status
+
+#### 2. **Automatic Organization Routing**
+```
+📝 New Issue → 🏢 Category Analysis → 🎯 Organization Assignment → 📧 Team Notification
+```
+- System analyzes issue category (e.g., "ROADS" → Public Works Department)
+- Issue automatically routed to responsible organization
+- All organization members receive email notification
+- Issue appears in organization dashboard
+
+#### 3. **Organization Admin Assignment**
+```
+🏢 Organization Dashboard → 👤 Select Team Member → 🎯 Assign Issue → 📧 Assignment Email
+```
+- Organization administrators view all incoming issues
+- Can assign specific issues to team members
+- Assigned member receives detailed assignment email
+- Issue tracking includes assignment attribution
+
+#### 4. **Team Member Task Management**
+```
+📧 Assignment Email → 💼 My Issues Dashboard → 🔄 Status Updates → 📊 Progress Tracking
+```
+- Team members access their "My Issues" dashboard
+- View only issues specifically assigned to them
+- Update issue status as work progresses
+- Status changes trigger email notifications to reporters
+
+#### 5. **Reporter Communication Loop**
+```
+🔄 Status Update → 📧 Email Notification → 📱 Reporter Informed → ✅ Issue Resolution
+```
+- Reporters receive email updates on every status change
+- Emails include complete issue details and assignment information
+- Direct links provided to track issue progress
+- Final resolution notification with completion confirmation
+
+### Email Notification Workflow
+
+#### Assignment Notifications
+**Trigger**: Organization admin assigns issue to team member
+**Recipients**: Assigned team member
+**Content**: 
+- Issue details (title, description, category, location)
+- Assignment attribution (who assigned, from which organization)
+- Direct link to issue details
+- Instructions for managing assigned issues
+
+#### Status Update Notifications  
+**Trigger**: Team member changes issue status
+**Recipients**: Original issue reporter
+**Content**:
+- Visual status change display (OLD → NEW with color coding)
+- Organization and assigned member information
+- Status-specific guidance and next steps
+- Direct link to view issue progress
+
+#### Organization Welcome Notifications
+**Trigger**: User added to organization
+**Recipients**: New organization member
+**Content**:
+- Welcome message with role-specific guidance
+- Organization context and responsibilities
+- Feature overview based on role (admin vs member)
+- Direct link to organization dashboard
+
+### Multi-Organization Management
+
+#### Organization Structure
+```
+🏛️ City Government
+├── 🚧 Public Works Department (Roads, Infrastructure)
+├── 💡 Utilities Department (Lighting, Water, Electricity)
+├── 🌳 Parks & Recreation (Parks, Environment)
+├── 🚨 Public Safety (Safety, Noise)
+└── 🗑️ Waste Management (Sanitation, Waste)
+```
+
+#### Role-Based Permissions
+- **Organization Admin**: Can assign issues, manage team members, view all organization issues
+- **Organization Member**: Can update status of assigned issues, view personal assignments
+- **System Admin**: Can manage all organizations, users, and system settings
+- **Citizen**: Can report issues, track personal submissions, vote and comment
+
+#### Category-to-Organization Mapping
+```sql
+Roads, Infrastructure → Public Works Department
+Utilities, Lighting → Utilities Department  
+Parks, Environment → Parks & Recreation
+Safety, Noise → Public Safety Department
+Sanitation, Waste → Waste Management
+```
 
 ## Technology Stack
 
