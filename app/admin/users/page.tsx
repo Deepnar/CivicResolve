@@ -14,8 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from "date-fns"
-import { convertToIST } from "@/lib/date-utils"
+import { formatTimeAgo } from "@/lib/date-utils"
 import type { User } from "@/lib/types"
 import { BADGES } from "@/lib/constants"
 
@@ -295,7 +294,7 @@ export default function AdminUsersPage() {
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-gray-600">
-                              {user.createdAt ? formatDistanceToNow(convertToIST(user.createdAt), { addSuffix: true }) : 'N/A'}
+                              {user.createdAt ? formatTimeAgo(user.createdAt) : 'N/A'}
                             </span>
                           </TableCell>
                           <TableCell>

@@ -18,8 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from "date-fns"
-import { convertToIST } from "@/lib/date-utils"
+import { formatTimeAgo } from "@/lib/date-utils"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
 export default function AdminIssuesPage() {
@@ -310,7 +309,7 @@ export default function AdminIssuesPage() {
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-gray-600">
-                              {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
+                              {formatTimeAgo(issue.createdAt)}
                             </span>
                           </TableCell>
                           <TableCell>

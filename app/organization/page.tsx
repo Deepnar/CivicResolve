@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
-import { formatDistanceToNow } from "date-fns"
+import { formatTimeAgo } from "@/lib/date-utils"
 import Link from "next/link"
 
 interface OrganizationStats {
@@ -219,7 +219,7 @@ export default function OrganizationDashboard() {
                         {issue.status.replace('_', ' ')}
                       </Badge>
                       <span className="text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                        {formatTimeAgo(issue.created_at)}
                       </span>
                     </div>
                   </div>

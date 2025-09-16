@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { formatDistanceToNow } from "date-fns"
+import { formatTimeAgo } from "@/lib/date-utils"
 
 interface Organization {
   id: number
@@ -394,7 +394,7 @@ export default function AdminOrganizationsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {formatDistanceToNow(new Date(org.created_at), { addSuffix: true })}
+                      {formatTimeAgo(org.created_at)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
-import { formatDistanceToNow } from "date-fns"
+import { formatTimeAgo } from "@/lib/date-utils"
 import Link from "next/link"
 
 interface Issue {
@@ -316,7 +316,7 @@ export default function OrganizationIssues() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                          {formatTimeAgo(issue.created_at)}
                         </span>
                         <span>👍 {issue.votes} votes</span>
                         {issue.assigned_to && (

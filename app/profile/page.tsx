@@ -20,8 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BADGES } from "@/lib/constants"
 import { useAuth } from "@/hooks/use-auth"
-import { formatDistanceToNow } from "date-fns"
-import { convertToIST } from "@/lib/date-utils"
+import { formatTimeAgo } from "@/lib/date-utils"
 import type { Issue } from "@/lib/types"
 
 export default function ProfilePage() {
@@ -396,7 +395,7 @@ export default function ProfilePage() {
                               </TableCell>
                               <TableCell>
                                 <span className="text-sm text-gray-600">
-                                  {formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true })}
+                                  {formatTimeAgo(issue.createdAt)}
                                 </span>
                               </TableCell>
                               <TableCell>

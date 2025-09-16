@@ -23,8 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
-import { formatDistanceToNow } from "date-fns"
-import { convertToIST } from "@/lib/date-utils"
+import { formatTimeAgo } from "@/lib/date-utils"
 
 interface AnalyticsData {
   overview: {
@@ -395,7 +394,7 @@ export default function AdminDashboardPage() {
                             <p className="text-sm text-gray-600">{issue.title}</p>
                             <p className="text-xs text-gray-500 mt-1">
                               {issue.createdAt ? 
-                                formatDistanceToNow(convertToIST(issue.createdAt), { addSuffix: true }) :
+                                formatTimeAgo(issue.createdAt) :
                                 'No date available'
                               }
                             </p>

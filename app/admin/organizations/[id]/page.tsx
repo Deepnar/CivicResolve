@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { formatDistanceToNow } from "date-fns"
+import { formatTimeAgo } from "@/lib/date-utils"
 import { ISSUE_CATEGORIES } from "@/lib/constants"
 
 interface Organization {
@@ -291,7 +291,7 @@ export default function OrganizationDetailPage({
             )}
             
             <div className="text-xs text-gray-500 pt-2 border-t">
-              Created {formatDistanceToNow(new Date(organization.created_at), { addSuffix: true })}
+              Created {formatTimeAgo(organization.created_at)}
             </div>
           </CardContent>
         </Card>
@@ -523,7 +523,7 @@ export default function OrganizationDetailPage({
                     <TableCell>{member.position || "-"}</TableCell>
                     <TableCell>{member.employee_id || "-"}</TableCell>
                     <TableCell>
-                      {formatDistanceToNow(new Date(member.assigned_at), { addSuffix: true })}
+                      {formatTimeAgo(member.assigned_at)}
                     </TableCell>
                   </TableRow>
                 ))}
