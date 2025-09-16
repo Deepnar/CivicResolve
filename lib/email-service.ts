@@ -331,7 +331,7 @@ class EmailService {
     newStatus: string,
     assignedMemberId: string | null,
     organizationName: string,
-    updatedByName: string
+    updatedByEmployeeId: string | null
   ): Promise<void> {
     try {
       const issueLink = `${this.baseUrl}/issues/${issueId}`;
@@ -351,7 +351,7 @@ class EmailService {
           newStatus,
           assignedMemberId,
           organizationName,
-          updatedByName,
+          updatedByEmployeeId,
           issueLink
         )
       };
@@ -1457,7 +1457,7 @@ class EmailService {
     newStatus: string,
     assignedMemberId: string | null,
     organizationName: string,
-    updatedByName: string,
+    updatedByEmployeeId: string | null,
     issueLink: string
   ): string {
     // Helper function to get status color
@@ -1609,7 +1609,7 @@ class EmailService {
           
           <div class="status-update-alert">
             <strong>🔄 Status Update for Your Issue</strong><br>
-            <em>Updated by ${updatedByName} from ${organizationName}</em>
+            <em>Updated by Employee #${updatedByEmployeeId || 'System'} from ${organizationName}</em>
             
             <div class="status-change">
               <span class="status-badge" style="background-color: ${oldStatusColor};">${oldStatusDisplay}</span>
@@ -1620,7 +1620,7 @@ class EmailService {
           
           <p>
             Great news! There's been an update on the issue you reported. 
-            <strong>${updatedByName}</strong> from <strong>${organizationName}</strong> 
+            <strong>Employee #${updatedByEmployeeId || 'System'}</strong> from <strong>${organizationName}</strong> 
             has changed the status from <strong>${oldStatusDisplay}</strong> to <strong>${newStatusDisplay}</strong>.
           </p>
           
@@ -1692,7 +1692,7 @@ class EmailService {
         </div>
         <div class="footer">
           <p>© 2025 CivicResolve. All rights reserved.</p>
-          <p>Status updated by ${updatedByName} from ${organizationName}.</p>
+          <p>Status updated by Employee #${updatedByEmployeeId || 'System'} from ${organizationName}.</p>
         </div>
       </div>
     </body>

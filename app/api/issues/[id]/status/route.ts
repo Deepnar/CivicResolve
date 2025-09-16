@@ -79,6 +79,12 @@ export async function PATCH(
           employeeId = await UserOrganizationModel.getEmployeeId(assignedToUserId, organizationId);
         }
         
+        // Get the employee ID of the user making the update
+        let updatedByEmployeeId = null;
+        if (user.id && organizationId) {
+          updatedByEmployeeId = await UserOrganizationModel.getEmployeeId(user.id, organizationId);
+        }
+        
         await emailService.sendStatusUpdateNotificationEmail(
           reporter.email,
           reporter.name,
@@ -96,7 +102,7 @@ export async function PATCH(
           status,
           employeeId,
           organization.name,
-          user.name
+          updatedByEmployeeId
         )
       }
     } catch (emailError) {

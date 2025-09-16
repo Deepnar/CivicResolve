@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             status,
             null, // No employee ID for system admin actions
             'System Administration', // Organization name for admin updates
-            currentUser.name
+            null // No employee ID for admin updates
           )
         } catch (emailError) {
           console.error('Failed to send status update notification email:', emailError)
