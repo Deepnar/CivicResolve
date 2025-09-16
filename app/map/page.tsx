@@ -45,30 +45,25 @@ export default function MapPage() {
     return (votesCount * 1) + (commentsCount * 2)
   }
 
-  // Get priority color based on engagement score (same as map component)
+  // Get priority color based on engagement score (modern color scheme)
   const getPriorityColor = (engagementScore: number, maxScore: number, issueStatus: string) => {
     // If issue is resolved, always show green regardless of engagement
     if (issueStatus?.toUpperCase() === 'RESOLVED') {
-      return '#10b981' // Green for resolved issues
+      return '#10b981' // Emerald green
     }
     
-    if (maxScore === 0) return '#ffffff' // White for no engagement
+    if (maxScore === 0 || engagementScore === 0) {
+      return '#f1f5f9' // Light slate
+    }
     
     const ratio = Math.min(engagementScore / maxScore, 1)
     
-    if (ratio === 0) return '#ffffff' // White
     if (ratio <= 0.33) {
-      // White to Yellow gradient (low engagement)
-      const intensity = Math.floor(255 * (ratio / 0.33))
-      return `rgb(255, 255, ${255 - intensity})`
+      return '#dbeafe' // Light blue
     } else if (ratio <= 0.66) {
-      // Yellow to Orange gradient (medium engagement)
-      const intensity = Math.floor(255 * ((ratio - 0.33) / 0.33))
-      return `rgb(255, ${255 - intensity}, 0)`
+      return '#fed7aa' // Light orange  
     } else {
-      // Orange to Red gradient (high engagement)
-      const intensity = Math.floor(255 * ((ratio - 0.66) / 0.34))
-      return `rgb(255, ${Math.max(0, 165 - intensity)}, 0)`
+      return '#fecaca' // Light red
     }
   }
 
@@ -207,26 +202,26 @@ export default function MapPage() {
                   {/* Priority Legend */}
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Priority by Engagement</label>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-1 gap-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded border" style={{backgroundColor: '#ffffff', borderColor: '#e5e7eb'}}></div>
-                        <span>Low</span>
+                        <div className="w-4 h-4 rounded-full border-2" style={{backgroundColor: '#f1f5f9', borderColor: '#cbd5e1'}}></div>
+                        <span className="text-slate-600">No Engagement</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded" style={{backgroundColor: '#fbbf24'}}></div>
-                        <span>Medium</span>
+                        <div className="w-4 h-4 rounded-full border-2" style={{backgroundColor: '#dbeafe', borderColor: '#3b82f6'}}></div>
+                        <span className="text-blue-600">Low Priority</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded" style={{backgroundColor: '#f97316'}}></div>
-                        <span>High</span>
+                        <div className="w-4 h-4 rounded-full border-2" style={{backgroundColor: '#fed7aa', borderColor: '#f97316'}}></div>
+                        <span className="text-orange-600">Medium Priority</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded" style={{backgroundColor: '#dc2626'}}></div>
-                        <span>🔥 Hot</span>
+                        <div className="w-4 h-4 rounded-full border-2" style={{backgroundColor: '#fecaca', borderColor: '#ef4444'}}></div>
+                        <span className="text-red-600">🔥 High Priority</span>
                       </div>
-                      <div className="flex items-center gap-2 col-span-2">
-                        <div className="w-3 h-3 rounded" style={{backgroundColor: '#10b981'}}></div>
-                        <span>✅ Resolved</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full border-2" style={{backgroundColor: '#10b981', borderColor: '#059669'}}></div>
+                        <span className="text-emerald-600">✅ Resolved</span>
                       </div>
                     </div>
                   </div>
@@ -265,29 +260,51 @@ export default function MapPage() {
                           style={{
                             backgroundColor: selectedIssue?.id === issue.id ? undefined : priorityColor,
                             borderLeftWidth: '4px',
-                            borderLeftColor: priorityColor === '#ffffff' ? '#e5e7eb' : priorityColor
+                            borderLeftColor: priorityColor === '#f1f5f9' ? '#cbd5e1' : (
+                              priorityColor === '#dbeafe' ? '#3b82f6' : (
+                                priorityColor === '#fed7aa' ? '#f97316' : (
+                                  priorityColor === '#fecaca' ? '#ef4444' : '#059669'
+                                )
+                              )
+                            )
                           }}
                           onClick={() => setSelectedIssue(issue)}
                         >
                           <div className="p-3">
                             <div className="flex items-start justify-between mb-1">
-                              <h4 className="font-medium text-gray-900 line-clamp-2 text-sm flex-1">{issue.title}</h4>
+                              <h4 className={`font-medium line-clamp-2 text-sm flex-1 ${
+                                selectedIssue?.id === issue.id ? 'text-gray-900' : (
+                                  priorityColor === '#f1f5f9' ? 'text-slate-700' : 'text-gray-900'
+                                )
+                              }`}>{issue.title}</h4>
                               {engagementScore > 0 && (
                                 <div className="ml-2 flex items-center gap-1">
-                                  <span className="text-xs font-bold text-red-600">🔥 {engagementScore}</span>
+                                  <span className="text-xs font-bold text-red-600 bg-white/80 px-1 rounded">🔥 {engagementScore}</span>
                                   {isHighPriority && (
                                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                                   )}
                                 </div>
                               )}
                             </div>
-                            <p className="text-xs text-gray-600 line-clamp-1 mb-2">{issue.address}</p>
+                            <p className={`text-xs line-clamp-1 mb-2 ${
+                              selectedIssue?.id === issue.id ? 'text-gray-600' : (
+                                priorityColor === '#f1f5f9' ? 'text-slate-600' : 'text-gray-700'
+                              )
+                            }`}>{issue.address}</p>
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <div className={`flex items-center gap-2 text-xs ${
+                                selectedIssue?.id === issue.id ? 'text-gray-500' : (
+                                  priorityColor === '#f1f5f9' ? 'text-slate-500' : 'text-gray-600'
+                                )
+                              }`}>
                                 <span>👍 {issue.votes_count || issue.votes?.length || 0}</span>
                                 <span>💬 {issue.comments_count || issue.comments?.length || 0}</span>
                               </div>
-                              <div className="text-xs text-gray-500 uppercase font-medium">{issue.status}</div>
+                              <div className={`text-xs uppercase font-medium ${
+                                selectedIssue?.id === issue.id ? 'text-gray-500' : (
+                                  priorityColor === '#f1f5f9' ? 'text-slate-500' : 'text-gray-600'
+                                )
+                              }`}>{issue.status}</div>
                             </div>
                           </div>
                         </motion.div>

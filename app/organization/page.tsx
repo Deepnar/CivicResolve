@@ -52,15 +52,20 @@ export default function OrganizationDashboard() {
   const [recentIssues, setRecentIssues] = useState<any[]>([])
   const [isOrganizationMember, setIsOrganizationMember] = useState(false)
   const [isOrganizationAdmin, setIsOrganizationAdmin] = useState(false)
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true) // Add loading state for access check
 
   useEffect(() => {
     if (user && (user.role === 'ORGANIZATION_ADMIN' || user.role === 'CITIZEN')) {
       checkOrganizationAccess()
+    } else if (user || !isLoading) {
+      // If user is loaded but not eligible, or auth loading is complete but no user, stop checking
+      setIsCheckingAccess(false)
     }
-  }, [user])
+  }, [user, isLoading])
 
   const checkOrganizationAccess = async () => {
     try {
+      setIsCheckingAccess(true)
       // First check if user has organization access
       const statusResponse = await fetch('/api/user/organization-status', {
         credentials: 'include'
@@ -78,6 +83,8 @@ export default function OrganizationDashboard() {
       }
     } catch (error) {
       console.error('Error checking organization access:', error)
+    } finally {
+      setIsCheckingAccess(false)
     }
   }
 
@@ -116,6 +123,16 @@ export default function OrganizationDashboard() {
     }
   }
 
+  // Show loading spinner while checking authentication or access
+  if (isLoading || isCheckingAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading organization dashboard..." />
+      </div>
+    )
+  }
+
+  // Show access denied only after access check is complete
   if (!user || (!isOrganizationMember && user.role !== 'ORGANIZATION_ADMIN')) {
     return (
       <div className="container mx-auto px-4 py-8">
