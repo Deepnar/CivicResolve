@@ -59,12 +59,7 @@ export function IssueMap({
   }
 
   // Get priority color based on engagement score
-  const getPriorityColor = (engagementScore: number, maxScore: number, issueStatus: string) => {
-    // If issue is resolved, always show green regardless of engagement
-    if (issueStatus?.toUpperCase() === 'RESOLVED') {
-      return '#10b981' // Green for resolved issues
-    }
-    
+  const getPriorityColor = (engagementScore: number, maxScore: number) => {
     if (maxScore === 0) return '#ffffff' // White for no engagement
     
     const ratio = Math.min(engagementScore / maxScore, 1)
@@ -97,30 +92,67 @@ export function IssueMap({
 
   // Create custom icons for different issue types
   const createIssueIcon = (issue: Issue) => {
-    // Safe category lookup with fallback
-    const categoryKey = issue.category?.toUpperCase() as keyof typeof ISSUE_CATEGORIES
-    const statusKey = issue.status?.toUpperCase() as keyof typeof ISSUE_STATUS
-    const categoryConfig = ISSUE_CATEGORIES[categoryKey] || ISSUE_CATEGORIES.OTHER
-    const statusConfig = ISSUE_STATUS[statusKey] || ISSUE_STATUS.PENDING
-    
+    const categoryConfig = ISSUE_CATEGORIES[issue.category]
+    const statusConfig = ISSUE_STATUS[issue.status]
     const engagementScore = calculateEngagementScore(issue)
-    const priorityColor = getPriorityColor(engagementScore, maxEngagementScore, issue.status)
-    const isHighPriority = engagementScore > maxEngagementScore * 0.6 && issue.status?.toUpperCase() !== 'RESOLVED'
-
-    // Create engagement badge HTML
-    const engagementBadge = engagementScore > 0 ? 
-      `<div class="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">${engagementScore}</div>` : ''
+    const priorityColor = getPriorityColor(engagementScore, maxEngagementScore)
+    const isHighPriority = engagementScore > maxEngagementScore * 0.6
 
     return L.divIcon({
       html: `
         <div class="relative">
           <div class="w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-gray-800 text-xs font-bold" 
                style="background-color: ${priorityColor};">
-            ${issue.category?.charAt(0) || '?'}
+            ${issue.category.charAt(0)}
           </div>
           <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border border-white" 
                style="background-color: ${statusConfig.color}"></div>
-          ${engagementBadge}
+          ${engagementScore > 0 ? 
+            '<div class="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">' + 
+            engagementScore + 
+            '</div>' : ''
+          }
+        </div>
+      `,
+      className: `custom-issue-marker ${isHighPriority ? 'high-priority' : ''}`,
+      iconSize: [isHighPriority ? 40 : 32, isHighPriority ? 40 : 32],
+      iconAnchor: [isHighPriority ? 20 : 16, isHighPriority ? 20 : 16],
+      popupAnchor: [0, isHighPriority ? -20 : -16],
+    })
+  }
+
+  // Sort issues by engagement score (highest first)
+  const sortedIssues = [...issues].sort((a, b) => {
+    const scoreA = calculateEngagementScore(a)
+    const scoreB = calculateEngagementScore(b)
+    return scoreB - scoreA
+  })
+
+  // Get maximum engagement score for color scaling
+  const maxEngagementScore = Math.max(...sortedIssues.map(calculateEngagementScore), 1)
+
+  // Create custom icons for different issue types with priority coloring
+  const createIssueIcon = (issue: Issue) => {
+    const categoryConfig = ISSUE_CATEGORIES[issue.category]
+    const statusConfig = ISSUE_STATUS[issue.status]
+    const engagementScore = calculateEngagementScore(issue)
+    const priorityColor = getPriorityColor(engagementScore, maxEngagementScore)
+    const isHighPriority = engagementScore > maxEngagementScore * 0.6
+
+    return L.divIcon({
+      html: `
+        <div class="relative">
+          <div class="w-${isHighPriority ? '10' : '8'} h-${isHighPriority ? '10' : '8'} rounded-full border-2 border-white shadow-lg flex items-center justify-center text-gray-800 text-xs font-bold transition-all duration-300" 
+               style="background-color: ${priorityColor}; box-shadow: 0 0 ${isHighPriority ? '12px' : '6px} rgba(255, 193, 7, ${engagementScore > 0 ? '0.4' : '0'});">
+            ${issue.category.charAt(0)}
+          </div>
+          <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border border-white" 
+               style="background-color: ${statusConfig.color}"></div>
+          ${engagementScore > 0 ? `
+            <div class="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+              ${engagementScore}
+            </div>
+          ` : ''}
         </div>
       `,
       className: `custom-issue-marker ${isHighPriority ? 'high-priority' : ''}`,
@@ -183,15 +215,13 @@ export function IssueMap({
 
       // Create popup content with engagement info
       const engagementScore = calculateEngagementScore(issue)
-      const categoryKey = issue.category?.toUpperCase() as keyof typeof ISSUE_CATEGORIES
-      const statusKey = issue.status?.toUpperCase() as keyof typeof ISSUE_STATUS
-      const categoryConfig = ISSUE_CATEGORIES[categoryKey] || ISSUE_CATEGORIES.OTHER
-      const statusConfig = ISSUE_STATUS[statusKey] || ISSUE_STATUS.PENDING
+      const categoryConfig = ISSUE_CATEGORIES[issue.category]
+      const statusConfig = ISSUE_STATUS[issue.status]
       
       const popupContent = `
         <div class="p-2 min-w-64">
-          <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${issue.title || 'Untitled Issue'}</h3>
-          <p class="text-sm text-gray-600 mb-3 line-clamp-2">${issue.description || 'No description available'}</p>
+          <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${issue.title}</h3>
+          <p class="text-sm text-gray-600 mb-3 line-clamp-2">${issue.description}</p>
           <div class="flex items-center gap-2 mb-2">
             <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium" 
                   style="color: ${categoryConfig.color}; background-color: ${categoryConfig.color}20;">
@@ -203,8 +233,8 @@ export function IssueMap({
             </span>
           </div>
           <div class="flex items-center justify-between text-xs text-gray-500">
-            <span>👍 ${issue.votes_count || issue.votes?.length || 0} votes</span>
-            <span>💬 ${issue.comments_count || issue.comments?.length || 0} comments</span>
+            <span>👍 ${issue.votes?.length || 0} votes</span>
+            <span>💬 ${issue.comments?.length || 0} comments</span>
             ${engagementScore > 0 ? `<span class="text-red-600 font-bold">🔥 ${engagementScore} engagement</span>` : ''}
           </div>
         </div>
@@ -216,153 +246,160 @@ export function IssueMap({
       })
 
       // Handle marker click
-      if (onIssueSelect) {
-        marker.on("click", () => {
+      marker.on("click", () => {
+        if (onIssueSelect) {
           onIssueSelect(issue)
-        })
-      }
+        }
+      })
 
       markersRef.current.addLayer(marker)
     })
 
-    // Highlight selected issue
-    if (selectedIssue) {
-      const bounds = L.latLngBounds([
-        [selectedIssue.latitude, selectedIssue.longitude]
-      ])
-      mapInstanceRef.current.fitBounds(bounds, {
-        maxZoom: MAP_ZOOM_LEVELS.STREET,
-        padding: [20, 20]
-      })
+    // Fit bounds to show all markers if there are issues
+    if (issues.length > 0) {
+      const group = new L.FeatureGroup(markersRef.current.getLayers())
+      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
     }
-  }, [sortedIssues, selectedIssue, onIssueSelect, maxEngagementScore])
+  }, [issues, onIssueSelect])
+
+  // Highlight selected issue
+  useEffect(() => {
+    if (!mapInstanceRef.current || !selectedIssue) return
+
+    // Pan to selected issue
+    mapInstanceRef.current.setView([selectedIssue.latitude, selectedIssue.longitude], MAP_ZOOM_LEVELS.STREET, {
+      animate: true,
+    })
+  }, [selectedIssue])
 
   // Get user location
-  useEffect(() => {
+  const getUserLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords
           setUserLocation({ lat: latitude, lng: longitude })
 
-          // Add user location marker
           if (mapInstanceRef.current) {
-            const userIcon = L.divIcon({
-              html: `
-                <div class="relative">
-                  <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
-                  <div class="absolute -inset-2 bg-blue-400 rounded-full opacity-30 animate-ping"></div>
-                </div>
-              `,
-              className: "user-location-marker",
-              iconSize: [16, 16],
-              iconAnchor: [8, 8],
+            mapInstanceRef.current.setView([latitude, longitude], MAP_ZOOM_LEVELS.NEIGHBORHOOD, {
+              animate: true,
             })
 
-            L.marker([latitude, longitude], { icon: userIcon })
-              .addTo(mapInstanceRef.current)
-              .bindPopup("Your Location", { className: "user-popup" })
+            // Add user location marker
+            const userMarker = L.marker([latitude, longitude], {
+              icon: L.divIcon({
+                html: `
+                  <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+                `,
+                className: "user-location-marker",
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+              }),
+            })
+
+            userMarker.addTo(mapInstanceRef.current).bindPopup("Your Location")
           }
         },
         (error) => {
-          console.warn("Geolocation error:", error)
-        }
+          console.error("Error getting location:", error)
+        },
       )
     }
-  }, [])
+  }
 
-  const handleZoomIn = () => {
+  const zoomIn = () => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.zoomIn()
     }
   }
-
-  const handleZoomOut = () => {
+ok so in the map section in /maps I want to add this feature that when a post gets alot of engagements then show it in top of the list and fade its color from white to yellow to red for most important issue and make it that way implement something like this in the app
+  const zoomOut = () => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.zoomOut()
     }
   }
 
-  const handleCenterOnUser = () => {
-    if (mapInstanceRef.current && userLocation) {
-      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], MAP_ZOOM_LEVELS.STREET)
-    }
-  }
-
   return (
-    <div className={cn("relative overflow-hidden rounded-lg border bg-background", className)}>
+    <motion.div
+      className={cn("relative rounded-lg overflow-hidden border border-gray-200/50 shadow-sm", className)}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4 }}
+      style={{ height }}
+    >
+      <div ref={mapRef} className="w-full h-full" />
+
       {/* Loading overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="flex items-center gap-2 text-gray-600">
+            <motion.div
+              className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+            />
+            Loading map...
+          </div>
+        </div>
+      )}
+
+      {/* Map controls */}
+      {showControls && (
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
+            className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/50 p-1"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Loading map...</p>
+            <Button variant="ghost" size="sm" onClick={zoomIn} className="h-8 w-8 p-0">
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={zoomOut} className="h-8 w-8 p-0">
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={getUserLocation}
+              className="bg-white/90 backdrop-blur-sm border-gray-200/50 gap-2"
+            >
+              <Navigation className="h-4 w-4" />
+              My Location
+            </Button>
           </motion.div>
         </div>
       )}
 
-      {/* Map container */}
-      <div
-        ref={mapRef}
-        className="w-full"
-        style={{ height }}
-      />
-
-      {/* Map controls */}
-      {showControls && (
-        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={handleZoomIn}
-            className="h-8 w-8 shadow-md"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={handleZoomOut}
-            className="h-8 w-8 shadow-md"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          {userLocation && (
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={handleCenterOnUser}
-              className="h-8 w-8 shadow-md"
-              title="Center on your location"
-            >
-              <Navigation className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
-
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 z-20 rounded-lg bg-background/90 p-3 shadow-md backdrop-blur-sm">
-        <h4 className="mb-2 text-xs font-semibold text-foreground">Priority Level</h4>
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full bg-white border border-gray-300"></div>
-            <span>Low</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-            <span>Medium</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-3 w-3 rounded-full bg-red-500"></div>
-            <span>High</span>
-          </div>
+      <motion.div
+        className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/50 p-3"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.4 }}
+      >
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Issue Types</h4>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {Object.entries(ISSUE_CATEGORIES)
+            .slice(0, 4)
+            .map(([key, config]) => (
+              <div key={key} className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full border border-white shadow-sm"
+                  style={{ backgroundColor: config.color }}
+                />
+                <span className="text-gray-700">{config.label.split(" ")[0]}</span>
+              </div>
+            ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

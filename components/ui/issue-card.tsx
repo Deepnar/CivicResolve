@@ -24,6 +24,29 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
   const voteCount = (issue as any).votes_count || issue.votes?.length || 0
   const commentCount = (issue as any).comments_count || issue.comments?.length || 0
 
+  // Calculate engagement score for prioritization
+  const calculateEngagementScore = () => {
+    // Weight votes and comments (comments are weighted higher as they require more engagement)
+    return (voteCount * 1) + (commentCount * 2)
+  }
+
+  // Get priority color based on engagement score (simplified for individual cards)
+  const getPriorityColor = (engagementScore: number, issueStatus: string) => {
+    // If issue is resolved, always show green regardless of engagement
+    if (issueStatus?.toUpperCase() === 'RESOLVED') {
+      return '#10b981' // Green for resolved issues
+    }
+    
+    if (engagementScore === 0) return '#ffffff' // White for no engagement
+    if (engagementScore <= 2) return '#fbbf24' // Yellow for low engagement
+    if (engagementScore <= 5) return '#f97316' // Orange for medium engagement
+    return '#dc2626' // Red for high engagement
+  }
+
+  const engagementScore = calculateEngagementScore()
+  const priorityColor = getPriorityColor(engagementScore, issue.status)
+  const isHighPriority = engagementScore > 5 && issue.status?.toUpperCase() !== 'RESOLVED'
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -33,7 +56,12 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
       className={cn("cursor-pointer w-full", className)}
       onClick={onClick}
     >
-      <Card className="h-full border-0 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300">
+      <Card className="h-full border-0 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300 relative"
+            style={{
+              borderLeft: `4px solid ${priorityColor === '#ffffff' ? '#e5e7eb' : priorityColor}`,
+              backgroundColor: priorityColor === '#ffffff' ? undefined : `${priorityColor}15`
+            }}
+      >
         <CardHeader className="pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -54,7 +82,15 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
                 {issue.description}
               </motion.p>
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 flex items-center gap-2">
+              {engagementScore > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700">
+                  <span className="text-xs font-bold">🔥 {engagementScore}</span>
+                  {isHighPriority && (
+                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+              )}
               <PriorityIndicator priority={issue.priority} variant="icon" />
             </div>
           </div>

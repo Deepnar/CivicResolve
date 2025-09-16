@@ -170,3 +170,45 @@
     @apply p-3 sm:p-4 lg:p-6;
   }
 }
+
+/* Map Priority System Styles */
+.custom-issue-marker {
+  transition: all 0.3s ease;
+}
+
+.custom-issue-marker.high-priority {
+  z-index: 1000 !important;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(255, 193, 7, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(255, 193, 7, 0.8));
+  }
+}
+
+.custom-popup {
+  border-radius: 8px !important;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.user-location-marker {
+  z-index: 500 !important;
+}
+
+.user-popup .leaflet-popup-content-wrapper {
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 6px;
+}
+
+.user-popup .leaflet-popup-tip {
+  background-color: #3b82f6;
+}

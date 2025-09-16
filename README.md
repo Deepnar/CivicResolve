@@ -18,6 +18,8 @@ CivicResolve is a **production-ready**, enterprise-grade Next.js 15 full-stack a
 - **🎯 Assignment System**: Complete organization-based issue assignment workflow
 - **📧 Email Notifications**: Comprehensive email notification system for all workflow events
 - **🏢 Organization Management**: Multi-organization support with category-based routing
+- **🎨 Engagement-Based Priority System**: Dynamic visual priority system with community engagement scoring
+- **🎯 Smart Issue Visualization**: Color-coded priority display across maps, lists, and cards
 
 ## Key Features
 
@@ -49,15 +51,33 @@ CivicResolve is a **production-ready**, enterprise-grade Next.js 15 full-stack a
 - **Issue Tracking**: Complete lifecycle management (PENDING → IN_PROGRESS → RESOLVED)
 - **Member Dashboard**: "My Issues" page showing only issues assigned to the user
 - **Priority System**: Issues categorized by priority (LOW, MEDIUM, HIGH, URGENT)
+- **🎯 Engagement-Based Priority Visualization (NEW)**: Dynamic visual priority system based on community engagement
 - **Category Classification**: Infrastructure, Road Maintenance, Utilities, Environment, Safety, Transportation, Noise, Vandalism, Other
 - **Location-Based Filtering**: Interactive map integration with Leaflet
 - **Status Updates**: Real-time issue status tracking with automatic email notifications
 
+### 🎯 Smart Engagement-Based Priority System (NEW)
+- **Dynamic Visual Priority**: Issues automatically color-coded based on community engagement levels
+- **Engagement Score Calculation**: Smart scoring system: (Votes × 1) + (Comments × 2) 
+- **Color Gradient System**: White → Yellow → Orange → Red based on engagement intensity
+- **Resolved Issue Handling**: Resolved issues always display in green regardless of engagement
+- **Multi-Component Integration**: Consistent priority colors across maps, lists, and issue cards
+- **Real-Time Updates**: Priority colors update automatically as engagement changes
+- **Democratic Prioritization**: Community engagement directly influences visual prominence
+- **High-Priority Indicators**: Fire emojis (🔥) and pulsing animations for high-engagement issues
+- **Priority Legend**: Clear visual legend explaining the color coding system
+- **Status-Aware Display**: Resolved issues never show as high priority regardless of engagement
+
 ### Interactive Map System
 - **Location Picker**: Precise issue location selection using Leaflet maps
+- **🎨 Engagement-Based Visualization (NEW)**: Map markers dynamically colored by community engagement
+- **Size-Based Priority (NEW)**: High-engagement issues display with larger markers
+- **Engagement Badges (NEW)**: Numerical engagement scores displayed on markers
 - **Issue Visualization**: Visual representation of all reported issues on interactive maps
 - **Geographic Analytics**: Location-based issue statistics and trends with caching
 - **Address Autocomplete**: Smart location search and validation with performance optimization
+- **Priority Sorting (NEW)**: Issues automatically sorted by engagement score (highest first)
+- **Smart Z-Index (NEW)**: High-priority issues always render on top for visibility
 
 ### Community Engagement
 - **Voting System**: Citizens can upvote/downvote issues with real-time updates
@@ -191,6 +211,48 @@ Parks, Environment → Parks & Recreation
 Safety, Noise → Public Safety Department
 Sanitation, Waste → Waste Management
 ```
+
+### 🎯 Engagement-Based Priority System
+
+#### Smart Priority Calculation
+```typescript
+// Engagement Score Formula
+engagementScore = (votes × 1) + (comments × 2)
+// Comments weighted higher as they require deeper engagement
+```
+
+#### Dynamic Color System
+```typescript
+// Priority Color Logic
+if (issueStatus === 'RESOLVED') return '#10b981'     // Always green for resolved
+if (engagementScore === 0) return '#ffffff'          // White for no engagement
+if (ratio <= 0.33) return 'rgb(255, 255, X)'        // White → Yellow gradient
+if (ratio <= 0.66) return 'rgb(255, Y, 0)'          // Yellow → Orange gradient
+else return 'rgb(255, Z, 0)'                        // Orange → Red gradient
+```
+
+#### Visual Priority Features
+- **🎨 Color Gradient**: White → Yellow → Orange → Red based on engagement intensity
+- **✅ Resolved Override**: Resolved issues always green regardless of engagement
+- **📏 Size Scaling**: High-priority map markers display 25% larger (40px vs 32px)
+- **🔥 Engagement Badges**: Numerical engagement scores with fire emoji indicators
+- **⚡ Animations**: Pulsing effects for high-priority unresolved issues
+- **📊 Auto-Sorting**: Issues automatically sorted by engagement (highest first)
+- **🎯 Z-Index Priority**: High-engagement issues render on top layer
+- **📱 Responsive Design**: Consistent priority display across all screen sizes
+
+#### Multi-Component Integration
+- **Map Markers**: Dynamic colors, sizes, and engagement badges
+- **Issue Lists**: Background colors, left borders, and priority indicators  
+- **Issue Cards**: Border colors, background tints, and engagement badges
+- **Priority Legend**: Visual guide explaining the color coding system
+
+#### Technical Implementation
+- **Real-Time Updates**: Priority colors update as votes/comments change
+- **Database Optimization**: Efficient count queries with proper indexing
+- **Type Safety**: TypeScript interfaces for all engagement calculations
+- **Performance Caching**: Cached engagement scores for optimal rendering
+- **Fallback Handling**: Graceful degradation for missing engagement data
 
 ## Technology Stack
 
