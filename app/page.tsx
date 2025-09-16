@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, MapPin, TrendingUp, Users, AlertCircle, FileText, CheckCircle, Clock } from "lucide-react"
+import { Plus, MapPin, TrendingUp, Users, AlertCircle, FileText, CheckCircle, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/ui/page-header"
 import { IssueCard } from "@/components/ui/issue-card"
@@ -20,6 +20,7 @@ export default function HomePage() {
   const { user, isLoading } = useAuth()
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [activeStatusTab, setActiveStatusTab] = useState("all")
   const [activeCategoryTab, setActiveCategoryTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -31,22 +32,47 @@ export default function HomePage() {
     totalVotes: 0,
     totalComments: 0
   })
+  const [dashboardStats, setDashboardStats] = useState({
+    totalIssues: 0,
+    resolvedIssues: 0,
+    activeUsers: 0,
+    responseTime: "0 hrs",
+    trends: {
+      totalIssues: { value: 0, isPositive: true },
+      resolvedIssues: { value: 0, isPositive: true },
+      activeUsers: { value: 0, isPositive: true },
+      responseTime: { value: 0, isPositive: true }
+    }
+  })
 
   useEffect(() => {
-    const fetchIssues = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
-        const response = await fetch('/api/issues')
         
-        if (!response.ok) {
+        // Fetch issues and dashboard stats in parallel
+        const [issuesResponse, statsResponse] = await Promise.all([
+          fetch('/api/issues'),
+          fetch('/api/dashboard/stats')
+        ])
+        
+        if (!issuesResponse.ok) {
           throw new Error('Failed to fetch issues')
         }
         
-        const data = await response.json()
-        const fetchedIssues = data.issues || []
+        const issuesData = await issuesResponse.json()
+        const fetchedIssues = issuesData.issues || []
         setIssues(fetchedIssues)
         
-        // Calculate dynamic stats
+        // Set dashboard stats from API if successful
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          if (statsData.success) {
+            setDashboardStats(statsData.stats)
+          }
+        }
+        
+        // Calculate dynamic stats for filtering
         const totalIssues = fetchedIssues.length
         const resolvedIssues = fetchedIssues.filter((issue: Issue) => issue.status === "RESOLVED").length
         const pendingIssues = fetchedIssues.filter((issue: Issue) => issue.status === "PENDING").length
@@ -63,15 +89,35 @@ export default function HomePage() {
           totalComments
         })
       } catch (error) {
-        console.error('Error fetching issues:', error)
-        setIssues([]) // Set empty array on error
+        console.error('Error fetching data:', error)
+        setIssues([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchIssues()
+    fetchData()
   }, [])
+
+  // Refresh function for manual updates
+  const refreshStats = async () => {
+    try {
+      setRefreshing(true)
+      
+      // Fetch updated dashboard stats
+      const statsResponse = await fetch('/api/dashboard/stats')
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        if (statsData.success) {
+          setDashboardStats(statsData.stats)
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing stats:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   // Create dynamic tabs with counts
   const statusTabs = [
@@ -170,9 +216,20 @@ export default function HomePage() {
       <section className="py-6 sm:py-8 lg:py-12 bg-gray-50/50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-8 lg:mb-12">
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-4">
-              CivicResolve Impact
-            </h2>
+            <div className="flex items-center justify-center gap-3 mb-2 sm:mb-4">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                CivicResolve Impact
+              </h2>
+              <Button
+                onClick={refreshStats}
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
               Real-time statistics showing our community's progress in resolving civic issues
             </p>
@@ -180,46 +237,46 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <StatsCard
               title="Total Issues"
-              value="247"
+              value={loading ? "..." : dashboardStats.totalIssues.toLocaleString()}
               icon={FileText}
               description="Issues reported by citizens"
               trend={{
-                value: 12,
+                value: dashboardStats.trends.totalIssues.value,
                 label: "this month",
-                isPositive: true,
+                isPositive: dashboardStats.trends.totalIssues.isPositive,
               }}
             />
             <StatsCard
               title="Resolved Issues"
-              value="189"
+              value={loading ? "..." : dashboardStats.resolvedIssues.toLocaleString()}
               icon={CheckCircle}
               description="Successfully resolved"
               trend={{
-                value: 8,
+                value: dashboardStats.trends.resolvedIssues.value,
                 label: "this month",
-                isPositive: true,
+                isPositive: dashboardStats.trends.resolvedIssues.isPositive,
               }}
             />
             <StatsCard
               title="Active Users"
-              value="1,234"
+              value={loading ? "..." : dashboardStats.activeUsers.toLocaleString()}
               icon={Users}
               description="Engaged community members"
               trend={{
-                value: 15,
+                value: dashboardStats.trends.activeUsers.value,
                 label: "this month",
-                isPositive: true,
+                isPositive: dashboardStats.trends.activeUsers.isPositive,
               }}
             />
             <StatsCard
               title="Response Time"
-              value="2.4 hrs"
+              value={loading ? "..." : dashboardStats.responseTime}
               icon={Clock}
               description="Average response time"
               trend={{
-                value: -20,
+                value: dashboardStats.trends.responseTime.value,
                 label: "improved",
-                isPositive: true,
+                isPositive: dashboardStats.trends.responseTime.isPositive,
               }}
             />
           </div>
