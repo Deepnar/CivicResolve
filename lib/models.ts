@@ -809,6 +809,16 @@ export class UserOrganizationModel {
     `;
     return await Database.query(sql, [organizationId]);
   }
+
+  static async getEmployeeId(userId: number, organizationId: number): Promise<string | null> {
+    const sql = `
+      SELECT employee_id 
+      FROM user_organizations 
+      WHERE user_id = ? AND organization_id = ? AND is_active = TRUE
+    `;
+    const result = await Database.queryOne<{ employee_id: string | null }>(sql, [userId, organizationId]);
+    return result ? result.employee_id : null;
+  }
 }
 
 // CategoryOrganizationMapping model

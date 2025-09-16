@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth-utils'
-import { IssueModel, UserModel, OrganizationModel } from '@/lib/models'
+import { IssueModel, UserModel, OrganizationModel, UserOrganizationModel } from '@/lib/models'
 import { emailService } from '@/lib/email-service'
 
 export async function PATCH(
@@ -71,8 +71,13 @@ export async function PATCH(
       const organization = await OrganizationModel.findById(organizationId)
       
       if (reporter && organization) {
-        // Handle both possible property names for assigned_to_name
-        const assignedToName = (currentIssue as any).assigned_to_name || (currentIssue as any).assignedToName || null
+        // Get the actual employee ID from user_organizations table
+        const assignedToUserId = (currentIssue as any).assigned_to || (currentIssue as any).assignedTo || null
+        let employeeId = null;
+        
+        if (assignedToUserId) {
+          employeeId = await UserOrganizationModel.getEmployeeId(assignedToUserId, organizationId);
+        }
         
         await emailService.sendStatusUpdateNotificationEmail(
           reporter.email,
@@ -89,7 +94,7 @@ export async function PATCH(
           },
           oldStatus,
           status,
-          assignedToName,
+          employeeId,
           organization.name,
           user.name
         )

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { IssueModel, VoteModel, CommentModel, AuthUtils, UserModel } from "@/lib/db"
+import { IssueModel, VoteModel, CommentModel, AuthUtils, UserModel, UserOrganizationModel } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
 interface RouteParams {
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             },
             oldStatus,
             status,
-            (currentIssue as any).assigned_to_name || null,
+            null, // No employee ID for system admin actions
             'System Administration', // Organization name for admin updates
             currentUser.name
           )

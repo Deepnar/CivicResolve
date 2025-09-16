@@ -329,7 +329,7 @@ class EmailService {
     issueData: IssueData,
     oldStatus: string,
     newStatus: string,
-    assignedMemberName: string | null,
+    assignedMemberId: string | null,
     organizationName: string,
     updatedByName: string
   ): Promise<void> {
@@ -349,7 +349,7 @@ class EmailService {
           issueData,
           oldStatus,
           newStatus,
-          assignedMemberName,
+          assignedMemberId,
           organizationName,
           updatedByName,
           issueLink
@@ -1455,7 +1455,7 @@ class EmailService {
     issueData: IssueData,
     oldStatus: string,
     newStatus: string,
-    assignedMemberName: string | null,
+    assignedMemberId: string | null,
     organizationName: string,
     updatedByName: string,
     issueLink: string
@@ -1632,11 +1632,11 @@ class EmailService {
             <p><strong>Issue ID:</strong> #${issueId}</p>
           </div>
           
-          ${assignedMemberName ? `
+          ${assignedMemberId ? `
           <div class="assignment-info">
             <h4 style="margin: 0 0 10px 0; color: #059669;">👤 Assigned Team Member</h4>
             <p style="margin: 0;">
-              <strong>${assignedMemberName}</strong> from ${organizationName} is working on your issue.
+              <strong>Employee #${assignedMemberId}</strong> from ${organizationName} is working on your issue.
             </p>
           </div>
           ` : ''}

@@ -98,10 +98,24 @@ async sendStatusUpdateNotificationEmail(
   issueData: IssueData,
   oldStatus: string,
   newStatus: string,
-  assignedMemberName: string | null,
+  assignedMemberId: string | null, // Employee ID from user_organizations.employee_id
   organizationName: string,
   updatedByName: string
 ): Promise<void>
+```
+
+### Privacy Enhancement
+
+The `assignedMemberId` parameter now uses the actual employee ID from the `user_organizations.employee_id` field instead of employee names. This ensures:
+
+- **Privacy Protection**: Employee personal names are never exposed to issue reporters
+- **Professional Display**: Emails show "Employee #WB-2024-105" instead of "John Doe"
+- **Organizational Transparency**: Organization names remain visible for accountability
+- **Flexible ID Format**: Supports various employee ID formats (WB-2024-105, EMP001, etc.)
+
+Example email display:
+```
+Employee #WB-2024-105 from Water Board is working on your issue.
 ```
 
 ### Status Color Mapping
