@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get issues assigned specifically to this user
+
+    // Get issues reported by or assigned to this user
     const issues = await Database.query(`
       SELECT i.*, u.name as citizen_name, u.email as citizen_email,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
       JOIN users u ON i.reporter_id = u.id
       LEFT JOIN users assigned_users ON i.assigned_to = assigned_users.id
       LEFT JOIN users assigner ON i.assigned_by = assigner.id
-      WHERE i.assigned_to = ?
+      WHERE i.assigned_to = ? OR i.reporter_id = ?
       ORDER BY i.created_at DESC
-    `, [user.id])
+    `, [user.id, user.id])
 
     return NextResponse.json({ issues })
 
