@@ -44,6 +44,7 @@ export default function OrganizationIssues() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [isOrganizationMember, setIsOrganizationMember] = useState(false)
+  const [checkingAccess, setCheckingAccess] = useState(true)
   const [organizationMembers, setOrganizationMembers] = useState<any[]>([])
   const [assigningIssueId, setAssigningIssueId] = useState<number | null>(null)
 
@@ -58,9 +59,13 @@ export default function OrganizationIssues() {
   }, [isOrganizationMember])
 
   const checkOrganizationMembership = async () => {
-    if (!user) return
+    if (!user) {
+      setCheckingAccess(false)
+      return
+    }
     
     try {
+      setCheckingAccess(true)
       const response = await fetch('/api/user/organization-status', {
         credentials: 'include'
       })
@@ -70,6 +75,8 @@ export default function OrganizationIssues() {
       }
     } catch (error) {
       console.error('Error checking organization membership:', error)
+    } finally {
+      setCheckingAccess(false)
     }
   }
 
@@ -191,6 +198,18 @@ export default function OrganizationIssues() {
     }
   }, [isOrganizationMember])
 
+  // Show loading spinner while checking authentication or access
+  if (checkingAccess) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner size="lg" text="Checking access..." />
+        </div>
+      </div>
+    )
+  }
+
+  // Show access denied only after the check is complete
   if (!user || !isOrganizationMember) {
     return (
       <div className="container mx-auto px-4 py-8">

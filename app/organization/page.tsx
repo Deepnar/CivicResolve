@@ -291,11 +291,15 @@ export default function OrganizationDashboard() {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Categories Handled</label>
                   <div className="mt-2 space-y-1">
-                    {stats?.categoriesHandled.map((category) => (
-                      <Badge key={category} variant="outline" className="mr-1 mb-1">
-                        {category}
-                      </Badge>
-                    ))}
+                    {stats?.categoriesHandled && stats.categoriesHandled.length > 0 ? (
+                      stats.categoriesHandled.map((category) => (
+                        <Badge key={category} variant="outline" className="mr-1 mb-1">
+                          {category}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No categories assigned yet</p>
+                    )}
                   </div>
                 </div>
               </div>
