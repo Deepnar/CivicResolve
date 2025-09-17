@@ -4,7 +4,7 @@ import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
 import { PerformanceMonitor } from '@/lib/performance';
 
-// TypeScript interfaces for database query results
+// Enhanced TypeScript interfaces for comprehensive database results
 interface IssueDetailsResult {
   id: number
   title: string
@@ -19,14 +19,26 @@ interface IssueDetailsResult {
   created_at: Date
   updated_at: Date
   reporter_name: string
+  reporter_email: string
+  reporter_role: string
+  reporter_verified: boolean
   comment_count: number
   vote_count: number
+  assigned_to?: number
+  assigned_to_name?: string
+  assigned_at?: Date
+  assigned_by?: number
+  assigned_by_name?: string
+  organization_name?: string
+  organization_id?: number
+  days_open: number
 }
 
 interface CommentResult {
   id: number
   content: string
   user_name: string
+  user_role: string
   created_at: Date
 }
 
@@ -35,76 +47,40 @@ interface CountResult {
   total?: number
 }
 
-interface LocationStatsResult {
-  status: string
-  category: string
-  priority: string
-  count: number
-}
-
-interface StatusResult {
-  status: string
-  count: number
-}
-
-interface CategoryResult {
-  category: string
-  count: number
-}
-
-interface PriorityResult {
-  priority: string
-  count: number
-}
-
-interface LocationResult {
-  address: string
-  count: number
-}
-
-interface TrendResult {
-  week_number: number
-  count: number
-}
-
-interface UserEngagementResult {
-  user_name: string
-  total_activity: number
-}
-
-interface UrgentIssueResult {
+interface OrganizationStatsResult {
   id: number
-  title: string
-  category: string
-  address: string
+  organization_name: string
+  description: string
   created_at: Date
+  member_count: number
+  assigned_issues: number
+  resolved_issues: number
+  avg_resolution_days: number
+  categories_handled: number
 }
 
-interface ResolutionTimeResult {
-  avg_days: number
+interface UserOrganizationResult {
+  user_id: number
+  organization_id: number
+  organization_name: string
+  organization_description: string
+  user_role: string
+  employee_id: string
+  is_admin: boolean
+  joined_date: Date
+  days_with_organization: number
+  user_name?: string
+  user_email?: string
+  user_verified?: boolean
 }
 
-interface VoteResult {
-  issue_id: number
-  title: string
-  category: string
-  total_votes: number
-}
-
-interface UserStatsResult {
-  issues_reported: number
-  comments_made: number
-  votes_cast: number
-}
-
-interface LongStandingIssueResult {
-  id: number
-  title: string
-  category: string
-  priority: string
-  address: string
-  created_at: Date
-  days_open: number
+interface CategoryMappingResult {
+  organization_id: number
+  organization_name: string
+  mapping_id: number
+  category_name: string
+  mapping_created: Date
+  issues_in_category: number
 }
 
 interface LocationStatsResult {
@@ -113,31 +89,67 @@ interface LocationStatsResult {
   priority: string
   count: number
   avg_days_open: number
+  organization_name: string
+  assigned_count: number
+  unassigned_count: number
+}
+
+interface StatusResult {
+  status: string
+  count: number
+  assigned_count: number
+  unassigned_count: number
+  avg_days: number
+}
+
+interface CategoryResult {
+  category: string
+  count: number
+  assigned_count: number
+  unassigned_count: number
+  primary_organization: string
+  secondary_organizations: string
 }
 
 interface PriorityResult {
   priority: string
   count: number
+  assigned_percentage: number
+  avg_resolution_days: number
 }
 
 interface LocationResult {
   address: string
   count: number
+  status_breakdown: string
+  primary_categories: string
 }
 
 interface TrendResult {
   date: string
   issues_reported: number
+  issues_assigned: number
+  issues_resolved: number
   category: string
+  organization_assignments: number
 }
 
 interface UserEngagementResult {
   id: number
   name: string
   email: string
+  role: string
+  is_verified: boolean
+  organization_name: string
+  org_role: string
+  employee_id: string
   issues_reported: number
   comments_made: number
   votes_cast: number
+  issues_assigned: number
+  issues_resolved: number
+  total_activity: number
+  last_active: Date
 }
 
 interface UrgentIssueResult {
@@ -148,13 +160,20 @@ interface UrgentIssueResult {
   address: string
   created_at: Date
   description: string
-  status?: string
+  status: string
+  assigned_to_name: string
+  organization_name: string
+  days_open: number
+  vote_count: number
+  comment_count: number
 }
 
 interface AvgResolutionResult {
   avg_days: number
   category: string
   resolved_count: number
+  organization_name: string
+  efficiency_rating: string
 }
 
 interface IssueWithVotesResult {
@@ -166,20 +185,98 @@ interface IssueWithVotesResult {
   address: string
   created_at: Date
   vote_count: number
+  comment_count: number
+  assigned_to_name: string
+  organization_name: string
+  days_open: number
+}
+
+interface UserStatsResult {
+  id: number
+  name: string
+  email: string
+  role: string
+  is_verified: boolean
+  organization_name: string
+  org_role: string
+  employee_id: string
+  issues_reported: number
+  comments_made: number
+  votes_cast: number
+  issues_assigned: number
+  issues_resolved: number
+  points: number
+  account_age_days: number
+}
+
+interface UserDetailsResult {
+  id: number
+  name: string
+  email: string
+  role: string
+  is_verified: boolean
+  created_at: Date
+  updated_at: Date
+  issues_reported: number
+  comments_made: number
+  votes_cast: number
+  issues_assigned: number
+  organizations: UserOrganizationResult[]
+  recent_issues: IssueDetailsResult[]
+}
+
+interface LongStandingIssueResult {
+  id: number
+  title: string
+  category: string
+  priority: string
+  address: string
+  created_at: Date
+  days_open: number
+  assigned_to_name: string
+  organization_name: string
+  vote_count: number
+  comment_count: number
+  last_activity: Date
+}
+
+interface IssueAssignmentResult {
+  issue_id: number
+  issue_title: string
+  organization_id: number
+  organization_name: string
+  assigned_at: Date
+  assigned_by_name: string
+  current_status: string
+  days_since_assignment: number
 }
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Function to get specific issue details if mentioned
+// Function to get comprehensive issue details with all related data
 async function getIssueDetails(issueId: string) {
   try {
     const issue = await Database.queryOne<IssueDetailsResult>(`
-      SELECT i.*, u.name as reporter_name,
-             COUNT(DISTINCT c.id) as comment_count,
-             COUNT(DISTINCT v.id) as vote_count
+      SELECT 
+        i.*,
+        u.name as reporter_name,
+        u.email as reporter_email,
+        u.role as reporter_role,
+        u.is_verified as reporter_verified,
+        assignee.name as assigned_to_name,
+        assigner.name as assigned_by_name,
+        o.name as organization_name,
+        o.id as organization_id,
+        DATEDIFF(NOW(), i.created_at) as days_open,
+        COUNT(DISTINCT c.id) as comment_count,
+        COUNT(DISTINCT v.id) as vote_count
       FROM issues i
       LEFT JOIN users u ON i.reporter_id = u.id
+      LEFT JOIN users assignee ON i.assigned_to = assignee.id
+      LEFT JOIN users assigner ON i.assigned_by = assigner.id
+      LEFT JOIN issue_assignments ia ON i.id = ia.issue_id
+      LEFT JOIN organizations o ON ia.organization_id = o.id
       LEFT JOIN comments c ON i.id = c.issue_id
       LEFT JOIN votes v ON i.id = v.issue_id
       WHERE i.id = ?
@@ -187,20 +284,116 @@ async function getIssueDetails(issueId: string) {
     `, [issueId]);
 
     if (issue) {
-      const comments = await Database.query(`
-        SELECT c.content, u.name as commenter_name, c.created_at
+      // Get recent comments with user details
+      const comments = await Database.query<CommentResult>(`
+        SELECT 
+          c.id,
+          c.content, 
+          u.name as user_name,
+          u.role as user_role,
+          c.created_at
         FROM comments c
         LEFT JOIN users u ON c.author_id = u.id
         WHERE c.issue_id = ?
         ORDER BY c.created_at DESC
-        LIMIT 5
+        LIMIT 10
       `, [issueId]);
 
-      return { ...issue, recent_comments: comments };
+      // Get organization assignment history
+      const assignmentHistory = await Database.query<IssueAssignmentResult>(`
+        SELECT 
+          ia.issue_id,
+          i.title as issue_title,
+          ia.organization_id,
+          o.name as organization_name,
+          ia.assigned_at,
+          assigner.name as assigned_by_name,
+          i.status as current_status,
+          DATEDIFF(NOW(), ia.assigned_at) as days_since_assignment
+        FROM issue_assignments ia
+        LEFT JOIN organizations o ON ia.organization_id = o.id
+        LEFT JOIN users assigner ON ia.assigned_by = assigner.id
+        LEFT JOIN issues i ON ia.issue_id = i.id
+        WHERE ia.issue_id = ?
+        ORDER BY ia.assigned_at DESC
+      `, [issueId]);
+
+      return { 
+        ...issue, 
+        recent_comments: comments,
+        assignment_history: assignmentHistory 
+      };
     }
     return null;
   } catch (error) {
-    console.error('Error fetching issue details:', error);
+    console.error('Error fetching comprehensive issue details:', error);
+    return null;
+  }
+}
+
+// Function to get comprehensive user details with organization data
+async function getUserDetails(userId: string) {
+  try {
+    const user = await Database.queryOne<UserDetailsResult>(`
+      SELECT 
+        u.*,
+        COUNT(DISTINCT i.id) as issues_reported,
+        COUNT(DISTINCT c.id) as comments_made,
+        COUNT(DISTINCT v.id) as votes_cast,
+        COUNT(DISTINCT assigned_issues.id) as issues_assigned
+      FROM users u
+      LEFT JOIN issues i ON u.id = i.reporter_id
+      LEFT JOIN comments c ON u.id = c.author_id
+      LEFT JOIN votes v ON u.id = v.user_id
+      LEFT JOIN issues assigned_issues ON u.id = assigned_issues.assigned_to
+      WHERE u.id = ?
+      GROUP BY u.id
+    `, [userId]);
+
+    if (user) {
+      // Get user's organization memberships
+      const organizations = await Database.query<UserOrganizationResult>(`
+        SELECT 
+          uo.user_id,
+          uo.organization_id,
+          o.name as organization_name,
+          o.description as organization_description,
+          uo.role as user_role,
+          uo.employee_id,
+          (CASE WHEN uo.role = 'ORGANIZATION_ADMIN' THEN TRUE ELSE FALSE END) as is_admin,
+          uo.assigned_at as joined_date,
+          DATEDIFF(NOW(), uo.assigned_at) as days_with_organization
+        FROM user_organizations uo
+        LEFT JOIN organizations o ON uo.organization_id = o.id
+        WHERE uo.user_id = ? AND uo.is_active = TRUE
+        ORDER BY uo.assigned_at DESC
+      `, [userId]);
+
+      // Get recent issues for this user
+      const recentIssues = await Database.query<IssueDetailsResult>(`
+        SELECT 
+          i.*,
+          DATEDIFF(NOW(), i.created_at) as days_open,
+          COUNT(DISTINCT c.id) as comment_count,
+          COUNT(DISTINCT v.id) as vote_count
+        FROM issues i
+        LEFT JOIN comments c ON i.id = c.issue_id
+        LEFT JOIN votes v ON i.id = v.issue_id
+        WHERE i.reporter_id = ?
+        GROUP BY i.id
+        ORDER BY i.created_at DESC
+        LIMIT 10
+      `, [userId]);
+
+      return { 
+        ...user, 
+        organizations,
+        recent_issues: recentIssues 
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching comprehensive user details:', error);
     return null;
   }
 }
@@ -356,11 +549,96 @@ async function getPlatformStatistics() {
       LIMIT 10
     `);
 
+    // Get organization statistics and performance data
+    const organizationStats = await Database.query<OrganizationStatsResult>(`
+      SELECT 
+        o.id,
+        o.name as organization_name,
+        o.description,
+        o.created_at,
+        COUNT(DISTINCT uo.user_id) as member_count,
+        COUNT(DISTINCT ia.issue_id) as assigned_issues,
+        COUNT(DISTINCT CASE WHEN i.status = 'RESOLVED' THEN ia.issue_id END) as resolved_issues,
+        AVG(CASE WHEN i.status = 'RESOLVED' THEN DATEDIFF(i.updated_at, ia.assigned_at) END) as avg_resolution_days,
+        COUNT(DISTINCT com.category) as categories_handled
+      FROM organizations o
+      LEFT JOIN user_organizations uo ON o.id = uo.organization_id
+      LEFT JOIN issue_assignments ia ON o.id = ia.organization_id
+      LEFT JOIN issues i ON ia.issue_id = i.id
+      LEFT JOIN category_organization_mappings com ON o.id = com.organization_id
+      GROUP BY o.id, o.name, o.description, o.created_at
+      ORDER BY assigned_issues DESC
+    `);
+
+    // Get user-organization relationships and roles
+    const userOrganizations = await Database.query<UserOrganizationResult>(`
+      SELECT 
+        uo.user_id,
+        uo.organization_id,
+        o.name as organization_name,
+        o.description as organization_description,
+        uo.role as user_role,
+        uo.employee_id,
+        (CASE WHEN uo.role = 'ORGANIZATION_ADMIN' THEN TRUE ELSE FALSE END) as is_admin,
+        uo.assigned_at as joined_date,
+        DATEDIFF(NOW(), uo.assigned_at) as days_with_organization,
+        u.name as user_name,
+        u.email as user_email,
+        u.is_verified as user_verified
+      FROM user_organizations uo
+      LEFT JOIN organizations o ON uo.organization_id = o.id
+      LEFT JOIN users u ON uo.user_id = u.id
+      WHERE uo.is_active = TRUE
+      ORDER BY uo.assigned_at DESC
+      LIMIT 50
+    `);
+
+    // Get category mappings for organizations
+    const categoryMappings = await Database.query<CategoryMappingResult>(`
+      SELECT 
+        com.organization_id,
+        o.name as organization_name,
+        com.id as mapping_id,
+        com.category as category_name,
+        com.created_at as mapping_created,
+        COUNT(DISTINCT i.id) as issues_in_category
+      FROM category_organization_mappings com
+      LEFT JOIN organizations o ON com.organization_id = o.id
+      LEFT JOIN issues i ON com.category = i.category AND EXISTS (
+        SELECT 1 FROM issue_assignments ia WHERE ia.issue_id = i.id AND ia.organization_id = com.organization_id
+      )
+      GROUP BY com.organization_id, o.name, com.id, com.category, com.created_at
+      ORDER BY issues_in_category DESC
+    `);
+
+    // Get issue assignment tracking and workload distribution
+    const issueAssignments = await Database.query<IssueAssignmentResult>(`
+      SELECT 
+        ia.issue_id,
+        i.title as issue_title,
+        ia.organization_id,
+        o.name as organization_name,
+        ia.assigned_at,
+        assigner.name as assigned_by_name,
+        i.status as current_status,
+        i.priority,
+        i.category,
+        DATEDIFF(NOW(), ia.assigned_at) as days_since_assignment,
+        CASE WHEN i.status = 'RESOLVED' THEN DATEDIFF(i.updated_at, ia.assigned_at) ELSE NULL END as resolution_days
+      FROM issue_assignments ia
+      LEFT JOIN issues i ON ia.issue_id = i.id
+      LEFT JOIN organizations o ON ia.organization_id = o.id
+      LEFT JOIN users assigner ON ia.assigned_by = assigner.id
+      ORDER BY ia.assigned_at DESC
+      LIMIT 100
+    `);
+
     return {
       totals: {
         issues: totalIssues,
         users: totalUsers,
-        comments: totalComments
+        comments: totalComments,
+        organizations: organizationStats?.length || 0
       },
       issuesByStatus: issuesByStatus || [],
       issuesByCategory: issuesByCategory || [],
@@ -371,7 +649,12 @@ async function getPlatformStatistics() {
       userEngagement: userEngagement || [],
       urgentIssues: urgentIssues || [],
       avgResolutionTime: avgResolutionTime || [],
-      issuesWithVotes: issuesWithVotes || []
+      issuesWithVotes: issuesWithVotes || [],
+      // Enhanced organization data
+      organizationStats: organizationStats || [],
+      userOrganizations: userOrganizations || [],
+      categoryMappings: categoryMappings || [],
+      issueAssignments: issueAssignments || []
     };
   } catch (error) {
     console.error('Error fetching platform statistics:', error);
@@ -457,7 +740,7 @@ export async function POST(request: NextRequest) {
 - Comments: ${issueDetails.comment_count}
 - Votes: ${issueDetails.vote_count}
 - Description: ${issueDetails.description}
-- Recent Comments: ${issueDetails.recent_comments?.map((c: any) => `"${c.content}" - ${c.commenter_name}`).join(', ') || 'None'}`;
+- Recent Comments: ${issueDetails.recent_comments?.map((c: any) => `"${c.content}" - ${c.user_name}`).join(', ') || 'None'}`;
       }
     }
 
@@ -506,6 +789,7 @@ Platform Overview:
 - Total Issues: ${platformStats.totals.issues}
 - Total Users: ${platformStats.totals.users}  
 - Total Comments: ${platformStats.totals.comments}
+- Total Organizations: ${platformStats.totals.organizations}
 
 ${platformStats.issuesByStatus.length > 0 ? `Issues by Status:
 ${platformStats.issuesByStatus.map(s => `- ${s.status}: ${s.count} issues`).join('\n')}` : 'No issues data available yet'}
@@ -518,6 +802,18 @@ ${platformStats.issuesByPriority.map(p => `- ${p.priority}: ${p.count} issues`).
 
 ${platformStats.issuesByLocation.length > 0 ? `Areas with Most Issues:
 ${platformStats.issuesByLocation.slice(0, 8).map(l => `- ${l.address}: ${l.count} issues`).join('\n')}` : 'No location data available yet'}
+
+${platformStats.organizationStats.length > 0 ? `Organization Performance:
+${platformStats.organizationStats.slice(0, 5).map(o => `- ${o.organization_name}: ${o.member_count} members, ${o.assigned_issues} issues assigned, ${o.resolved_issues} resolved${o.avg_resolution_days ? ` (avg ${Math.round(o.avg_resolution_days)} days)` : ''}`).join('\n')}` : 'No organization data available yet'}
+
+${platformStats.userOrganizations.length > 0 ? `Recent Organization Activity:
+${platformStats.userOrganizations.slice(0, 5).map(uo => `- ${uo.user_name} (${uo.user_role}) joined ${uo.organization_name} ${uo.days_with_organization} days ago`).join('\n')}` : 'No organization membership data yet'}
+
+${platformStats.categoryMappings.length > 0 ? `Category-Organization Assignments:
+${platformStats.categoryMappings.slice(0, 5).map(cm => `- ${cm.organization_name} handles ${cm.category_name} (${cm.issues_in_category} issues)`).join('\n')}` : 'No category mappings available yet'}
+
+${platformStats.issueAssignments.length > 0 ? `Recent Issue Assignments:
+${platformStats.issueAssignments.slice(0, 5).map(ia => `- Issue #${ia.issue_id} "${ia.issue_title}" assigned to ${ia.organization_name} (${ia.days_since_assignment} days ago, Status: ${ia.current_status})`).join('\n')}` : 'No assignment data available yet'}
 
 ${platformStats.longStandingIssues.length > 0 ? `Long-standing Issues (>30 days unresolved):
 ${platformStats.longStandingIssues.slice(0, 5).map(i => `- Issue #${i.id}: "${i.title}" in ${i.address} (${i.days_open} days old, Priority: ${i.priority})`).join('\n')}` : 'No long-standing issues currently'}
