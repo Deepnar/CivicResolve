@@ -198,9 +198,9 @@ export function FeatureShowcase() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-12 bg-white/80 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-8 sm:mb-12 bg-white/80 backdrop-blur-sm h-auto">
             {Object.entries(featureCategories).map(([key, category]) => (
-              <TabsTrigger key={key} value={key} className="text-lg py-3">
+              <TabsTrigger key={key} value={key} className="text-sm sm:text-lg py-2 sm:py-3 whitespace-nowrap">
                 {category.title}
               </TabsTrigger>
             ))}
@@ -208,7 +208,7 @@ export function FeatureShowcase() {
 
           {Object.entries(featureCategories).map(([key, category]) => (
             <TabsContent key={key} value={key}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {category.features.map((feature, index) => (
                   <motion.div
                     key={feature.title}
@@ -224,10 +224,10 @@ export function FeatureShowcase() {
                     className="cursor-pointer"
                   >
                     <Card className="h-full bg-white/90 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 group">
-                      <CardHeader className="pb-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className={`${feature.bgColor} p-3 rounded-lg group-hover:scale-110 transition-transform duration-300`}>
-                            <feature.icon className={`w-6 h-6 ${feature.color}`} />
+                      <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <div className={`${feature.bgColor} p-2 sm:p-3 rounded-lg group-hover:scale-110 transition-transform duration-300`}>
+                            <feature.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${feature.color}`} />
                           </div>
                           {feature.tag && (
                             <Badge variant="secondary" className="text-xs">
@@ -235,15 +235,15 @@ export function FeatureShowcase() {
                             </Badge>
                           )}
                         </div>
-                        <CardTitle className="text-xl mb-2 group-hover:text-blue-600 transition-colors">
+                        <CardTitle className="text-lg sm:text-xl mb-2 group-hover:text-blue-600 transition-colors leading-tight">
                           {feature.title}
                         </CardTitle>
-                        <CardDescription className="text-gray-600">
+                        <CardDescription className="text-gray-600 text-sm sm:text-base leading-relaxed">
                           {feature.description}
                         </CardDescription>
                       </CardHeader>
                       
-                      <CardContent>
+                      <CardContent className="p-4 sm:p-6 pt-0">
                         <ul className="space-y-2 mb-4">
                           {feature.highlights.map((highlight, i) => (
                             <motion.li
@@ -251,10 +251,10 @@ export function FeatureShowcase() {
                               initial={{ opacity: 0, x: -20 }}
                               whileInView={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.1 + i * 0.05 }}
-                              className="flex items-center text-sm text-gray-600"
+                              className="flex items-start text-xs sm:text-sm text-gray-600"
                             >
-                              <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-                              {highlight}
+                              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                              <span className="leading-relaxed">{highlight}</span>
                             </motion.li>
                           ))}
                         </ul>
@@ -262,10 +262,10 @@ export function FeatureShowcase() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="w-full mt-4 group-hover:bg-blue-50 transition-colors"
+                          className="w-full mt-4 group-hover:bg-blue-50 transition-colors text-sm"
                         >
                           Learn More
-                          <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                          <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       </CardContent>
                     </Card>
@@ -283,46 +283,46 @@ export function FeatureShowcase() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4"
               onClick={() => setSelectedFeature(null)}
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`${selectedFeature.bgColor} p-3 rounded-lg`}>
-                      <selectedFeature.icon className={`w-8 h-8 ${selectedFeature.color}`} />
+                <div className="flex items-start sm:items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                    <div className={`${selectedFeature.bgColor} p-2 sm:p-3 rounded-lg flex-shrink-0`}>
+                      <selectedFeature.icon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedFeature.color}`} />
                     </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-900">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
                         {selectedFeature.title}
                       </h3>
                       {selectedFeature.tag && (
-                        <Badge variant="secondary" className="mt-1">
+                        <Badge variant="secondary" className="mt-1 text-xs">
                           {selectedFeature.tag}
                         </Badge>
                       )}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedFeature(null)}>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedFeature(null)} className="flex-shrink-0 ml-2">
                     ✕
                   </Button>
                 </div>
                 
-                <p className="text-gray-600 mb-6 leading-relaxed">
+                <p className="text-gray-600 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base">
                   {selectedFeature.details}
                 </p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {selectedFeature.highlights.map((highlight, i) => (
-                    <div key={i} className="flex items-center p-3 bg-gray-50 rounded-lg">
-                      <Star className="w-4 h-4 text-yellow-500 mr-2 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{highlight}</span>
+                    <div key={i} className="flex items-start p-3 bg-gray-50 rounded-lg">
+                      <Star className="w-4 h-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 leading-relaxed">{highlight}</span>
                     </div>
                   ))}
                 </div>
