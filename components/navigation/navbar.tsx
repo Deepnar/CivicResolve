@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/hooks/use-auth"
 import { usePWAInstall } from "@/hooks/use-pwa-install"
 import { useToast } from "@/hooks/use-toast"
+import { NotificationBell } from "@/components/ui/notification-bell"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -185,15 +186,23 @@ export function Navbar() {
           {/* User Menu */}
           <div className="flex items-center space-x-4">
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={`https://avatar.vercel.sh/${user.email}`} alt={user.name} />
-                      <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
+              <>
+                {/* Notification Bell for Organization Members */}
+                {(user.role === 'ORGANIZATION_ADMIN' || 
+                  user.role === 'ADMIN' || 
+                  (user.role === 'CITIZEN' && isOrganizationMember)) && (
+                  <NotificationBell />
+                )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={`https://avatar.vercel.sh/${user.email}`} alt={user.name} />
+                        <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
@@ -226,6 +235,7 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </>
             ) : (
               <div className="flex items-center space-x-2">
                 <Button variant="ghost" asChild>
