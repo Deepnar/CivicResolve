@@ -155,7 +155,7 @@ const teamMembers: TeamMember[] = [
   },
   {
     id: "community-manager",
-    name: "Yash",
+    name: "Yash Vishwakarma",
     role: "Research & Insights Manager",
     specialization: "Trends & Market Awareness",
     bio: "Keeps the team updated with the latest insights, technology news, and civic engagement trends to guide project direction.",
