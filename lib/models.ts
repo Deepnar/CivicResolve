@@ -317,7 +317,7 @@ export class IssueModel {
     `;
     await Database.query(updateSql, [status, id]);
 
-    // Invalidate issue-related caches
+    // Note: Cache invalidation handled in API routes that call this method
 
     const selectSql = `
       SELECT u.email, u.name, i.title
@@ -582,7 +582,7 @@ export class CommentModel {
       commentData.author_id,
     ]);
 
-    // Invalidate issue-related caches since comments affect issue details
+    // Note: Cache invalidation handled in API routes that call this method
     
     return commentId;
   }
@@ -617,7 +617,7 @@ export class VoteModel {
     const sql = 'INSERT INTO votes (issue_id, user_id) VALUES (?, ?)';
     const voteId = await Database.insert(sql, [voteData.issue_id, voteData.user_id]);
     
-    // Invalidate issue-related caches since votes affect issue details
+    // Note: Cache invalidation handled in API routes that call this method
     
     return voteId;
   }
@@ -632,6 +632,7 @@ export class VoteModel {
     await Database.delete(sql, [issueId, userId]);
     
     // Invalidate issue-related caches since votes affect issue details
+    // Note: Cache invalidation handled in API routes that call this method
   }
 
   static async getCountByIssue(issueId: number): Promise<number> {
@@ -934,11 +935,16 @@ export class IssueAssignmentModel {
       INSERT INTO issue_assignments (issue_id, organization_id, assigned_by)
       VALUES (?, ?, ?)
     `;
-    return await Database.insert(sql, [
+    const result = await Database.insert(sql, [
       data.issue_id,
       data.organization_id,
       data.assigned_by || null,
     ]);
+    
+    // Invalidate cache after assignment is created
+    // Note: Cache invalidation handled in API routes that call this method
+    
+    return result;
   }
 
   static async getByIssue(issueId: number): Promise<IssueAssignment[]> {
@@ -987,5 +993,7 @@ export class IssueAssignmentModel {
         console.error('Error creating assignment:', error);
       }
     }
+    
+    // Note: Cache invalidation handled in API routes that call this method
   }
 }

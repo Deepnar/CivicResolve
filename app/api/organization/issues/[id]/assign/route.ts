@@ -44,6 +44,10 @@ export async function POST(
       [assignedTo, assignedToName, issueId]
     )
 
+    // Invalidate cache after assignment update
+    const { serverCacheInvalidate } = await import('@/lib/server-cache')
+    await serverCacheInvalidate(['issues', 'stats', 'analytics'])
+
     return NextResponse.json({ 
       success: true, 
       message: `Issue assigned to ${assignedToName}`

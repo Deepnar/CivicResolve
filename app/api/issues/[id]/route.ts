@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server"
 import { IssueModel, VoteModel, CommentModel, AuthUtils, UserModel, UserOrganizationModel } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
+import { serverCacheInvalidate } from "@/lib/server-cache"
 interface RouteParams {
   params: Promise<{ id: string }>
 }
@@ -122,6 +123,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const oldStatus = (currentIssue as any).status
       
       const issue = await IssueModel.updateStatus(issueId, status)
+      
+      // Invalidate cache after status update
+      await serverCacheInvalidate(['issues', 'stats', 'analytics'])
+      
       if (issue) {
         console.log(issue);
         try {
@@ -197,6 +202,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Finally delete the issue itself
     const user = await UserModel.findById(issue.reporter_id);
     await IssueModel.delete(issueId)
+    
+    // Invalidate cache after issue deletion
+    await serverCacheInvalidate(['issues', 'stats', 'analytics'])
+    
     if (user) {
       try {
         await emailService.sendStatusUpdateEmail(user.email, issueId, issue.status, issue.title, user.name, true) //true for removing
