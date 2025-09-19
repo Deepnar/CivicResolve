@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Search, Eye, MapPin, Calendar, User, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Search, Eye, MapPin, Calendar, User, CheckCircle, Clock, AlertCircle, Camera, Upload, X } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,6 +51,12 @@ export default function MyIssues() {
     inProgress: 0,
     resolved: 0
   })
+  
+  // Photo resolution states
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null)
+  const [resolutionPhoto, setResolutionPhoto] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -119,6 +125,84 @@ export default function MyIssues() {
     const resolved = filteredIssues.filter(issue => issue.status === 'RESOLVED').length
     
     setStats({ total, pending, inProgress, resolved })
+  }
+
+  // Photo handling functions
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB")
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file")
+      return
+    }
+
+    // Create base64 data URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      setResolutionPhoto(result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleResolveWithPhoto = async () => {
+    if (!selectedIssueId || !resolutionPhoto) {
+      toast.error("Please select a photo before resolving")
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const response = await fetch(`/api/issues/${selectedIssueId}/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          resolutionImageUrl: resolutionPhoto 
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error || 'Failed to resolve issue')
+      }
+
+      const result = await response.json()
+      toast.success("Issue resolved successfully with photo!")
+      
+      // Refresh the issues list
+      fetchMyIssues()
+      
+      // Reset modal state
+      setShowPhotoModal(false)
+      setSelectedIssueId(null)
+      setResolutionPhoto(null)
+    } catch (error) {
+      console.error('Error resolving issue:', error)
+      toast.error(error instanceof Error ? error.message : "Failed to resolve issue")
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const openPhotoModal = (issueId: number) => {
+    setSelectedIssueId(issueId)
+    setShowPhotoModal(true)
+    setResolutionPhoto(null)
+  }
+
+  const closePhotoModal = () => {
+    setShowPhotoModal(false)
+    setSelectedIssueId(null)
+    setResolutionPhoto(null)
   }
 
   const handleStatusUpdate = async (issueId: number, newStatus: string) => {
@@ -360,9 +444,20 @@ export default function MyIssues() {
                         <Button 
                           size="sm" 
                           className="flex items-center gap-1"
-                          onClick={() => handleStatusUpdate(issue.id, getNextStatus(issue.status)!)}
+                          onClick={() => {
+                            const nextStatus = getNextStatus(issue.status)!
+                            if (nextStatus === 'RESOLVED') {
+                              openPhotoModal(issue.id)
+                            } else {
+                              handleStatusUpdate(issue.id, nextStatus)
+                            }
+                          }}
                         >
-                          <CheckCircle className="h-3 w-3" />
+                          {getNextStatus(issue.status) === 'RESOLVED' ? (
+                            <Camera className="h-3 w-3" />
+                          ) : (
+                            <CheckCircle className="h-3 w-3" />
+                          )}
                           {getStatusAction(issue.status)}
                         </Button>
                       )}
@@ -387,6 +482,87 @@ export default function MyIssues() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Photo Resolution Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Resolution Photo</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closePhotoModal}
+                className="p-1"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Please upload a photo showing the completed work to mark this issue as resolved.
+            </p>
+            
+            {!resolutionPhoto ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <label className="cursor-pointer">
+                  <span className="text-blue-600 hover:text-blue-500">
+                    Click to upload a photo
+                  </span>
+                  <input
+                    id="resolution-photo-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-gray-500 mt-2">
+                  Maximum file size: 5MB
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="border rounded-lg overflow-hidden">
+                  <img
+                    src={resolutionPhoto}
+                    alt="Resolution photo"
+                    className="w-full h-48 object-cover"
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setResolutionPhoto(null)}
+                    className="flex-1"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Change Photo
+                  </Button>
+                  <Button
+                    onClick={handleResolveWithPhoto}
+                    disabled={uploadingPhoto}
+                    className="flex-1"
+                  >
+                    {uploadingPhoto ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Resolving...
+                      </div>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark Resolved
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

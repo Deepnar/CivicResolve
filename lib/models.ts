@@ -335,6 +335,40 @@ export class IssueModel {
     return await Database.queryOne(selectSql, [id]);
   }
 
+  static async resolveWithImage(id: number, resolutionImageUrl: string): Promise<{ email: string, name: string, title: string } | null> {
+    // First check if issue exists and can be resolved
+    type IssueRow = { status: IssueStatus }
+    const currentSql = `SELECT status FROM issues WHERE id = ?`;
+    const current = await Database.queryOne<IssueRow>(currentSql, [id]);
+    
+    if (!current) {
+      throw new Error('Issue not found');
+    }
+
+    if (current.status !== 'IN_PROGRESS') {
+      throw new Error(`Cannot resolve issue. Current status: ${current.status}. Only IN_PROGRESS issues can be resolved.`);
+    }
+
+    // Update issue status to RESOLVED and add resolution image
+    const updateSql = `
+      UPDATE issues 
+      SET status = 'RESOLVED', 
+          resolution_image_url = ?, 
+          updated_at = NOW()
+      WHERE id = ?
+    `;
+    await Database.update(updateSql, [resolutionImageUrl, id]);
+
+    // Return reporter details for email notification
+    const selectSql = `
+      SELECT u.email, u.name, i.title
+      FROM issues i
+      JOIN users u ON i.reporter_id = u.id
+      WHERE i.id = ?
+    `;
+    return await Database.queryOne(selectSql, [id]);
+  }
+
 
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM issues WHERE id = ?';

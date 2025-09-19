@@ -58,6 +58,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       longitude: Number((rawIssue as any).longitude),
       address: (rawIssue as any).address,
       imageUrl: (rawIssue as any).image_url,
+      resolutionImageUrl: (rawIssue as any).resolution_image_url,
       reporterId: (rawIssue as any).reporter_id?.toString(),
       reporter: {
         id: (rawIssue as any).reporter_id?.toString(),

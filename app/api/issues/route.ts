@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
           longitude: Number(issue.longitude),
           address: issue.address,
           imageUrl: issue.image_url,
+          resolutionImageUrl: issue.resolution_image_url,
           reporterId: issue.reporter_id?.toString(),
           reporter: {
             id: issue.reporter_id?.toString(),

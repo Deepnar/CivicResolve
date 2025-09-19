@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Search, Filter, Download, Eye, MapPin, Calendar, User } from "lucide-react"
+import { Search, Filter, Download, Eye, MapPin, Calendar, User, Camera, CheckCircle, Bot } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ResolveIssueModal } from "@/components/organization/resolve-issue-modal"
+import AIAnalysisModal from "@/components/admin/ai-analysis-modal"
 import { useAuth } from "@/hooks/use-auth"
 import { formatTimeAgo } from "@/lib/date-utils"
 import Link from "next/link"
@@ -27,11 +29,13 @@ interface Issue {
   address: string
   coordinates: { lat: number; lng: number }
   images: string[]
+  image_url?: string  // Database field for issue image
   citizen_name: string
   citizen_email: string
   assigned_to?: string
   assigned_to_name?: string
   votes: number
+  resolutionImageUrl?: string
 }
 
 export default function OrganizationIssues() {
@@ -47,6 +51,12 @@ export default function OrganizationIssues() {
   const [checkingAccess, setCheckingAccess] = useState(true)
   const [organizationMembers, setOrganizationMembers] = useState<any[]>([])
   const [assigningIssueId, setAssigningIssueId] = useState<number | null>(null)
+  const [resolveModalOpen, setResolveModalOpen] = useState(false)
+  const [selectedIssueForResolve, setSelectedIssueForResolve] = useState<Issue | null>(null)
+  const [aiAnalysisModal, setAiAnalysisModal] = useState<{
+    isOpen: boolean
+    issue?: Issue
+  }>({ isOpen: false })
 
   useEffect(() => {
     checkOrganizationMembership()
@@ -197,6 +207,40 @@ export default function OrganizationIssues() {
       fetchOrganizationMembers()
     }
   }, [isOrganizationMember])
+
+  const handleResolveWithPhoto = (issue: Issue) => {
+    setSelectedIssueForResolve(issue)
+    setResolveModalOpen(true)
+  }
+
+  const handleResolveIssue = async (imageUrl: string) => {
+    if (!selectedIssueForResolve) return
+
+    try {
+      const response = await fetch(`/api/issues/${selectedIssueForResolve.id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ resolutionImageUrl: imageUrl }),
+      })
+
+      if (response.ok) {
+        // Refresh the issues list
+        fetchOrganizationIssues()
+        alert('Issue resolved successfully with photo proof!')
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to resolve issue')
+      }
+    } catch (error) {
+      console.error('Error resolving issue:', error)
+      throw error // Re-throw to let modal handle the error
+    }
+  }
+
+  const handleAIAnalysis = (issue: Issue) => {
+    setAiAnalysisModal({ isOpen: true, issue })
+  }
 
   // Show loading spinner while checking authentication or access
   if (checkingAccess) {
@@ -354,6 +398,19 @@ export default function OrganizationIssues() {
                         </Button>
                       </Link>
                       
+                      {/* Temporary: Show for all organization members to debug */}
+                      {((issue.images && issue.images.length > 0) || issue.image_url) && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleAIAnalysis(issue)}
+                          className="flex items-center gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                          <Bot className="h-3 w-3" />
+                          AI Analysis
+                        </Button>
+                      )}
+                      
                       {issue.status === 'PENDING' && !issue.assigned_to && user?.role === 'ORGANIZATION_ADMIN' && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -379,6 +436,24 @@ export default function OrganizationIssues() {
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      )}
+
+                      {issue.status === 'IN_PROGRESS' && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleResolveWithPhoto(issue)}
+                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                        >
+                          <Camera className="h-3 w-3" />
+                          Resolve with Photo
+                        </Button>
+                      )}
+
+                      {issue.status === 'RESOLVED' && issue.resolutionImageUrl && (
+                        <Button variant="outline" size="sm" className="flex items-center gap-1" disabled>
+                          <CheckCircle className="h-3 w-3" />
+                          Resolved
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -407,6 +482,28 @@ export default function OrganizationIssues() {
           </CardContent>
         </Card>
       )}
+
+      {/* Resolve Issue Modal */}
+      {selectedIssueForResolve && (
+        <ResolveIssueModal
+          isOpen={resolveModalOpen}
+          onClose={() => {
+            setResolveModalOpen(false)
+            setSelectedIssueForResolve(null)
+          }}
+          onResolve={handleResolveIssue}
+          issueTitle={selectedIssueForResolve.title}
+          issueId={selectedIssueForResolve.id}
+        />
+      )}
+
+      {/* AI Analysis Modal */}
+      <AIAnalysisModal
+        isOpen={aiAnalysisModal.isOpen}
+        onClose={() => setAiAnalysisModal({ isOpen: false })}
+        imageUrl={aiAnalysisModal.issue?.image_url || (aiAnalysisModal.issue?.images && aiAnalysisModal.issue.images[0])}
+        issueId={aiAnalysisModal.issue?.id.toString()}
+      />
     </div>
   )
 }

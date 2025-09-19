@@ -4,7 +4,7 @@ import { IssueModel, UserModel, OrganizationModel, UserOrganizationModel } from 
 import { emailService } from '@/lib/email-service'
 import { serverCacheInvalidate } from '@/lib/server-cache'
 
-export async function PATCH(
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -30,40 +30,13 @@ export async function PATCH(
     const params = await context.params
     const issueId = parseInt(params.id)
     const body = await request.json()
-    const { status } = body
+    const { resolutionImageUrl } = body
 
-    if (!status) {
+    if (!resolutionImageUrl) {
       return NextResponse.json(
-        { error: 'Status is required' },
+        { error: 'Resolution photo is required to mark issue as resolved' },
         { status: 400 }
       )
-    }
-
-    // Validate status transition
-    const validStatuses = ['PENDING', 'IN_PROGRESS', 'RESOLVED']
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      )
-    }
-
-    // Check if user is trying to mark as RESOLVED
-    if (status === 'RESOLVED') {
-      // Allow admins to mark as resolved without photo requirement
-      if (user.role === 'ADMIN') {
-        console.log(`🔑 [STATUS UPDATE] Admin user bypassing photo requirement for resolution`)
-      } else {
-        // For organization members, encourage using the photo resolution feature
-        return NextResponse.json(
-          { 
-            error: 'Resolution photo required', 
-            message: 'Organization members must use the "Resolve with Photo" feature to provide visual proof of completion. This ensures transparency and accountability.',
-            suggestion: 'Please use the "Resolve with Photo" button to upload a photo of the completed work.'
-          },
-          { status: 400 }
-        )
-      }
     }
 
     // Get the current issue details before updating
@@ -75,20 +48,28 @@ export async function PATCH(
       )
     }
 
+    // Check if issue is already resolved
+    if (currentIssue.status === 'RESOLVED') {
+      return NextResponse.json(
+        { error: 'Issue is already resolved' },
+        { status: 400 }
+      )
+    }
+
     const oldStatus = currentIssue.status
 
-    // Update the issue status
-    console.log(`🔄 [STATUS UPDATE] Updating issue ${issueId} status from "${oldStatus}" to "${status}"`)
-    await IssueModel.updateStatus(issueId, status)
-    console.log(`✅ [STATUS UPDATE] Issue status updated successfully`)
+    // Resolve the issue with the provided image
+    console.log(`🔄 [RESOLVE ISSUE] Resolving issue ${issueId} with photo: ${resolutionImageUrl}`)
+    await IssueModel.resolveWithImage(issueId, resolutionImageUrl)
+    console.log(`✅ [RESOLVE ISSUE] Issue resolved successfully with photo`)
 
-    // Invalidate cache after status update
-    console.log(`🗑️ [STATUS UPDATE] **CACHE INVALIDATION TRIGGERED** - Issue status changed`)
-    console.log(`🎯 [STATUS UPDATE] About to invalidate cache tags: ['issues', 'stats', 'analytics']`)
+    // Invalidate cache after resolving
+    console.log(`🗑️ [RESOLVE ISSUE] **CACHE INVALIDATION TRIGGERED** - Issue resolved`)
+    console.log(`🎯 [RESOLVE ISSUE] About to invalidate cache tags: ['issues', 'stats', 'analytics']`)
     await serverCacheInvalidate(['issues', 'stats', 'analytics'])
-    console.log(`✅ [STATUS UPDATE] Cache invalidation completed - fresh data will be fetched on next request`)
+    console.log(`✅ [RESOLVE ISSUE] Cache invalidation completed - fresh data will be fetched on next request`)
 
-    // Send email notification to the reporter about the status change
+    // Send email notification to the reporter about the resolution
     try {
       // Get reporter details - handle both possible property names
       const reporterId = (currentIssue as any).reporterId || (currentIssue as any).reporter_id
@@ -107,9 +88,9 @@ export async function PATCH(
         }
         
         // Get the employee ID of the user making the update
-        let updatedByEmployeeId = null;
+        let resolvedByEmployeeId = null;
         if (user.id && organizationId) {
-          updatedByEmployeeId = await UserOrganizationModel.getEmployeeId(user.id, organizationId);
+          resolvedByEmployeeId = await UserOrganizationModel.getEmployeeId(user.id, organizationId);
         }
         
         await emailService.sendStatusUpdateNotificationEmail(
@@ -126,26 +107,27 @@ export async function PATCH(
             priority: (currentIssue as any).priority || "MEDIUM"
           },
           oldStatus,
-          status,
+          'RESOLVED',
           employeeId,
           organization.name,
-          updatedByEmployeeId
+          resolvedByEmployeeId
         )
       }
     } catch (emailError) {
-      console.error('Failed to send status update notification email:', emailError)
+      console.error('Failed to send resolution notification email:', emailError)
       // Continue with success response even if email fails
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Issue status updated successfully'
+      message: 'Issue resolved successfully with photo proof',
+      resolutionImageUrl
     })
 
   } catch (error) {
-    console.error('Error updating issue status:', error)
+    console.error('Error resolving issue with photo:', error)
     return NextResponse.json(
-      { error: 'Failed to update issue status' },
+      { error: 'Failed to resolve issue' },
       { status: 500 }
     )
   }

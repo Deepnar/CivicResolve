@@ -7,7 +7,7 @@ import { StatusBadge } from "./badge-status"
 import { CategoryBadge } from "./badge-category"
 import { PriorityIndicator } from "./priority-indicator"
 import type { Issue } from "@/lib/types"
-import { MessageCircle, ThumbsUp, MapPin } from "lucide-react"
+import { MessageCircle, ThumbsUp, MapPin, Camera } from "lucide-react"
 import { Card, CardContent, CardHeader } from "./card"
 import { Avatar, AvatarFallback } from "./avatar"
 
@@ -97,6 +97,12 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
           <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-3">
             <CategoryBadge category={issue.category} />
             <StatusBadge status={issue.status} />
+            {issue.status === 'RESOLVED' && issue.resolutionImageUrl && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700">
+                <Camera className="h-3 w-3" />
+                <span className="text-xs font-medium">Verified</span>
+              </div>
+            )}
           </div>
         </CardHeader>
 

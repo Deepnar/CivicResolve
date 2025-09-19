@@ -24,6 +24,7 @@ const envSchema = z.object({
 
   // AI Configuration (optional)
   GOOGLE_AI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
 
   // App Configuration
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Search, Filter, Download, Edit, Eye, MoreHorizontal, AlertCircle, Clock, CheckCircle, Trash2 } from "lucide-react"
+import { Search, Filter, Download, Edit, Eye, MoreHorizontal, AlertCircle, Clock, CheckCircle, Trash2, Bot } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatusBadge } from "@/components/ui/badge-status"
 import { CategoryBadge } from "@/components/ui/badge-category"
@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { formatTimeAgo } from "@/lib/date-utils"
+import AIAnalysisModal from "@/components/admin/ai-analysis-modal"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
 
 export default function AdminIssuesPage() {
@@ -28,6 +29,10 @@ export default function AdminIssuesPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [aiAnalysisModal, setAiAnalysisModal] = useState<{
+    isOpen: boolean
+    issue?: Issue
+  }>({ isOpen: false })
 
   // Calculate dynamic status counts
   const statusCounts = {
@@ -162,6 +167,10 @@ export default function AdminIssuesPage() {
       console.error('Error deleting issue:', error)
       alert(`Failed to delete issue: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  const handleAIAnalysis = (issue: Issue) => {
+    setAiAnalysisModal({ isOpen: true, issue })
   }
 
   return (
@@ -328,6 +337,12 @@ export default function AdminIssuesPage() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Issue
                                 </DropdownMenuItem>
+                                {issue.imageUrl && (
+                                  <DropdownMenuItem onClick={() => handleAIAnalysis(issue)}>
+                                    <Bot className="h-4 w-4 mr-2" />
+                                    AI Analysis
+                                  </DropdownMenuItem>
+                                )}
 
                                 {issue.status === "PENDING" && (<DropdownMenuItem
                                   onClick={() => handleStatusUpdate(issue.id, "IN_PROGRESS")}
@@ -361,6 +376,14 @@ export default function AdminIssuesPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* AI Analysis Modal */}
+      <AIAnalysisModal
+        isOpen={aiAnalysisModal.isOpen}
+        onClose={() => setAiAnalysisModal({ isOpen: false })}
+        imageUrl={aiAnalysisModal.issue?.imageUrl}
+        issueId={aiAnalysisModal.issue?.id}
+      />
     </div>
   )
 }

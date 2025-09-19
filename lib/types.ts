@@ -83,6 +83,7 @@ export interface Issue {
   longitude: number
   address: string
   imageUrl?: string
+  resolutionImageUrl?: string  // Photo proof of issue resolution
   reporterId: string
   reporter: User
   comments: Comment[]

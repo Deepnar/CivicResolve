@@ -223,6 +223,21 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                         />
                       </div>
                     )}
+
+                    {/* Resolution Photo */}
+                    {issue.status === 'RESOLVED' && issue.resolutionImageUrl && (
+                      <div className="rounded-lg overflow-hidden border-2 border-green-200 bg-green-50 p-4">
+                        <div className="mb-2">
+                          <h4 className="text-sm font-semibold text-green-800 mb-1">Resolution Proof</h4>
+                          <p className="text-xs text-green-600">Photo showing the completed work</p>
+                        </div>
+                        <img 
+                          src={issue.resolutionImageUrl} 
+                          alt="Resolution proof" 
+                          className="w-full h-auto max-h-64 object-cover rounded-md"
+                        />
+                      </div>
+                    )}
                     
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-1">
