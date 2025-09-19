@@ -4,6 +4,7 @@ import { IssueModel, AuthUtils } from "@/lib/db"
 import { IssueAssignmentModel } from "@/lib/models"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
+import { withServerCache, serverCacheInvalidate, SERVER_CACHE_TTL } from "@/lib/server-cache"
 
 const createIssueSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -28,46 +29,74 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    const rawIssues = await IssueModel.getAll({
-      category,
-      status,
-      priority,
+    // Create cache key based on filters
+    const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${limit}:${offset}`
+    
+    console.log(`🔍 [ISSUES GET] Requesting issues with filters:`, {
+      category: category || 'all',
+      status: status || 'all', 
+      priority: priority || 'all',
       limit,
       offset,
+      cacheKey
     })
+    
+    const issues = await withServerCache(
+      cacheKey,
+      async () => {
+        console.log(`🗃️ [ISSUES GET] Cache miss - fetching from database with filters:`, {
+          category, status, priority, limit, offset
+        })
+        
+        const rawIssues = await IssueModel.getAll({
+          category,
+          status,
+          priority,
+          limit,
+          offset,
+        })
 
-    // Transform the data to match the expected Issue type structure
-    const issues = rawIssues.map((issue: any) => ({
-      id: issue.id.toString(),
-      title: issue.title,
-      description: issue.description,
-      category: issue.category,
-      status: issue.status,
-      priority: issue.priority,
-      latitude: Number(issue.latitude),
-      longitude: Number(issue.longitude),
-      address: issue.address,
-      imageUrl: issue.image_url,
-      reporterId: issue.reporter_id?.toString(),
-      reporter: {
-        id: issue.reporter_id?.toString(),
-        name: issue.reporter_name,
-        email: '', // Not included in query for privacy
-        role: 'CITIZEN' as const,
-        points: 0,
-        badges: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
+        console.log(`📊 [ISSUES GET] Database returned ${rawIssues.length} issues`)
+
+        // Transform the data to match the expected Issue type structure
+        const transformedIssues = rawIssues.map((issue: any) => ({
+          id: issue.id.toString(),
+          title: issue.title,
+          description: issue.description,
+          category: issue.category,
+          status: issue.status,
+          priority: issue.priority,
+          latitude: Number(issue.latitude),
+          longitude: Number(issue.longitude),
+          address: issue.address,
+          imageUrl: issue.image_url,
+          reporterId: issue.reporter_id?.toString(),
+          reporter: {
+            id: issue.reporter_id?.toString(),
+            name: issue.reporter_name,
+            email: '', // Not included in query for privacy
+            role: 'CITIZEN' as const,
+            points: 0,
+            badges: [],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          comments: [],
+          votes: [],
+          assignments: [],
+          votes_count: issue.votes_count || 0, // Include database count
+          comments_count: issue.comments_count || 0, // Include database count
+          createdAt: new Date(issue.created_at),
+          updatedAt: new Date(issue.updated_at)
+        }))
+        
+        console.log(`✅ [ISSUES GET] Transformed ${transformedIssues.length} issues for caching`)
+        return transformedIssues
       },
-      comments: [],
-      votes: [],
-      assignments: [],
-      votes_count: issue.votes_count || 0, // Include database count
-      comments_count: issue.comments_count || 0, // Include database count
-      createdAt: new Date(issue.created_at),
-      updatedAt: new Date(issue.updated_at)
-    }))
+      SERVER_CACHE_TTL.MEDIUM // 5 minutes cache
+    )
 
+    console.log(`🎯 [ISSUES GET] Returning ${issues.length} issues to client`)
     endTimer()
     return Response.json({ issues })
   } catch (error) {
@@ -82,13 +111,24 @@ export async function POST(request: NextRequest) {
   const endTimer = PerformanceMonitor.start('POST /api/issues')
   
   try {
+    console.log(`🆕 [ISSUES POST] Starting new issue creation process`)
+    
     // Require authentication
     const user = await AuthUtils.requireAuth(request)
+    console.log(`👤 [ISSUES POST] User authenticated: ${user.name} (ID: ${user.id})`)
     
     const body = await request.json()
+    console.log(`📝 [ISSUES POST] Request data:`, {
+      title: body.title,
+      category: body.category,
+      priority: body.priority,
+      address: body.address,
+      hasImage: !!body.image_url
+    })
     
     const validationResult = createIssueSchema.safeParse(body)
     if (!validationResult.success) {
+      console.log(`❌ [ISSUES POST] Validation failed:`, validationResult.error.flatten().fieldErrors)
       return Response.json({ 
         error: "Validation failed", 
         details: validationResult.error.flatten().fieldErrors 
@@ -96,38 +136,54 @@ export async function POST(request: NextRequest) {
     }
     
     const issueData = validationResult.data
+    console.log(`✅ [ISSUES POST] Validation passed - creating issue`)
 
     // Create the issue
+    console.log(`💾 [ISSUES POST] Saving issue to database...`)
     const issueId = await IssueModel.create({
       ...issueData,
       reporter_id: user.id,
       image_url: issueData.image_url || undefined, // Convert null to undefined
     })
+    console.log(`🎉 [ISSUES POST] Issue created with ID: ${issueId}`)
 
     // Automatically assign issue to responsible organizations
     try {
+      console.log(`🏢 [ISSUES POST] Attempting to assign issue to organizations...`)
       await IssueAssignmentModel.assignIssueToOrganizations(issueId, user.id);
+      console.log(`✅ [ISSUES POST] Issue assigned to organizations successfully`)
     } catch (assignmentError) {
-      console.error('Failed to assign issue to organizations:', assignmentError);
+      console.error('🚨 [ISSUES POST] Failed to assign issue to organizations:', assignmentError);
     }
 
     // Send notifications to organizations and user
     try {
+      console.log(`📧 [ISSUES POST] Sending email notifications...`)
       // Send confirmation email to the user
       await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name);
+      console.log(`✅ [ISSUES POST] Confirmation email sent to user`)
       
       // Send notifications to organization members
       await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
+      console.log(`✅ [ISSUES POST] Notification emails sent to organizations`)
     } catch (emailError) {
-      console.error('Failed to send email notifications:', emailError);
+      console.error('🚨 [ISSUES POST] Failed to send email notifications:', emailError);
     }
 
     // Get the created issue with all details
+    console.log(`📖 [ISSUES POST] Fetching created issue details...`)
     const issue = await IssueModel.findById(issueId)
+
+    // Invalidate issues cache when new issue is created
+    console.log(`🗑️ [ISSUES POST] **CACHE INVALIDATION TRIGGERED** - New issue created`)
+    console.log(`🎯 [ISSUES POST] About to invalidate cache tags: ['issues', 'list', 'stats']`)
+    await serverCacheInvalidate(['issues', 'list', 'stats'])
+    console.log(`✅ [ISSUES POST] Cache invalidation completed - fresh data will be fetched on next request`)
 
     // Award points to the user for reporting an issue
     // await UserModel.updatePoints(user.id, 10) // 10 points for reporting
 
+    console.log(`🎉 [ISSUES POST] Issue creation process completed successfully`)
     endTimer()
     return Response.json(
       {

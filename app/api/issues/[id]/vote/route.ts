@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { VoteModel, AuthUtils } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
+import { serverCacheInvalidate } from "@/lib/server-cache"
 
 // POST /api/issues/[id]/vote - Toggle vote for an issue
 export async function POST(
@@ -23,16 +24,19 @@ export async function POST(
 
     // Check if user has already voted
     const existingVote = await VoteModel.findByIssueAndUser(issueId, user.id)
+    console.log(`🗳️ [VOTE] User ${user.id} ${existingVote ? 'already voted' : 'has not voted'} on issue ${issueId}`)
 
     let message: string
     let votesCount: number
 
     if (existingVote) {
       // Remove the vote
+      console.log(`➖ [VOTE] Removing vote for user ${user.id} on issue ${issueId}`)
       await VoteModel.delete(issueId, user.id)
       message = "Vote removed"
     } else {
       // Add the vote
+      console.log(`➕ [VOTE] Adding vote for user ${user.id} on issue ${issueId}`)
       await VoteModel.create({
         issue_id: issueId,
         user_id: user.id,
@@ -42,6 +46,13 @@ export async function POST(
 
     // Get updated vote count
     votesCount = await VoteModel.getCountByIssue(issueId)
+    console.log(`📊 [VOTE] Updated vote count for issue ${issueId}: ${votesCount}`)
+
+    // Invalidate cache after vote change (affects issue lists with vote counts)
+    console.log(`🗑️ [VOTE] **CACHE INVALIDATION TRIGGERED** - Vote count changed`)
+    console.log(`🎯 [VOTE] About to invalidate cache tags: ['issues', 'stats']`)
+    await serverCacheInvalidate(['issues', 'stats'])
+    console.log(`✅ [VOTE] Cache invalidation completed - fresh data will be fetched on next request`)
 
     endTimer()
     return Response.json({

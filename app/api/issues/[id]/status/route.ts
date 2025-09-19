@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth-utils'
 import { IssueModel, UserModel, OrganizationModel, UserOrganizationModel } from '@/lib/models'
 import { emailService } from '@/lib/email-service'
+import { serverCacheInvalidate } from '@/lib/server-cache'
 
 export async function PATCH(
   request: NextRequest,
@@ -59,7 +60,15 @@ export async function PATCH(
     const oldStatus = currentIssue.status
 
     // Update the issue status
+    console.log(`🔄 [STATUS UPDATE] Updating issue ${issueId} status from "${oldStatus}" to "${status}"`)
     await IssueModel.updateStatus(issueId, status)
+    console.log(`✅ [STATUS UPDATE] Issue status updated successfully`)
+
+    // Invalidate cache after status update
+    console.log(`🗑️ [STATUS UPDATE] **CACHE INVALIDATION TRIGGERED** - Issue status changed`)
+    console.log(`🎯 [STATUS UPDATE] About to invalidate cache tags: ['issues', 'stats', 'analytics']`)
+    await serverCacheInvalidate(['issues', 'stats', 'analytics'])
+    console.log(`✅ [STATUS UPDATE] Cache invalidation completed - fresh data will be fetched on next request`)
 
     // Send email notification to the reporter about the status change
     try {

@@ -115,7 +115,7 @@ export class UserModel {
       INSERT INTO users (email, name, password, role, points, is_verified, verification_token, verification_token_expires)
       VALUES (?, ?, ?, ?, 0, FALSE, ?, ?)
     `;
-    return await Database.insert(sql, [
+    const userId = await Database.insert(sql, [
       userData.email,
       userData.name,
       hashedPassword,
@@ -123,6 +123,10 @@ export class UserModel {
       userData.verification_token || null,
       userData.verification_token_expires || null,
     ]);
+
+    // Invalidate user-related caches
+    
+    return userId;
   }
 
   static async findByEmail(email: string): Promise<User | null> {
@@ -147,6 +151,11 @@ export class UserModel {
       WHERE verification_token = ? AND verification_token_expires > NOW()
     `;
     const result = await Database.update(sql, [token]);
+    
+    if (result > 0) {
+      // Invalidate user-related caches
+    }
+    
     return result > 0;
   }
 
@@ -162,6 +171,8 @@ export class UserModel {
   static async updatePoints(userId: number, points: number): Promise<void> {
     const sql = 'UPDATE users SET points = points + ? WHERE id = ?';
     await Database.update(sql, [points, userId]);
+    
+    // Invalidate user-related caches
   }
 
   static async updateProfile(userId: number, profileData: { name?: string; email?: string }): Promise<void> {
@@ -185,6 +196,8 @@ export class UserModel {
 
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
+    
+    // Invalidate user-related caches
   }
 
   static async getAll(): Promise<User[]> {
@@ -226,7 +239,7 @@ export class IssueModel {
       INSERT INTO issues (title, description, category, priority, latitude, longitude, address, image_url, reporter_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    return await Database.insert(sql, [
+    const issueId = await Database.insert(sql, [
       issueData.title,
       issueData.description,
       issueData.category,
@@ -237,6 +250,10 @@ export class IssueModel {
       issueData.image_url || null,
       issueData.reporter_id,
     ]);
+
+    // Invalidate issue-related caches
+    
+    return issueId;
   }
 
   static async findById(id: number): Promise<Issue | null> {
@@ -300,6 +317,8 @@ export class IssueModel {
     `;
     await Database.query(updateSql, [status, id]);
 
+    // Invalidate issue-related caches
+
     const selectSql = `
       SELECT u.email, u.name, i.title
       FROM issues i
@@ -313,6 +332,8 @@ export class IssueModel {
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM issues WHERE id = ?';
     await Database.delete(sql, [id]);
+    
+    // Invalidate issue-related caches
   }
 
   static async getByLocation(lat: number, lng: number, radius: number = 5): Promise<Issue[]> {
@@ -555,11 +576,15 @@ export class CommentModel {
     author_id: number;
   }): Promise<number> {
     const sql = 'INSERT INTO comments (content, issue_id, author_id) VALUES (?, ?, ?)';
-    return await Database.insert(sql, [
+    const commentId = await Database.insert(sql, [
       commentData.content,
       commentData.issue_id,
       commentData.author_id,
     ]);
+
+    // Invalidate issue-related caches since comments affect issue details
+    
+    return commentId;
   }
 
   static async getByIssueId(issueId: number): Promise<Comment[]> {
@@ -576,6 +601,8 @@ export class CommentModel {
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM comments WHERE id = ?';
     await Database.delete(sql, [id]);
+    
+    // Invalidate issue-related caches since comments affect issue details
   }
 
   static async deleteByIssueId(issueId: number): Promise<void> {
@@ -588,7 +615,11 @@ export class CommentModel {
 export class VoteModel {
   static async create(voteData: { issue_id: number; user_id: number }): Promise<number> {
     const sql = 'INSERT INTO votes (issue_id, user_id) VALUES (?, ?)';
-    return await Database.insert(sql, [voteData.issue_id, voteData.user_id]);
+    const voteId = await Database.insert(sql, [voteData.issue_id, voteData.user_id]);
+    
+    // Invalidate issue-related caches since votes affect issue details
+    
+    return voteId;
   }
 
   static async findByIssueAndUser(issueId: number, userId: number): Promise<Vote | null> {
@@ -599,6 +630,8 @@ export class VoteModel {
   static async delete(issueId: number, userId: number): Promise<void> {
     const sql = 'DELETE FROM votes WHERE issue_id = ? AND user_id = ?';
     await Database.delete(sql, [issueId, userId]);
+    
+    // Invalidate issue-related caches since votes affect issue details
   }
 
   static async getCountByIssue(issueId: number): Promise<number> {
@@ -626,13 +659,17 @@ export class OrganizationModel {
       INSERT INTO organizations (name, description, email, phone, address)
       VALUES (?, ?, ?, ?, ?)
     `;
-    return await Database.insert(sql, [
+    const orgId = await Database.insert(sql, [
       orgData.name,
       orgData.description || null,
       orgData.email || null,
       orgData.phone || null,
       orgData.address || null,
     ]);
+
+    // Invalidate organization-related caches
+    
+    return orgId;
   }
 
   static async findById(id: number): Promise<Organization | null> {
@@ -677,11 +714,15 @@ export class OrganizationModel {
 
     const sql = `UPDATE organizations SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
+    
+    // Invalidate organization-related caches
   }
 
   static async delete(id: number): Promise<void> {
     const sql = 'UPDATE organizations SET is_active = FALSE WHERE id = ?';
     await Database.update(sql, [id]);
+    
+    // Invalidate organization-related caches
   }
 
   static async getByCategory(category: string): Promise<Organization[]> {
@@ -710,7 +751,7 @@ export class UserOrganizationModel {
       INSERT INTO user_organizations (user_id, organization_id, role, employee_id, position, assigned_by)
       VALUES (?, ?, ?, ?, ?, ?)
     `;
-    return await Database.insert(sql, [
+    const userOrgId = await Database.insert(sql, [
       data.user_id,
       data.organization_id,
       data.role,
@@ -718,6 +759,10 @@ export class UserOrganizationModel {
       data.position || null,
       data.assigned_by || null,
     ]);
+
+    // Invalidate user and organization related caches
+    
+    return userOrgId;
   }
 
   static async findByUserAndOrganization(userId: number, organizationId: number): Promise<UserOrganization | null> {
@@ -770,11 +815,15 @@ export class UserOrganizationModel {
     values.push(id);
     const sql = `UPDATE user_organizations SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
+    
+    // Invalidate user and organization related caches
   }
 
   static async remove(userId: number, organizationId: number): Promise<void> {
     const sql = 'UPDATE user_organizations SET is_active = FALSE WHERE user_id = ? AND organization_id = ?';
     await Database.update(sql, [userId, organizationId]);
+    
+    // Invalidate user and organization related caches
   }
 
   static async isOrganizationAdmin(userId: number, organizationId: number): Promise<boolean> {

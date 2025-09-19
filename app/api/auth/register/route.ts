@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate verification token
-    const verificationToken = emailService.generateVerificationToken()
+    const verificationToken = await emailService.generateVerificationToken()
     const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
     // Create user with verification token

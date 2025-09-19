@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
 import { PerformanceMonitor } from '@/lib/performance';
+import { withServerCache, serverCacheGet, serverCacheSet, SERVER_CACHE_TTL } from '@/lib/server-cache';
 
 // Enhanced TypeScript interfaces for comprehensive database results
 interface IssueDetailsResult {
@@ -427,76 +428,79 @@ async function getLocationStats(location: string) {
   }
 }
 async function getPlatformStatistics() {
-  try {
-    // Get total counts with safe fallbacks
-    const totalIssuesResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM issues');
-    const totalUsersResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM users');
-    const totalCommentsResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM comments');
+  return await withServerCache(
+    'chat-platform-stats',
+    async () => {
+      try {
+        // Get total counts with safe fallbacks
+        const totalIssuesResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM issues');
+        const totalUsersResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM users');
+        const totalCommentsResult = await Database.query<CountResult>('SELECT COUNT(*) as count FROM comments');
 
-    const totalIssues = totalIssuesResult?.[0]?.count || 0;
-    const totalUsers = totalUsersResult?.[0]?.count || 0;
-    const totalComments = totalCommentsResult?.[0]?.count || 0;
+        const totalIssues = totalIssuesResult?.[0]?.count || 0;
+        const totalUsers = totalUsersResult?.[0]?.count || 0;
+        const totalComments = totalCommentsResult?.[0]?.count || 0;
 
-    // Get issues by status
-    const issuesByStatus = await Database.query<StatusResult>(`
-      SELECT status, COUNT(*) as count 
-      FROM issues 
-      GROUP BY status
-    `);
+        // Get issues by status
+        const issuesByStatus = await Database.query<StatusResult>(`
+          SELECT status, COUNT(*) as count 
+          FROM issues 
+          GROUP BY status
+        `);
 
-    // Get issues by category
-    const issuesByCategory = await Database.query<CategoryResult>(`
-      SELECT category, COUNT(*) as count 
-      FROM issues 
-      GROUP BY category 
-      ORDER BY count DESC
-    `);
+        // Get issues by category
+        const issuesByCategory = await Database.query<CategoryResult>(`
+          SELECT category, COUNT(*) as count 
+          FROM issues 
+          GROUP BY category 
+          ORDER BY count DESC
+        `);
 
-    // Get issues by priority
-    const issuesByPriority = await Database.query<PriorityResult>(`
-      SELECT priority, COUNT(*) as count 
-      FROM issues 
-      GROUP BY priority
-    `);
+        // Get issues by priority
+        const issuesByPriority = await Database.query<PriorityResult>(`
+          SELECT priority, COUNT(*) as count 
+          FROM issues 
+          GROUP BY priority
+        `);
 
-    // Get long-standing issues (older than 30 days without resolution)
-    const longStandingIssues = await Database.query<LongStandingIssueResult>(`
-      SELECT id, title, category, priority, address, created_at,
-             DATEDIFF(NOW(), created_at) as days_open
-      FROM issues 
-      WHERE status != 'RESOLVED' AND DATEDIFF(NOW(), created_at) > 30
-      ORDER BY days_open DESC
-      LIMIT 10
-    `);
+        // Get long-standing issues (older than 30 days without resolution)
+        const longStandingIssues = await Database.query<LongStandingIssueResult>(`
+          SELECT id, title, category, priority, address, created_at,
+                 DATEDIFF(NOW(), created_at) as days_open
+          FROM issues 
+          WHERE status != 'RESOLVED' AND DATEDIFF(NOW(), created_at) > 30
+          ORDER BY days_open DESC
+          LIMIT 10
+        `);
 
-    // Get issues by location/area
-    const issuesByLocation = await Database.query<LocationResult>(`
-      SELECT address, COUNT(*) as count 
-      FROM issues 
-      WHERE address IS NOT NULL AND address != ''
-      GROUP BY address 
-      ORDER BY count DESC
-      LIMIT 15
-    `);
+        // Get issues by location/area
+        const issuesByLocation = await Database.query<LocationResult>(`
+          SELECT address, COUNT(*) as count 
+          FROM issues 
+          WHERE address IS NOT NULL AND address != ''
+          GROUP BY address 
+          ORDER BY count DESC
+          LIMIT 15
+        `);
 
-    // Get recent activity trends (last 30 days)
-    const recentTrends = await Database.query<TrendResult>(`
-      SELECT 
-        DATE(created_at) as date,
-        COUNT(*) as issues_reported,
-        category
-      FROM issues 
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY DATE(created_at), category
-      ORDER BY date DESC, issues_reported DESC
-    `);
+        // Get recent activity trends (last 30 days)
+        const recentTrends = await Database.query<TrendResult>(`
+          SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as issues_reported,
+            category
+          FROM issues 
+          WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+          GROUP BY DATE(created_at), category
+          ORDER BY date DESC, issues_reported DESC
+        `);
 
-    // Get user engagement stats
-    const userEngagement = await Database.query<UserEngagementResult>(`
-      SELECT 
-        u.id,
-        u.name,
-        u.email,
+        // Get user engagement stats
+        const userEngagement = await Database.query<UserEngagementResult>(`
+          SELECT 
+            u.id,
+            u.name,
+            u.email,
         COUNT(DISTINCT i.id) as issues_reported,
         COUNT(DISTINCT c.id) as comments_made,
         COUNT(DISTINCT v.issue_id) as votes_cast
@@ -633,33 +637,36 @@ async function getPlatformStatistics() {
       LIMIT 100
     `);
 
-    return {
-      totals: {
-        issues: totalIssues,
-        users: totalUsers,
-        comments: totalComments,
-        organizations: organizationStats?.length || 0
-      },
-      issuesByStatus: issuesByStatus || [],
-      issuesByCategory: issuesByCategory || [],
-      issuesByPriority: issuesByPriority || [],
-      issuesByLocation: issuesByLocation || [],
-      longStandingIssues: longStandingIssues || [],
-      recentTrends: recentTrends || [],
-      userEngagement: userEngagement || [],
-      urgentIssues: urgentIssues || [],
-      avgResolutionTime: avgResolutionTime || [],
-      issuesWithVotes: issuesWithVotes || [],
-      // Enhanced organization data
-      organizationStats: organizationStats || [],
-      userOrganizations: userOrganizations || [],
-      categoryMappings: categoryMappings || [],
-      issueAssignments: issueAssignments || []
-    };
-  } catch (error) {
-    console.error('Error fetching platform statistics:', error);
-    return null;
-  }
+        return {
+          totals: {
+            issues: totalIssues,
+            users: totalUsers,
+            comments: totalComments,
+            organizations: organizationStats?.length || 0
+          },
+          issuesByStatus: issuesByStatus || [],
+          issuesByCategory: issuesByCategory || [],
+          issuesByPriority: issuesByPriority || [],
+          issuesByLocation: issuesByLocation || [],
+          longStandingIssues: longStandingIssues || [],
+          recentTrends: recentTrends || [],
+          userEngagement: userEngagement || [],
+          urgentIssues: urgentIssues || [],
+          avgResolutionTime: avgResolutionTime || [],
+          issuesWithVotes: issuesWithVotes || [],
+          // Enhanced organization data
+          organizationStats: organizationStats || [],
+          userOrganizations: userOrganizations || [],
+          categoryMappings: categoryMappings || [],
+          issueAssignments: issueAssignments || []
+        };
+      } catch (error) {
+        console.error('Error fetching platform statistics:', error);
+        return null;
+      }
+    },
+    SERVER_CACHE_TTL.MEDIUM // 5 minutes cache for platform stats
+  );
 }
 
 // Function to get current user's statistics
@@ -899,18 +906,55 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
     // Get the generative model - using Gemini 2.0 Flash for faster responses
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-    // Generate response using the filtered system prompt
-    const result = await model.generateContent([
-      { text: systemPrompt },
-      { text: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}` },
-      { text: `User Message: ${message}` }
-    ]);
-    const response = await result.response;
-    const text = response.text();
+    // Create cache key for AI response based on message content and user role
+    // Don't cache user-specific queries or admin data
+    const isUserSpecificQuery = message.toLowerCase().includes('who am i') || 
+                               message.toLowerCase().includes('my ') ||
+                               message.toLowerCase().includes('i ') ||
+                               isAdmin; // Don't cache admin queries with sensitive data
+    
+    let aiResponse: string;
+    
+    if (!isUserSpecificQuery) {
+      // Try to get cached response for similar queries
+      const cacheKey = `ai-response:${Buffer.from(message.toLowerCase().trim()).toString('base64').slice(0, 50)}`;
+      
+      const cachedResponse = await serverCacheGet<string>(cacheKey);
+      
+      if (cachedResponse) {
+        endTimer();
+        return NextResponse.json({ 
+          response: cachedResponse,
+          timestamp: new Date().toISOString(),
+          cached: true
+        });
+      }
+      
+      // Generate new response
+      const result = await model.generateContent([
+        { text: systemPrompt },
+        { text: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}` },
+        { text: `User Message: ${message}` }
+      ]);
+      const response = await result.response;
+      aiResponse = response.text();
+      
+      // Cache the response for 30 minutes (avoid caching user-specific content)
+      await serverCacheSet(cacheKey, aiResponse, SERVER_CACHE_TTL.LONG); // 30 minutes
+    } else {
+      // Generate response without caching for user-specific queries
+      const result = await model.generateContent([
+        { text: systemPrompt },
+        { text: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}` },
+        { text: `User Message: ${message}` }
+      ]);
+      const response = await result.response;
+      aiResponse = response.text();
+    }
 
     endTimer()
     return NextResponse.json({ 
-      response: text,
+      response: aiResponse,
       timestamp: new Date().toISOString()
     });
 

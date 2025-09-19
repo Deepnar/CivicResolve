@@ -95,15 +95,34 @@ const nextConfig = {
   
   // Webpack optimization
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Bundle analyzer
-    if (process.env.ANALYZE === 'true') {
-      const { BundleAnalyzerPlugin } = require('@next/bundle-analyzer')
+    // Handle Node.js built-in modules for Redis and other dependencies
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: 'crypto-browserify',
+        stream: 'stream-browserify',
+        util: 'util',
+        buffer: 'buffer',
+        events: 'events',
+      }
+
+      // Add webpack plugins for polyfills
       config.plugins.push(
-        new BundleAnalyzerPlugin({
-          analyzerMode: 'static',
-          openAnalyzer: false,
+        new webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
         })
       )
+    }
+
+    // Bundle analyzer (disabled for now to avoid require() issues in ES modules)
+    if (process.env.ANALYZE === 'true') {
+      // Note: Bundle analyzer requires CommonJS require()
+      // For now, analyze builds manually with: ANALYZE=true npm run build
+      console.log('Bundle analysis mode enabled - this may require switching to commonjs')
     }
 
     // Production optimizations

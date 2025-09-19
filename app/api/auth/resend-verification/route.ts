@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate new verification token
-    const verificationToken = emailService.generateVerificationToken()
+    const verificationToken = await emailService.generateVerificationToken()
     const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
     // Update user with new token

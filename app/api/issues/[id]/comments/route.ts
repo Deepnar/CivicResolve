@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server"
 import { z } from "zod"
 import { CommentModel, AuthUtils } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
+import { serverCacheInvalidate } from "@/lib/server-cache"
 
 const createCommentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty"),
@@ -54,6 +55,8 @@ export async function POST(
 
     const body = await request.json()
     const { content } = createCommentSchema.parse(body)
+    console.log(`💬 [COMMENT] User ${user.id} (${user.name}) adding comment to issue ${issueId}`)
+    console.log(`📝 [COMMENT] Comment content preview: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`)
 
     // Create the comment
     const commentId = await CommentModel.create({
@@ -61,9 +64,17 @@ export async function POST(
       issue_id: issueId,
       author_id: user.id,
     })
+    console.log(`✅ [COMMENT] Comment created with ID: ${commentId}`)
 
     // Get all comments for the issue to return
     const comments = await CommentModel.getByIssueId(issueId)
+    console.log(`📊 [COMMENT] Issue ${issueId} now has ${comments.length} total comments`)
+
+    // Invalidate cache after comment creation (affects issue details with comment counts)
+    console.log(`🗑️ [COMMENT] **CACHE INVALIDATION TRIGGERED** - New comment added`)
+    console.log(`🎯 [COMMENT] About to invalidate cache tags: ['issues', 'comments']`)
+    await serverCacheInvalidate(['issues', 'comments'])
+    console.log(`✅ [COMMENT] Cache invalidation completed - fresh data will be fetched on next request`)
 
     endTimer()
     return Response.json(

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
-import { UserModel } from './models';
+
+// Import types only to avoid bundling issues
+import type { User } from './types';
 
 // Use environment variable - NO FALLBACK for security
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -115,6 +117,8 @@ export class AuthUtils {
         return null;
       }
 
+      // Dynamic import to avoid bundling issues
+      const { UserModel } = await import('./models');
       const user = await UserModel.findById(payload.userId);
       
       // Check if user exists and is verified

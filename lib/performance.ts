@@ -273,15 +273,16 @@ export function getMemoryUsage(): {
 }
 
 // Log memory usage periodically in development
-if (process.env.NODE_ENV === 'development') {
-  setInterval(() => {
-    const memory = getMemoryUsage()
-    if (memory.percentage > 80) {
-      logger.warn(
-        `High memory usage: ${memory.percentage.toFixed(1)}%`,
-        'MemoryMonitor',
-        { used: `${(memory.used / 1024 / 1024).toFixed(2)}MB` }
-      )
-    }
-  }, 30000) // Every 30 seconds
-}
+// Memory monitoring disabled to reduce console noise
+// if (process.env.NODE_ENV === 'development') {
+//   setInterval(() => {
+//     const memory = getMemoryUsage()
+//     if (memory.percentage > 80) {
+//       logger.warn(
+//         `High memory usage: ${memory.percentage.toFixed(1)}%`,
+//         'MemoryMonitor',
+//         { used: `${(memory.used / 1024 / 1024).toFixed(2)}MB` }
+//       )
+//     }
+//   }, 30000) // Every 30 seconds
+// }

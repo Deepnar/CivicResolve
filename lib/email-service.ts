@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
 
 interface EmailConfig {
   service: string;
@@ -63,7 +62,8 @@ class EmailService {
   /**
    * Generate a secure verification token
    */
-  generateVerificationToken(): string {
+  async generateVerificationToken(): Promise<string> {
+    const crypto = await import('crypto');
     return crypto.randomBytes(32).toString('hex');
   }
 
