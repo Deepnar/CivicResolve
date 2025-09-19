@@ -67,16 +67,16 @@ const teamMembers: TeamMember[] = [
   {
     id: "ai-lead",
     name: "Chinmay Takke",
-    role: "AI/ML Engineer",
-    specialization: "Machine Learning & Python Development",
-    bio: "Focuses on AI/ML integration, building intelligent models, and exploring automation possibilities to enhance the platform.",
+    role: "Frontend Developer",
+    specialization: "Front end UI design & Development",
+    bio: "Focuses on building responsive, user-friendly applications with clean UI and robust backend integration.",
     avatar: "🤖",
-    skills: ["Python", "Machine Learning", "Data Processing", "NLP", "AI/ML"],
+    skills: ["React", "Next.js", "Tailwind CSS", "UI/UX Design"],
     achievements: [
-      "Developed ML modules for platform features",
-      "Worked on AI-driven automation",
+      "Developed responsive UI components",
+      "Implemented design systems for consistency",
       "Explored data-driven improvements",
-      "Enhanced platform with AI insights"
+      "Enhanced platform with user insights"
     ],
     social: {
       linkedin: "https://linkedin.com/in/chinmay",
@@ -89,11 +89,11 @@ const teamMembers: TeamMember[] = [
   {
     id: "backend-dev",
     name: "Sumit Sonkamble",
-    role: "Developer",
+    role: "Backend Developer",
     specialization: "Feature Development & Continuous Improvement",
     bio: "Dedicated developer who keeps on adding new features and improving existing ones to refine the project experience.",
     avatar: "👨‍💼",
-    skills: ["JavaScript", "Node.js", "API Development", "MySQL"],
+    skills: ["Typescript", "Node.js", "API Development", "MySQL"],
     achievements: [
       "Built and improved platform features",
       "Optimized performance and stability",
