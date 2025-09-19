@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
         i.address,
         i.created_at,
         u.name as reporter_name,
+        u.role as reporter_role,
         CASE 
           WHEN ia.id IS NOT NULL THEN 'assigned'
           ELSE 'new'

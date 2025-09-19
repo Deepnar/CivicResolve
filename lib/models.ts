@@ -8,7 +8,7 @@ export interface User {
   email: string;
   name: string;
   password?: string;
-  role: 'CITIZEN' | 'ADMIN' | 'ORGANIZATION_ADMIN';
+  role: 'CITIZEN' | 'ADMIN' | 'ORGANIZATION_ADMIN' | 'NGO_ADMIN';
   points: number;
   is_verified: boolean;
   verification_token?: string;
@@ -200,6 +200,13 @@ export class UserModel {
     // Invalidate user-related caches
   }
 
+  static async updateRole(userId: number, role: 'CITIZEN' | 'ADMIN' | 'ORGANIZATION_ADMIN' | 'NGO_ADMIN'): Promise<void> {
+    const sql = 'UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    await Database.update(sql, [role, userId]);
+    
+    // Note: Cache invalidation should be handled in the API route that calls this method
+  }
+
   static async getAll(): Promise<User[]> {
     const sql = 'SELECT id, email, name, role, points, is_verified, created_at, updated_at FROM users ORDER BY created_at DESC';
     return await Database.query(sql);
@@ -258,7 +265,7 @@ export class IssueModel {
 
   static async findById(id: number): Promise<Issue | null> {
     const sql = `
-      SELECT i.*, u.name as reporter_name,
+      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count
       FROM issues i
@@ -277,7 +284,7 @@ export class IssueModel {
   }): Promise<Issue[]> {
     // For now, let's simplify and just get all issues without complex filtering
     const sql = `
-      SELECT i.*, u.name as reporter_name,
+      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count
       FROM issues i
@@ -338,7 +345,7 @@ export class IssueModel {
 
   static async getByLocation(lat: number, lng: number, radius: number = 5): Promise<Issue[]> {
     const sql = `
-      SELECT i.*, u.name as reporter_name,
+      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count,
              (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance
@@ -995,5 +1002,265 @@ export class IssueAssignmentModel {
     }
     
     // Note: Cache invalidation handled in API routes that call this method
+  }
+}
+
+// NGO Model
+export class NGOModel {
+  static async create(ngoData: {
+    name: string;
+    description?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    registration_number?: string;
+    contact_person?: string;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO ngos (name, description, email, phone, address, registration_number, contact_person)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const ngoId = await Database.insert(sql, [
+      ngoData.name,
+      ngoData.description || null,
+      ngoData.email || null,
+      ngoData.phone || null,
+      ngoData.address || null,
+      ngoData.registration_number || null,
+      ngoData.contact_person || null,
+    ]);
+
+    return ngoId;
+  }
+
+  static async findById(id: number): Promise<any | null> {
+    const sql = 'SELECT * FROM ngos WHERE id = ?';
+    const ngo: any = await Database.queryOne(sql, [id]);
+    return ngo;
+  }
+
+  static async findByName(name: string): Promise<any | null> {
+    const sql = 'SELECT * FROM ngos WHERE name = ?';
+    const ngo: any = await Database.queryOne(sql, [name]);
+    return ngo;
+  }
+
+  static async getAll(): Promise<any[]> {
+    const sql = `
+      SELECT 
+        id, name, description, email, phone, address, 
+        contact_person, registration_number, is_active, 
+        created_at, updated_at
+      FROM ngos 
+      ORDER BY created_at DESC
+    `;
+    const ngos: any[] = await Database.query(sql, []);
+    return ngos;
+  }
+
+  static async update(id: number, updateData: {
+    name?: string;
+    description?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    registration_number?: string;
+    contact_person?: string;
+    is_active?: boolean;
+  }): Promise<boolean> {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updateData.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updateData.name);
+    }
+    if (updateData.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updateData.description);
+    }
+    if (updateData.email !== undefined) {
+      fields.push('email = ?');
+      values.push(updateData.email);
+    }
+    if (updateData.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(updateData.phone);
+    }
+    if (updateData.address !== undefined) {
+      fields.push('address = ?');
+      values.push(updateData.address);
+    }
+    if (updateData.registration_number !== undefined) {
+      fields.push('registration_number = ?');
+      values.push(updateData.registration_number);
+    }
+    if (updateData.contact_person !== undefined) {
+      fields.push('contact_person = ?');
+      values.push(updateData.contact_person);
+    }
+    if (updateData.is_active !== undefined) {
+      fields.push('is_active = ?');
+      values.push(updateData.is_active);
+    }
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = NOW()');
+    values.push(id);
+
+    const sql = `UPDATE ngos SET ${fields.join(', ')} WHERE id = ?`;
+    const result: any = await Database.update(sql, values);
+    return result.affectedRows > 0;
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    console.log(`🗑️ [NGO MODEL] Attempting to deactivate NGO ${id}`);
+    const sql = 'UPDATE ngos SET is_active = FALSE WHERE id = ?';
+    const affectedRows = await Database.update(sql, [id]);
+    console.log(`🗑️ [NGO MODEL] Update result: affectedRows = ${affectedRows}`);
+    return affectedRows > 0;
+  }
+}
+
+// User-NGO relationship model
+export class UserNGOModel {
+  static async create(data: {
+    user_id: number;
+    ngo_id: number;
+    role: 'NGO_ADMIN' | 'MEMBER';
+    position?: string;
+    assigned_by?: number;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO user_ngos (user_id, ngo_id, role, position, assigned_by)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    return await Database.insert(sql, [
+      data.user_id,
+      data.ngo_id,
+      data.role,
+      data.position || null,
+      data.assigned_by || null,
+    ]);
+  }
+
+  static async getByUser(userId: number): Promise<any[]> {
+    const sql = `
+      SELECT un.*, n.name as ngo_name, n.description as ngo_description,
+             u_assigned.name as assigned_by_name
+      FROM user_ngos un
+      JOIN ngos n ON un.ngo_id = n.id
+      LEFT JOIN users u_assigned ON un.assigned_by = u_assigned.id
+      WHERE un.user_id = ? AND un.is_active = TRUE
+      ORDER BY un.assigned_at DESC
+    `;
+    return await Database.query(sql, [userId]);
+  }
+
+  static async getByNGO(ngoId: number): Promise<any[]> {
+    const sql = `
+      SELECT un.*, u.name as user_name, u.email as user_email,
+             u_assigned.name as assigned_by_name
+      FROM user_ngos un
+      JOIN users u ON un.user_id = u.id
+      LEFT JOIN users u_assigned ON un.assigned_by = u_assigned.id
+      WHERE un.ngo_id = ? AND un.is_active = TRUE
+      ORDER BY un.assigned_at DESC
+    `;
+    return await Database.query(sql, [ngoId]);
+  }
+
+  static async findByUserAndNGO(userId: number, ngoId: number): Promise<any | null> {
+    const sql = `
+      SELECT un.*, n.name as ngo_name, u.name as user_name
+      FROM user_ngos un
+      JOIN ngos n ON un.ngo_id = n.id
+      JOIN users u ON un.user_id = u.id
+      WHERE un.user_id = ? AND un.ngo_id = ? AND un.is_active = TRUE
+    `;
+    return await Database.queryOne(sql, [userId, ngoId]);
+  }
+
+  static async getUserNGOId(userId: number): Promise<number | null> {
+    const sql = `
+      SELECT ngo_id 
+      FROM user_ngos 
+      WHERE user_id = ? AND role = 'NGO_ADMIN' AND is_active = TRUE 
+      LIMIT 1
+    `;
+    const result: any = await Database.queryOne(sql, [userId]);
+    return result ? result.ngo_id : null;
+  }
+
+  // Helper method to associate an existing NGO_ADMIN user with an NGO
+  static async associateUserWithNGO(userId: number, ngoId: number, assignedBy: number): Promise<number> {
+    // First check if association already exists
+    const existing = await this.findByUserAndNGO(userId, ngoId);
+    if (existing) {
+      throw new Error('User is already associated with this NGO');
+    }
+
+    return await this.create({
+      user_id: userId,
+      ngo_id: ngoId,
+      role: 'NGO_ADMIN',
+      position: 'Administrator',
+      assigned_by: assignedBy
+    });
+  }
+
+  static async remove(userId: number, ngoId: number): Promise<boolean> {
+    const sql = 'UPDATE user_ngos SET is_active = FALSE WHERE user_id = ? AND ngo_id = ?';
+    const affectedRows = await Database.update(sql, [userId, ngoId]);
+    return affectedRows > 0;
+  }
+}
+
+// NGO Priority Notification Model
+export class NGOPriorityNotificationModel {
+  static async create(data: {
+    issue_id: number;
+    ngo_id: number;
+    priority_level: 'HIGH' | 'URGENT';
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO ngo_priority_notifications (issue_id, ngo_id, priority_level)
+      VALUES (?, ?, ?)
+    `;
+    return await Database.insert(sql, [
+      data.issue_id,
+      data.ngo_id,
+      data.priority_level,
+    ]);
+  }
+
+  static async markAsSent(id: number): Promise<boolean> {
+    const sql = 'UPDATE ngo_priority_notifications SET notification_sent = TRUE, sent_at = NOW() WHERE id = ?';
+    const affectedRows = await Database.update(sql, [id]);
+    return affectedRows > 0;
+  }
+
+  static async getByIssue(issueId: number): Promise<any[]> {
+    const sql = `
+      SELECT npn.*, n.name as ngo_name
+      FROM ngo_priority_notifications npn
+      JOIN ngos n ON npn.ngo_id = n.id
+      WHERE npn.issue_id = ?
+      ORDER BY npn.created_at DESC
+    `;
+    return await Database.query(sql, [issueId]);
+  }
+
+  static async getPendingNotifications(): Promise<any[]> {
+    const sql = `
+      SELECT npn.*, n.name as ngo_name, i.title as issue_title
+      FROM ngo_priority_notifications npn
+      JOIN ngos n ON npn.ngo_id = n.id
+      JOIN issues i ON npn.issue_id = i.id
+      WHERE npn.notification_sent = FALSE
+      ORDER BY npn.created_at ASC
+    `;
+    return await Database.query(sql, []);
   }
 }

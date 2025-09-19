@@ -18,7 +18,7 @@ export interface UserRow extends RowDataPacket {
   email: string
   name: string
   password: string
-  role: 'CITIZEN' | 'ADMIN'
+  role: 'CITIZEN' | 'ADMIN' | 'ORGANIZATION_ADMIN' | 'NGO_ADMIN'
   points: number
   created_at: Date
   updated_at: Date
@@ -37,6 +37,12 @@ export interface IssueRow extends RowDataPacket {
   address: string
   image_url: string | null
   reporter_id: number
+  // NGO-related fields
+  reported_via_ngo: boolean
+  ngo_id: number | null
+  citizen_name: string | null
+  citizen_phone: string | null
+  ngo_notes: string | null
   created_at: Date
   updated_at: Date
 }
@@ -137,4 +143,45 @@ export function buildLimitClause(limit?: number, offset?: number): { sql: string
   }
 
   return { sql: ' LIMIT ?', params: [limit] }
+}
+
+// NGO-related types
+export interface NGORow extends RowDataPacket {
+  id: number
+  name: string
+  description: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  registration_number: string | null
+  contact_person: string | null
+  website: string | null
+  focus_areas: string | null // JSON string
+  is_active: boolean
+  verified_by: number | null
+  verified_at: Date | null
+  created_at: Date
+  updated_at: Date
+}
+
+export interface UserNGORow extends RowDataPacket {
+  id: number
+  user_id: number
+  ngo_id: number
+  role: 'NGO_ADMIN' | 'VOLUNTEER'
+  employee_id: string | null
+  position: string | null
+  is_active: boolean
+  assigned_at: Date
+  assigned_by: number | null
+}
+
+export interface NGOPriorityNotificationRow extends RowDataPacket {
+  id: number
+  issue_id: number
+  ngo_id: number
+  priority_level: 'HIGH' | 'URGENT'
+  notification_sent: boolean
+  sent_at: Date | null
+  created_at: Date
 }

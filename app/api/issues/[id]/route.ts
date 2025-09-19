@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         id: (rawIssue as any).reporter_id?.toString(),
         name: (rawIssue as any).reporter_name || 'Unknown',
         email: '', // Not included in query for privacy
-        role: 'CITIZEN' as const,
+        role: (rawIssue as any).reporter_role || 'CITIZEN',
         points: 0,
         badges: [],
         createdAt: new Date(),

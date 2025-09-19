@@ -2,7 +2,7 @@ export interface User {
   id: string
   email: string
   name: string
-  role: "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN"
+  role: "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN" | "NGO_ADMIN"
   points: number
   badges: string[]
   createdAt: Date
@@ -35,6 +35,43 @@ export interface UserOrganization {
   organization?: Organization
 }
 
+export interface NGO {
+  id: string
+  name: string
+  description?: string
+  email?: string
+  phone?: string
+  address?: string
+  registration_number?: string
+  contact_person?: string
+  is_active: boolean
+  created_at: Date
+  updated_at: Date
+}
+
+export interface UserNGO {
+  id: string
+  user_id: string
+  ngo_id: string
+  role: "NGO_ADMIN" | "MEMBER"
+  position?: string
+  is_active: boolean
+  assigned_at: Date
+  assigned_by?: string
+  user?: User
+  ngo?: NGO
+}
+
+export interface NGOPriorityNotification {
+  id: string
+  issue_id: string
+  ngo_id: string
+  priority_level: "HIGH" | "URGENT"
+  notification_sent: boolean
+  sent_at?: Date
+  createdAt: Date
+}
+
 export interface Issue {
   id: string
   title: string
@@ -57,6 +94,12 @@ export interface Issue {
   assigned_to_name?: string  // Name of the organization member assigned to this issue
   assigned_at?: Date  // When the issue was assigned
   assigned_by?: string  // User ID who made the assignment
+  // NGO-related fields
+  reported_via_ngo?: boolean  // Whether this issue was reported by an NGO
+  ngo_id?: string  // ID of the NGO that reported this issue
+  citizen_name?: string  // Name of the actual citizen on whose behalf NGO is reporting
+  citizen_phone?: string  // Phone number of the citizen (if available)
+  ngo_notes?: string  // Additional notes from the NGO about the citizen or situation
   createdAt: Date
   updatedAt: Date
 }
@@ -93,8 +136,9 @@ export interface Assignment {
 export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "ENVIRONMENT" | "VANDALISM" | "TRANSPORTATION" | "NOISE" | "OTHER"
 export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REMOVED"
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
-export type UserRole = "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN"
+export type UserRole = "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN" | "NGO_ADMIN"
 export type OrganizationRole = "ORGANIZATION_ADMIN" | "MEMBER"
+export type NGORole = "NGO_ADMIN" | "MEMBER"
 
 export interface CreateIssueData {
   title: string
@@ -104,6 +148,22 @@ export interface CreateIssueData {
   longitude: number
   address: string
   imageUrl?: string
+  // NGO-specific fields for reporting on behalf of citizens
+  citizen_name?: string
+  citizen_phone?: string
+  ngo_notes?: string
+}
+
+export interface CreateNGOData {
+  name: string
+  description?: string
+  email?: string
+  phone?: string
+  address?: string
+  registration_number?: string
+  contact_person?: string
+  website?: string
+  focus_areas: string[]
 }
 
 export interface UpdateIssueData {

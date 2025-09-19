@@ -238,6 +238,94 @@ class EmailService {
   }
 
   /**
+   * Send PRIORITY issue notification to organizations when NGO admin reports an issue
+   * This method sends high-priority emails with special formatting for NGO-reported issues
+   */
+  async sendNGOPriorityNotificationToOrganizations(
+    issueId: number, 
+    issueData: IssueData, 
+    ngoData: {
+      name: string;
+      citizen_name?: string;
+      citizen_phone?: string;
+      ngo_notes?: string;
+    }
+  ): Promise<void> {
+    try {
+      // Import here to avoid circular dependencies
+      const { CategoryOrganizationMappingModel, UserOrganizationModel, NGOPriorityNotificationModel } = await import('./models');
+
+      // Get organizations responsible for this category
+      const mappings = await CategoryOrganizationMappingModel.getByCategory(issueData.category);
+      
+      if (mappings.length === 0) {
+        console.log(`No organizations found for category: ${issueData.category}`);
+        return;
+      }
+
+      const issueLink = `${this.baseUrl}/issues/${issueId}`;
+
+      // Send HIGH PRIORITY notification to each organization's members
+      for (const mapping of mappings) {
+        const members = await UserOrganizationModel.getByOrganization(mapping.organization_id);
+        
+        for (const member of members) {
+          // The getByOrganization method includes user details with aliases
+          const userEmail = (member as any).user_email;
+          const userName = (member as any).user_name;
+          
+          if (userEmail) {
+            try {
+              const mailOptions = {
+                from: {
+                  name: 'CivicResolve - PRIORITY ALERT',
+                  address: process.env.EMAIL_USER || 'noreply@civicresolve.com'
+                },
+                to: userEmail,
+                subject: `🚨 PRIORITY: NGO-Reported ${issueData.category} Issue - CivicResolve`,
+                html: this.getNGOPriorityNotificationTemplate(
+                  userName || 'Team Member',
+                  issueId,
+                  issueData,
+                  ngoData,
+                  mapping.organization?.name || 'Your Organization',
+                  issueLink
+                )
+              };
+
+              await this.transporter.sendMail(mailOptions);
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`NGO Priority notification sent to ${userEmail}`);
+              }
+            } catch (error) {
+              console.error(`Error sending NGO priority notification to ${userEmail}:`, error);
+            }
+          }
+        }
+
+        // Create priority notification record for tracking
+        try {
+          // Get NGO ID from the ngoData object (need to pass it properly from caller)
+          const ngoId = (ngoData as any).ngo_id || null;
+          if (ngoId) {
+            await NGOPriorityNotificationModel.create({
+              issue_id: issueId,
+              ngo_id: ngoId,
+              priority_level: 'HIGH'
+            });
+          }
+        } catch (error) {
+          console.error('Error creating priority notification record:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending NGO priority notifications:', error);
+      throw new Error('Failed to send NGO priority notifications');
+    }
+  }
+
+  /**
    * Send assignment notification email to a user when they are assigned an issue
    */
   async sendAssignmentNotificationEmail(
@@ -1693,6 +1781,243 @@ class EmailService {
         <div class="footer">
           <p>© 2025 CivicResolve. All rights reserved.</p>
           <p>Status updated by Employee #${updatedByEmployeeId || 'System'} from ${organizationName}.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * HTML template for NGO priority notification email
+   */
+  private getNGOPriorityNotificationTemplate(
+    memberName: string,
+    issueId: number,
+    issueData: IssueData,
+    ngoData: {
+      name: string;
+      citizen_name?: string;
+      citizen_phone?: string;
+      ngo_notes?: string;
+    },
+    organizationName: string,
+    issueLink: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>🚨 PRIORITY: NGO-Reported Issue</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          margin: 0;
+          padding: 0;
+          background-color: #f5f5f5;
+          line-height: 1.6;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: white;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-top: 4px solid #b91c1c;
+        }
+        .priority-banner {
+          background: #fef3c7;
+          border: 2px solid #f59e0b;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 20px 0;
+          text-align: center;
+          animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.8; }
+          100% { opacity: 1; }
+        }
+        .content {
+          padding: 30px;
+          color: #374151;
+        }
+        .ngo-info {
+          background: #e0f2fe;
+          border-left: 4px solid #0891b2;
+          padding: 16px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .citizen-info {
+          background: #f3e8ff;
+          border-left: 4px solid #8b5cf6;
+          padding: 16px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .issue-details {
+          background: #f8fafc;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .category-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          background: #dc2626;
+          margin-bottom: 10px;
+        }
+        .priority-badge {
+          display: inline-block;
+          padding: 6px 16px;
+          border-radius: 16px;
+          font-size: 14px;
+          font-weight: 700;
+          color: white;
+          background: #dc2626;
+          margin: 0 10px;
+          animation: blink 1.5s infinite;
+        }
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0.7; }
+        }
+        .cta-button {
+          display: inline-block;
+          background: #dc2626;
+          color: white;
+          padding: 14px 28px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 20px 0;
+          box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
+        }
+        .footer {
+          background: #f8fafc;
+          padding: 20px;
+          text-align: center;
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .urgent-text {
+          color: #dc2626;
+          font-weight: 700;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin:0;">🚨 PRIORITY ALERT</h1>
+          <p style="margin:10px 0 0 0; opacity: 0.9;">NGO-Reported Civic Issue</p>
+          <span class="priority-badge">HIGH PRIORITY</span>
+        </div>
+        <div class="content">
+          <div class="priority-banner">
+            <h3 style="margin: 0; color: #b45309;">⚠️ IMMEDIATE ATTENTION REQUIRED</h3>
+            <p style="margin: 8px 0 0 0; color: #92400e;">
+              This issue was reported by an NGO on behalf of a citizen who needs assistance
+            </p>
+          </div>
+
+          <p>Hello <strong>${memberName}</strong>,</p>
+          
+          <p class="urgent-text">
+            An NGO has reported a <strong>${issueData.category}</strong> issue that requires your immediate attention. 
+            This report was filed on behalf of a citizen who may not have direct access to reporting systems.
+          </p>
+
+          <div class="ngo-info">
+            <h4 style="margin: 0 0 10px 0; color: #0891b2;">🏢 Reporting NGO</h4>
+            <p style="margin: 0;"><strong>${ngoData.name}</strong></p>
+            <p style="margin: 5px 0 0 0; font-size: 14px; color: #0891b2;">
+              Verified NGO partner helping citizens report civic issues
+            </p>
+          </div>
+
+          ${ngoData.citizen_name || ngoData.citizen_phone ? `
+          <div class="citizen-info">
+            <h4 style="margin: 0 0 10px 0; color: #8b5cf6;">👤 Citizen Information</h4>
+            ${ngoData.citizen_name ? `<p style="margin: 0;"><strong>Name:</strong> ${ngoData.citizen_name}</p>` : ''}
+            ${ngoData.citizen_phone ? `<p style="margin: 0;"><strong>Contact:</strong> ${ngoData.citizen_phone}</p>` : ''}
+          </div>
+          ` : ''}
+
+          <div class="issue-details">
+            <div class="category-badge">${issueData.category}</div>
+            <h3 style="margin: 10px 0;">${issueData.title}</h3>
+            <p><strong>Description:</strong> ${issueData.description}</p>
+            <p><strong>Location:</strong> ${issueData.address}</p>
+            <p><strong>Priority:</strong> <span class="urgent-text">HIGH (NGO-Reported)</span></p>
+            <p><strong>Issue ID:</strong> #${issueId}</p>
+            
+            ${ngoData.ngo_notes ? `
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 12px; margin-top: 16px;">
+              <strong>NGO Notes:</strong><br>
+              ${ngoData.ngo_notes}
+            </div>
+            ` : ''}
+          </div>
+
+          <div style="background: #fee2e2; border: 1px solid #dc2626; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <h4 style="margin: 0 0 10px 0; color: #dc2626;">🎯 Why This is Priority</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #7f1d1d;">
+              <li>Reported by a verified NGO partner</li>
+              <li>Citizen may lack direct access to reporting systems</li>
+              <li>NGO is serving as an intermediary for community support</li>
+              <li>Faster resolution demonstrates commitment to inclusive service</li>
+            </ul>
+          </div>
+
+          <center>
+            <a href="${issueLink}" class="cta-button">🚀 Take Immediate Action</a>
+          </center>
+          
+          <p>
+            <strong>Recommended Next Steps:</strong>
+          </p>
+          <ol>
+            <li><strong>Acknowledge receipt</strong> within 2 hours if possible</li>
+            <li><strong>Assess and prioritize</strong> this issue in your queue</li>
+            <li><strong>Assign a team member</strong> for immediate investigation</li>
+            <li><strong>Provide updates</strong> more frequently than standard issues</li>
+            <li><strong>Consider direct citizen contact</strong> if contact information is available</li>
+          </ol>
+          
+          <p>
+            NGO partners like <strong>${ngoData.name}</strong> help us reach citizens who might otherwise 
+            struggle to report important civic issues. Your prompt attention to this report helps 
+            demonstrate ${organizationName}'s commitment to serving all community members.
+          </p>
+          
+          <p>
+            You can manage this issue and assign team members through the CivicResolve dashboard.
+          </p>
+          
+          <p>
+            Best regards,<br>
+            <strong>CivicResolve Priority Notification System</strong><br>
+            <em>For ${organizationName}</em>
+          </p>
+        </div>
+        <div class="footer">
+          <p>© 2025 CivicResolve. All rights reserved.</p>
+          <p><strong>Priority Alert:</strong> NGO-Reported Issue requiring immediate attention.</p>
         </div>
       </div>
     </body>

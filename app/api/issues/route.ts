@@ -15,6 +15,10 @@ const createIssueSchema = z.object({
   longitude: z.number().min(-180).max(180),
   address: z.string().min(5, "Address is required"),
   image_url: z.string().optional().nullable(), // Allow data URLs and null values
+  // NGO-specific fields (optional for regular users)
+  citizen_name: z.string().optional(),
+  citizen_phone: z.string().optional(),
+  ngo_notes: z.string().optional(),
 })
 
 // GET /api/issues - Get all issues with filters
@@ -75,7 +79,7 @@ export async function GET(request: NextRequest) {
             id: issue.reporter_id?.toString(),
             name: issue.reporter_name,
             email: '', // Not included in query for privacy
-            role: 'CITIZEN' as const,
+            role: issue.reporter_role || 'CITIZEN', // Use actual role from database
             points: 0,
             badges: [],
             createdAt: new Date(),
@@ -163,9 +167,45 @@ export async function POST(request: NextRequest) {
       await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name);
       console.log(`✅ [ISSUES POST] Confirmation email sent to user`)
       
-      // Send notifications to organization members
-      await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
-      console.log(`✅ [ISSUES POST] Notification emails sent to organizations`)
+      // Check if user is NGO admin and send priority notifications
+      if (user.role && user.role === 'NGO_ADMIN') {
+        console.log(`🚨 [ISSUES POST] NGO Admin detected - sending PRIORITY notifications`)
+        
+        // Get NGO details for the user
+        const { UserNGOModel, NGOModel } = await import('@/lib/models');
+        const userNGOs = await UserNGOModel.getByUser(user.id);
+        
+        if (userNGOs.length > 0) {
+          const ngo = await NGOModel.findById(userNGOs[0].ngo_id);
+          
+          if (ngo) {
+            // Prepare NGO data for priority notification
+            const ngoData = {
+              ngo_id: ngo.id, // Include NGO ID for tracking
+              name: ngo.name,
+              citizen_name: issueData.citizen_name,
+              citizen_phone: issueData.citizen_phone,
+              ngo_notes: issueData.ngo_notes
+            };
+            
+            // Send PRIORITY notifications to organizations
+            await emailService.sendNGOPriorityNotificationToOrganizations(issueId, issueData, ngoData);
+            console.log(`🚨 [ISSUES POST] PRIORITY notification emails sent to organizations for NGO report`)
+          } else {
+            console.log(`⚠️ [ISSUES POST] NGO not found for NGO admin user ${user.id}`)
+            // Fallback to standard notifications
+            await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
+          }
+        } else {
+          console.log(`⚠️ [ISSUES POST] No NGO association found for NGO admin user ${user.id}`)
+          // Fallback to standard notifications
+          await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
+        }
+      } else {
+        // Send standard notifications to organization members for regular users
+        await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
+        console.log(`✅ [ISSUES POST] Standard notification emails sent to organizations`)
+      }
     } catch (emailError) {
       console.error('🚨 [ISSUES POST] Failed to send email notifications:', emailError);
     }

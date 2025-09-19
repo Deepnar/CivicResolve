@@ -40,6 +40,10 @@ const reportIssueSchema = z.object({
   address: z.string().min(5, "Address is required"),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+  // NGO-specific fields
+  citizen_name: z.string().optional(),
+  citizen_phone: z.string().optional(),
+  ngo_notes: z.string().optional(),
 })
 
 type ReportIssueForm = z.infer<typeof reportIssueSchema>
@@ -155,6 +159,12 @@ export default function ReportIssuePage() {
         longitude: data.longitude || 72.8777, // Default to Mumbai center if not set
         address: data.address,
         image_url: imagePreview && imagePreview.startsWith('data:') ? imagePreview : null, // Only send valid data URLs
+        // Include NGO fields if user is NGO admin
+        ...(user?.role === 'NGO_ADMIN' && {
+          citizen_name: data.citizen_name,
+          citizen_phone: data.citizen_phone,
+          ngo_notes: data.ngo_notes,
+        })
       }
 
       // Submit to API
@@ -376,6 +386,53 @@ export default function ReportIssuePage() {
                       )}
                     </div>
                   </div>
+
+                  {/* NGO-specific fields (only shown for NGO admins) */}
+                  {user?.role === 'NGO_ADMIN' && (
+                    <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-blue-800">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                        <span className="font-medium text-sm">NGO Reporting Details</span>
+                      </div>
+                      
+                      {/* Citizen Name */}
+                      <div className="space-y-2">
+                        <Label htmlFor="citizen_name" className="text-sm font-medium">Citizen Name</Label>
+                        <Input
+                          id="citizen_name"
+                          placeholder="Name of the citizen reporting this issue"
+                          {...register("citizen_name")}
+                          className="h-11 text-base"
+                        />
+                        {errors.citizen_name && <p className="text-sm text-red-600">{errors.citizen_name.message}</p>}
+                      </div>
+
+                      {/* Citizen Phone */}
+                      <div className="space-y-2">
+                        <Label htmlFor="citizen_phone" className="text-sm font-medium">Citizen Phone</Label>
+                        <Input
+                          id="citizen_phone"
+                          placeholder="Phone number of the citizen (optional)"
+                          {...register("citizen_phone")}
+                          className="h-11 text-base"
+                        />
+                        {errors.citizen_phone && <p className="text-sm text-red-600">{errors.citizen_phone.message}</p>}
+                      </div>
+
+                      {/* NGO Notes */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ngo_notes" className="text-sm font-medium">NGO Notes</Label>
+                        <Textarea
+                          id="ngo_notes"
+                          placeholder="Additional notes from your NGO about this report"
+                          rows={3}
+                          {...register("ngo_notes")}
+                          className="min-h-[80px] text-base resize-none"
+                        />
+                        {errors.ngo_notes && <p className="text-sm text-red-600">{errors.ngo_notes.message}</p>}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Submit Button */}
                   <Button
