@@ -78,18 +78,48 @@ const featureCategories = {
     features: [
       {
         icon: Bot,
-        title: "AI Chat Assistant",
-        description: "Google Gemini-powered assistant with real-time data integration",
+        title: "AI Image Analysis",
+        description: "Google Gemini-powered infrastructure analysis for organization admins",
         highlights: [
-          "Natural language processing",
-          "Real-time platform data",
-          "Context-aware responses",
-          "Role-based information"
+          "Professional damage assessment",
+          "Safety risk evaluation", 
+          "Resource planning assistance",
+          "Prevention recommendations"
         ],
         color: "text-indigo-600",
         bgColor: "bg-indigo-100",
+        details: "Organization admins get comprehensive AI analysis of infrastructure issues with professional insights for decision-making.",
+        tag: "NEW"
+      },
+      {
+        icon: Zap,
+        title: "AI Auto-Fill Reports",
+        description: "Instant report generation from photos for citizens",
+        highlights: [
+          "Photo-to-report workflow",
+          "Automatic title generation",
+          "Smart descriptions",
+          "Sub-5 second processing"
+        ],
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+        details: "Citizens simply upload photos and AI creates complete issue reports automatically with intelligent title and description generation.",
+        tag: "NEW"
+      },
+      {
+        icon: MessageSquare,
+        title: "AI Chat Assistant",
+        description: "Intelligent assistant with real-time platform data integration",
+        highlights: [
+          "Natural language processing",
+          "Real-time platform statistics",
+          "Context-aware responses",
+          "Role-based information"
+        ],
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
         details: "Our AI assistant provides instant insights, helps with navigation, and answers questions using live platform data.",
-        tag: "AI-Powered"
+        tag: "Enhanced"
       },
       {
         icon: BarChart3,

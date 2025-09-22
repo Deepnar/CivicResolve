@@ -7,7 +7,7 @@ import { motion } from "framer-motion"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Send, ArrowLeft } from "lucide-react"
+import { Send, ArrowLeft, Bot, Check, X, Edit, Camera, Upload } from "lucide-react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { PageHeader } from "@/components/ui/page-header"
@@ -24,6 +24,7 @@ import { ISSUE_CATEGORIES } from "@/lib/constants"
 import type { IssueCategory } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
+import { Badge } from "@/components/ui/badge"
 
 // Load LocationPicker dynamically with SSR disabled
 const LocationPicker = dynamic(() => import("@/components/location-picker"), {
@@ -56,6 +57,16 @@ export default function ReportIssuePage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
+  
+  // AI Auto-fill states
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    title: string
+    description: string
+    confidence: string
+  } | null>(null)
+  const [showAiReview, setShowAiReview] = useState(false)
+  const [useManualInput, setUseManualInput] = useState(false)
 
   const {
     register,
@@ -112,11 +123,78 @@ export default function ReportIssuePage() {
           ctx.drawImage(img, 0, 0, width, height)
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8)
           setImagePreview(compressedDataUrl)
+          
+          // Trigger AI analysis
+          analyzeImageWithAI(compressedDataUrl)
         }
         img.src = e.target?.result as string
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const analyzeImageWithAI = async (imageData: string) => {
+    setIsAnalyzing(true)
+    setAiSuggestions(null)
+    setShowAiReview(false)
+    setUseManualInput(false)
+
+    try {
+      const response = await fetch('/api/ai/auto-fill-issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          imageData: imageData
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to analyze image')
+      }
+
+      const result = await response.json()
+      setAiSuggestions(result.autoFill)
+      setShowAiReview(true)
+
+      toast({
+        title: "AI Analysis Complete",
+        description: "Review the suggested title and description below"
+      })
+
+    } catch (error) {
+      console.error('Error analyzing image:', error)
+      toast({
+        variant: "destructive",
+        title: "AI Analysis Failed", 
+        description: "Please enter title and description manually"
+      })
+      setUseManualInput(true)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const acceptAiSuggestions = () => {
+    if (aiSuggestions) {
+      setValue("title", aiSuggestions.title)
+      setValue("description", aiSuggestions.description)
+      setShowAiReview(false)
+      
+      toast({
+        title: "AI Suggestions Applied",
+        description: "Please select a category and location to complete your report"
+      })
+    }
+  }
+
+  const rejectAiSuggestions = () => {
+    setUseManualInput(true)
+    setShowAiReview(false)
+    setAiSuggestions(null)
   }
 
   const handleLocationSelect = (lat: number, lng: number, address: string) => {
@@ -252,17 +330,150 @@ export default function ReportIssuePage() {
               </CardHeader>
               <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
-                  {/* Title */}
+                  {/* Photo Upload Section - Now First */}
                   <div className="space-y-2">
-                    <Label htmlFor="title" className="text-sm font-medium">Issue Title *</Label>
-                    <Input
-                      id="title"
-                      placeholder="Brief, descriptive title of the issue"
-                      {...register("title")}
-                      className={`h-11 text-base ${errors.title ? "border-red-500" : ""}`}
-                    />
-                    {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
+                    <Label htmlFor="image" className="text-sm font-medium flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      Upload Photo for AI Analysis
+                    </Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
+                      {imagePreview ? (
+                        <div className="space-y-3 sm:space-y-4">
+                          <img
+                            src={imagePreview || "/placeholder.svg"}
+                            alt="Preview"
+                            className="max-h-32 sm:max-h-48 mx-auto rounded-lg object-cover"
+                          />
+                          {isAnalyzing && (
+                            <div className="flex items-center justify-center gap-2 text-blue-600">
+                              <LoadingSpinner size="sm" />
+                              <span className="text-sm">AI is analyzing your photo...</span>
+                            </div>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="touch-target"
+                            onClick={() => {
+                              setSelectedImage(null)
+                              setImagePreview(null)
+                              setAiSuggestions(null)
+                              setShowAiReview(false)
+                              setUseManualInput(false)
+                            }}
+                          >
+                            Remove Image
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-gray-500">
+                            <Bot className="mx-auto h-8 w-8 sm:h-12 sm:w-12" />
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <label htmlFor="image-upload" className="cursor-pointer text-blue-600 hover:text-blue-500 touch-target-inline">
+                              Upload a photo
+                            </label>
+                            <span className="mx-2 text-gray-400">|</span>
+                            <label htmlFor="camera-upload" className="cursor-pointer text-green-600 hover:text-green-500 touch-target-inline">
+                              Take Photo
+                            </label>
+                            <p className="text-xs text-gray-500 mt-1">AI will auto-fill title & description</p>
+                          </div>
+                          <input
+                            id="image-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                          <input
+                            id="camera-upload"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* AI Review Section */}
+                  {showAiReview && aiSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border border-blue-200 rounded-lg p-4 bg-blue-50/50"
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <Bot className="h-5 w-5 text-blue-600" />
+                        <h3 className="font-medium text-blue-900">AI Generated Details</h3>
+                        <Badge variant="outline" className="text-xs">
+                          {aiSuggestions.confidence} confidence
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-sm font-medium text-blue-800">Suggested Title:</Label>
+                          <p className="text-sm text-gray-700 bg-white p-2 rounded border">
+                            {aiSuggestions.title}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <Label className="text-sm font-medium text-blue-800">Suggested Description:</Label>
+                          <p className="text-sm text-gray-700 bg-white p-2 rounded border">
+                            {aiSuggestions.description}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          type="button"
+                          onClick={acceptAiSuggestions}
+                          size="sm"
+                          className="flex items-center gap-1"
+                        >
+                          <Check className="h-4 w-4" />
+                          Use These Details
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={rejectAiSuggestions}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1"
+                        >
+                          <X className="h-4 w-4" />
+                          Enter Manually
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Title - Only show if manual input or AI accepted */}
+                  {(useManualInput || (!showAiReview && !isAnalyzing)) && (
+                    <div className="space-y-2">
+                      <Label htmlFor="title" className="text-sm font-medium flex items-center gap-2">
+                        Issue Title *
+                        {!imagePreview && (
+                          <span className="text-xs text-gray-500">(Upload photo for AI auto-fill)</span>
+                        )}
+                      </Label>
+                      <Input
+                        id="title"
+                        placeholder="Brief, descriptive title of the issue"
+                        {...register("title")}
+                        className={`h-11 text-base ${errors.title ? "border-red-500" : ""}`}
+                      />
+                      {errors.title && <p className="text-sm text-red-600">{errors.title.message}</p>}
+                    </div>
+                  )}
 
                   {/* Category */}
                   <div className="space-y-2">
@@ -285,18 +496,20 @@ export default function ReportIssuePage() {
                     {errors.category && <p className="text-sm text-red-600">{errors.category.message}</p>}
                   </div>
 
-                  {/* Description */}
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Provide detailed information about the issue, including any relevant context or urgency"
-                      rows={4}
-                      {...register("description")}
-                      className={`min-h-[100px] text-base resize-none ${errors.description ? "border-red-500" : ""}`}
-                    />
-                    {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
-                  </div>
+                  {/* Description - Only show if manual input or AI accepted */}
+                  {(useManualInput || (!showAiReview && !isAnalyzing)) && (
+                    <div className="space-y-2">
+                      <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
+                      <Textarea
+                        id="description"
+                        placeholder="Provide detailed information about the issue, including any relevant context or urgency"
+                        rows={4}
+                        {...register("description")}
+                        className={`min-h-[100px] text-base resize-none ${errors.description ? "border-red-500" : ""}`}
+                      />
+                      {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
+                    </div>
+                  )}
 
                   {/* Location */}
                   <div className="space-y-2">
@@ -319,72 +532,6 @@ export default function ReportIssuePage() {
                       </Button>
                     </div>
                     {errors.address && <p className="text-sm text-red-600">{errors.address.message}</p>}
-                  </div>
-
-                  {/* Image Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="image" className="text-sm font-medium">Photo (Optional)</Label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
-                      {imagePreview ? (
-                        <div className="space-y-3 sm:space-y-4">
-                          <img
-                            src={imagePreview || "/placeholder.svg"}
-                            alt="Preview"
-                            className="max-h-32 sm:max-h-48 mx-auto rounded-lg object-cover"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="touch-target"
-                            onClick={() => {
-                              setSelectedImage(null)
-                              setImagePreview(null)
-                            }}
-                          >
-                            Remove Image
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="text-gray-500">
-                            <svg className="mx-auto h-8 w-8 sm:h-12 sm:w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                              <path
-                                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            <label htmlFor="image-upload" className="cursor-pointer text-blue-600 hover:text-blue-500 touch-target-inline">
-                              Upload a photo
-                            </label>
-                              <span className="mx-2 text-gray-400">|</span>
-                              <label htmlFor="camera-upload" className="cursor-pointer text-green-600 hover:text-green-500 touch-target-inline">
-                                Take Photo
-                              </label>
-                            <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
-                          </div>
-                          <input
-                            id="image-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="hidden"
-                          />
-                            <input
-                              id="camera-upload"
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={handleImageUpload}
-                              className="hidden"
-                            />
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* NGO-specific fields (only shown for NGO admins) */}

@@ -21,34 +21,34 @@ interface WorkflowStep {
 
 const workflowSteps: WorkflowStep[] = [
   {
-    id: "report",
-    title: "Issue Reporting",
-    description: "Citizens report civic issues with photos, location, and detailed descriptions",
+    id: "ai-report",
+    title: "AI-Powered Reporting",
+    description: "Citizens upload photos and AI automatically generates comprehensive issue reports",
     icon: <MapPin className="w-6 h-6" />,
     color: "text-blue-600",
     bgColor: "bg-blue-100",
     details: [
-      "GPS-based location tracking",
-      "Photo upload with image compression",
-      "Category selection and prioritization",
-      "Real-time validation and feedback"
+      "Photo-first workflow with instant AI analysis",
+      "Automatic title and description generation",
+      "Citizen review and editing interface",
+      "GPS-based location tracking and validation"
     ],
     metrics: {
       label: "Avg. Report Time",
-      value: "< 3 min"
+      value: "< 2 min"
     }
   },
   {
-    id: "ai-analysis",
-    title: "AI Processing",
-    description: "Advanced AI analyzes reports for categorization, urgency, and routing",
+    id: "ai-processing",
+    title: "Intelligent Analysis",
+    description: "Advanced AI processes images and content for optimal categorization and routing",
     icon: <Zap className="w-6 h-6" />,
     color: "text-purple-600",
     bgColor: "bg-purple-100",
     details: [
-      "Google Gemini AI integration",
-      "Automatic categorization",
-      "Urgency level assessment",
+      "Google Gemini computer vision analysis",
+      "Automated content quality enhancement",
+      "Smart categorization suggestions",
       "Duplicate detection and merging"
     ],
     metrics: {
@@ -57,71 +57,71 @@ const workflowSteps: WorkflowStep[] = [
     }
   },
   {
-    id: "assignment",
-    title: "Smart Assignment",
-    description: "Issues are automatically assigned to relevant departments and officials",
+    id: "smart-assignment",
+    title: "Organization Routing",
+    description: "Issues automatically routed to appropriate organizations with AI-enhanced insights",
     icon: <Users className="w-6 h-6" />,
     color: "text-green-600",
     bgColor: "bg-green-100",
     details: [
-      "Department routing based on category",
-      "Official assignment by jurisdiction",
-      "Workload balancing algorithms",
-      "Escalation path configuration"
+      "Category-based organization assignment",
+      "AI analysis available for admins",
+      "Workload balancing across teams",
+      "Email notification workflows"
     ],
     metrics: {
       label: "Assignment Accuracy",
-      value: "94%"
+      value: "96%"
+    }
+  },
+  {
+    id: "admin-analysis",
+    title: "Professional AI Analysis", 
+    description: "Organization admins get detailed AI infrastructure analysis for informed decisions",
+    icon: <TrendingUp className="w-6 h-6" />,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+    details: [
+      "Professional infrastructure assessment",
+      "Safety risk evaluation and planning",
+      "Resource and cost estimation",
+      "Prevention strategy recommendations"
+    ],
+    metrics: {
+      label: "Analysis Depth",
+      value: "8 categories"
     }
   },
   {
     id: "engagement",
     title: "Community Engagement",
-    description: "Citizens vote, comment, and track progress in real-time",
+    description: "Citizens vote, comment, and track progress with engagement-based priority visualization",
     icon: <Vote className="w-6 h-6" />,
     color: "text-orange-600",
     bgColor: "bg-orange-100",
     details: [
-      "Upvoting and priority ranking",
-      "Real-time comment threads",
-      "Photo evidence sharing",
+      "Dynamic priority color coding",
+      "Real-time voting and commenting",
+      "Engagement-based issue ranking",
       "Progress tracking dashboard"
     ],
     metrics: {
       label: "Engagement Rate",
-      value: "73%"
+      value: "78%"
     }
   },
   {
-    id: "resolution",
-    title: "Progress Tracking",
-    description: "Transparent status updates and completion verification",
-    icon: <TrendingUp className="w-6 h-6" />,
-    color: "text-red-600",
-    bgColor: "bg-red-100",
-    details: [
-      "Multi-stage status tracking",
-      "Photo verification system",
-      "Automated notification system",
-      "Performance analytics"
-    ],
-    metrics: {
-      label: "Resolution Rate",
-      value: "87%"
-    }
-  },
-  {
-    id: "feedback",
-    title: "AI Chat Support",
-    description: "24/7 intelligent assistance for citizens and officials",
+    id: "ai-support",
+    title: "AI Assistant Support",
+    description: "24/7 intelligent assistance with real-time platform data integration",
     icon: <MessageSquare className="w-6 h-6" />,
     color: "text-cyan-600",
     bgColor: "bg-cyan-100",
     details: [
-      "Context-aware responses",
-      "Multi-language support",
-      "FAQ automation",
-      "Escalation to human support"
+      "Context-aware conversational AI",
+      "Real-time platform statistics",
+      "Role-based intelligent responses",
+      "Instant issue and user insights"
     ],
     metrics: {
       label: "Response Time",
@@ -144,11 +144,11 @@ export function WorkflowDiagram() {
             How It Works
           </Badge>
           <h2 className="text-4xl font-bold text-gray-900 mb-6">
-            Seamless Civic Issue Management
+            AI-Enhanced Civic Issue Management
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            From problem identification to resolution, our AI-powered workflow 
-            ensures efficient processing and transparent communication.
+            From AI-powered photo analysis to professional infrastructure assessment, 
+            our intelligent workflow ensures efficient processing and transparent communication.
           </p>
         </motion.div>
 
