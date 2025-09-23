@@ -17,7 +17,7 @@ export const ISSUE_STATUS = {
   IN_PROGRESS: { label: "In Progress", color: "#3b82f6", bgColor: "#dbeafe" },
   RESOLVED: { label: "Resolved", color: "#10b981", bgColor: "#d1fae5" },
   REJECTED: { label: "Rejected", color: "#ef4444", bgColor: "#fee2e2" },
-  REMOVED: { label: "Removed", color: "#6b7280", bgColor: "#f3f4f6" },
+  UNDER_APPEAL: { label: "Under Appeal", color: "#8b5cf6", bgColor: "#ede9fe" },
 } as const
 
 export const PRIORITY_LEVELS = {

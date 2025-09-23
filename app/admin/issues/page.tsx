@@ -40,6 +40,7 @@ export default function AdminIssuesPage() {
     PENDING: issues.filter((i) => i.status === "PENDING").length,
     IN_PROGRESS: issues.filter((i) => i.status === "IN_PROGRESS").length,
     RESOLVED: issues.filter((i) => i.status === "RESOLVED").length,
+    UNDER_APPEAL: issues.filter((i) => i.status === "UNDER_APPEAL").length,
   }
 
   const statusTabs = [
@@ -47,6 +48,7 @@ export default function AdminIssuesPage() {
     { id: "PENDING", label: "Pending", count: statusCounts.PENDING },
     { id: "IN_PROGRESS", label: "In Progress", count: statusCounts.IN_PROGRESS },
     { id: "RESOLVED", label: "Resolved", count: statusCounts.RESOLVED },
+    { id: "UNDER_APPEAL", label: "Under Appeal", count: statusCounts.UNDER_APPEAL },
   ]
 
   useEffect(() => {

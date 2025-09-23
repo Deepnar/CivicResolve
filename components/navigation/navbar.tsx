@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone, Building2, Users2, Heart } from "lucide-react"
+import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone, Building2, Users2, Heart, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -86,6 +86,7 @@ export function Navbar() {
   const adminNavigation = [
     { name: "Admin Dashboard", href: "/admin", icon: BarChart3 },
     { name: "Manage Issues", href: "/admin/issues", icon: Settings },
+    { name: "Appeals", href: "/admin/appeals", icon: AlertTriangle },
     { name: "Users", href: "/admin/users", icon: User },
     { name: "Organizations", href: "/admin/organizations", icon: Building2 },
     { name: "NGOs", href: "/admin/ngos", icon: Heart },
@@ -93,6 +94,7 @@ export function Navbar() {
 
   const organizationAdminNavigation = [
     { name: "Organization Dashboard", href: "/organization", icon: BarChart3 },
+    { name: "Appeals", href: "/admin/appeals", icon: AlertTriangle },
     { name: "Organization Issues", href: "/organization/issues", icon: Settings },
     { name: "Team Members", href: "/organization/members", icon: Users2 },
   ]

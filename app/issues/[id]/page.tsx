@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Navbar } from "@/components/navigation/navbar"
+import { AppealButton, AppealStatusDisplay, AdminAppealReview } from "@/components/appeals"
 import { useAuth } from "@/hooks/use-auth"
 import { convertToIST } from "@/lib/date-utils"
-import type { Issue, Comment } from "@/lib/types"
+import type { Issue, Comment, Appeal } from "@/lib/types"
 
 interface IssueDetailPageProps {
   params: Promise<{ id: string }>
@@ -34,6 +35,8 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [voteCount, setVoteCount] = useState(0)
+  const [appeals, setAppeals] = useState<Appeal[]>([])
+  const [appealsLoading, setAppealsLoading] = useState(false)
 
   useEffect(() => {
     const fetchIssue = async () => {
@@ -64,6 +67,38 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
 
     fetchIssue()
   }, [resolvedParams.id])
+
+  // Fetch appeals for this issue
+  const fetchAppeals = async () => {
+    if (!resolvedParams.id) return
+    
+    setAppealsLoading(true)
+    try {
+      const response = await fetch(`/api/issues/${resolvedParams.id}/appeals`)
+      if (response.ok) {
+        const data = await response.json()
+        setAppeals(data.appeals || [])
+      }
+    } catch (err) {
+      console.error('Error fetching appeals:', err)
+    } finally {
+      setAppealsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAppeals()
+  }, [resolvedParams.id])
+
+  const handleAppealSubmitted = () => {
+    // Refresh issue and appeals data
+    window.location.reload()
+  }
+
+  const handleAppealReviewed = () => {
+    // Refresh issue and appeals data
+    window.location.reload()
+  }
 
   const handleSubmitComment = async () => {
     if (!newComment.trim() || isSubmittingComment || !user) return
@@ -239,19 +274,53 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        <span>{issue.address}</span>
+                    <div className="flex items-center justify-between gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          <span>{issue.address}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>Created {formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>Created {formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}</span>
-                      </div>
+                      
+                      {/* Appeal Button for Citizens */}
+                      {user && (
+                        <AppealButton
+                          issueId={parseInt(resolvedParams.id)}
+                          issueTitle={issue.title}
+                          issueStatus={issue.status}
+                          isOriginalReporter={user.id.toString() === issue.reporterId.toString()}
+                          hasActiveAppeal={appeals.some(appeal => ['PENDING', 'UNDER_REVIEW'].includes(appeal.status))}
+                          onAppealSubmitted={handleAppealSubmitted}
+                        />
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Appeal Status Display */}
+              {appeals && appeals.length > 0 && (
+                <AppealStatusDisplay appeals={appeals} />
+              )}
+
+              {/* Admin Appeal Review */}
+              {user && user.role === 'ORGANIZATION_ADMIN' && appeals && appeals.length > 0 && (
+                <div className="space-y-4">
+                  {appeals
+                    .filter(appeal => ['PENDING', 'UNDER_REVIEW'].includes(appeal.status))
+                    .map(appeal => (
+                      <AdminAppealReview
+                        key={appeal.id}
+                        appeal={appeal}
+                        onReviewComplete={handleAppealReviewed}
+                      />
+                    ))}
+                </div>
+              )}
 
               {/* Comments Section */}
               <Card>

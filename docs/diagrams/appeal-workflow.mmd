@@ -1,0 +1,19 @@
+stateDiagram-v2
+    [*] --> IssueResolved: Issue marked as RESOLVED/REJECTED
+    IssueResolved --> AppealEligible: Citizen can appeal
+    AppealEligible --> AppealSubmitted: Citizen submits appeal
+    AppealSubmitted --> UnderAppeal: Issue status = UNDER_APPEAL
+    
+    UnderAppeal --> AppealUnderReview: Organization admin reviews
+    AppealUnderReview --> AppealAccepted: Admin accepts appeal
+    AppealUnderReview --> AppealDenied: Admin denies appeal
+    
+    AppealAccepted --> IssuePending: Issue status = PENDING
+    AppealDenied --> IssueOriginalStatus: Restore original status
+    
+    IssuePending --> IssueInProgress: Organization resumes work
+    IssueInProgress --> IssueResolved: Issue resolved again
+    
+    AppealAccepted --> [*]
+    AppealDenied --> [*]
+    IssueResolved --> [*]

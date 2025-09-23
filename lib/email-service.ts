@@ -2025,6 +2025,274 @@ class EmailService {
     `;
   }
 
+  /**
+   * Send appeal submitted notification to organization admins
+   */
+  async sendAppealSubmittedNotification(data: {
+    issue: {
+      id: number;
+      title: string;
+      category: string;
+      address: string;
+    };
+    appeal: {
+      id: number;
+      reason: string;
+      reporter_name: string;
+      reporter_email: string;
+    };
+    admins: Array<{
+      email: string;
+      name: string;
+    }>;
+  }): Promise<void> {
+    const { issue, appeal, admins } = data;
+
+    for (const admin of admins) {
+      const subject = `New Appeal Filed for Issue #${issue.id}: ${issue.title}`;
+      const html = this.generateAppealSubmittedEmailHTML({
+        adminName: admin.name,
+        issue,
+        appeal
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: admin.email,
+        subject,
+        html
+      };
+
+      await this.transporter.sendMail(mailOptions);
+
+      console.log(`📧 Appeal submitted notification sent to admin: ${admin.email}`);
+    }
+  }
+
+  /**
+   * Send appeal decision notification to citizen
+   */
+  async sendAppealDecisionNotification(data: {
+    appeal: {
+      id: number;
+      status: 'ACCEPTED' | 'DENIED';
+      reviewer_comment: string | null;
+    };
+    issue: {
+      id: number;
+      title: string;
+      category: string;
+      address: string;
+    };
+    reporter: {
+      email: string;
+      name: string;
+    };
+    reviewer: {
+      name: string;
+    };
+  }): Promise<void> {
+    const { appeal, issue, reporter, reviewer } = data;
+
+    const subject = `Update on Your Appeal for Issue #${issue.id}`;
+    const html = this.generateAppealDecisionEmailHTML({
+      reporterName: reporter.name,
+      issue,
+      appeal,
+      reviewerName: reviewer.name
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: reporter.email,
+      subject,
+      html
+    };
+
+    await this.transporter.sendMail(mailOptions);
+
+    console.log(`📧 Appeal decision notification sent to reporter: ${reporter.email}`);
+  }
+
+  /**
+   * Generate HTML for appeal submitted notification email
+   */
+  private generateAppealSubmittedEmailHTML(data: {
+    adminName: string;
+    issue: {
+      id: number;
+      title: string;
+      category: string;
+      address: string;
+    };
+    appeal: {
+      id: number;
+      reason: string;
+      reporter_name: string;
+      reporter_email: string;
+    };
+  }): string {
+    const { adminName, issue, appeal } = data;
+    const issueUrl = `${this.baseUrl}/issues/${issue.id}`;
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Appeal Filed - CivicResolve</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0; font-size: 24px;">🏛️ CivicResolve</h1>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px;">New Appeal Filed</h2>
+          <p style="color: #4b5563; margin: 0 0 10px 0;">Hello ${adminName},</p>
+          <p style="color: #4b5563; margin: 0 0 20px 0; line-height: 1.6;">
+            A citizen has filed an appeal for an issue assigned to your organization. Please review the appeal and take appropriate action.
+          </p>
+        </div>
+
+        <div style="background-color: #fef3c7; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #f59e0b;">
+          <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">📋 Issue Details</h3>
+          <p style="margin: 5px 0; color: #92400e;"><strong>Issue #${issue.id}:</strong> ${issue.title}</p>
+          <p style="margin: 5px 0; color: #92400e;"><strong>Category:</strong> ${issue.category}</p>
+          <p style="margin: 5px 0; color: #92400e;"><strong>Location:</strong> ${issue.address}</p>
+        </div>
+
+        <div style="background-color: #fef2f2; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #ef4444;">
+          <h3 style="color: #dc2626; margin: 0 0 15px 0; font-size: 16px;">⚖️ Appeal Information</h3>
+          <p style="margin: 5px 0; color: #dc2626;"><strong>Appeal ID:</strong> #${appeal.id}</p>
+          <p style="margin: 5px 0; color: #dc2626;"><strong>Reporter:</strong> ${appeal.reporter_name} (${appeal.reporter_email})</p>
+          <p style="margin: 15px 0 5px 0; color: #dc2626;"><strong>Reason for Appeal:</strong></p>
+          <div style="background-color: white; padding: 15px; border-radius: 4px; border: 1px solid #fecaca;">
+            <p style="margin: 0; color: #374151; line-height: 1.6;">${appeal.reason}</p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${issueUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            Review Appeal
+          </a>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            Please review this appeal promptly to ensure timely resolution for our citizens.
+          </p>
+          <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
+            This is an automated message from CivicResolve. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * Generate HTML for appeal decision notification email
+   */
+  private generateAppealDecisionEmailHTML(data: {
+    reporterName: string;
+    issue: {
+      id: number;
+      title: string;
+      category: string;
+      address: string;
+    };
+    appeal: {
+      id: number;
+      status: 'ACCEPTED' | 'DENIED';
+      reviewer_comment: string | null;
+    };
+    reviewerName: string;
+  }): string {
+    const { reporterName, issue, appeal, reviewerName } = data;
+    const issueUrl = `${this.baseUrl}/issues/${issue.id}`;
+    const isAccepted = appeal.status === 'ACCEPTED';
+    const statusColor = isAccepted ? '#10b981' : '#ef4444';
+    const statusBgColor = isAccepted ? '#ecfdf5' : '#fef2f2';
+    const statusBorderColor = isAccepted ? '#10b981' : '#ef4444';
+    const statusIcon = isAccepted ? '✅' : '❌';
+    const statusText = isAccepted ? 'Appeal Accepted' : 'Appeal Denied';
+    const nextStepsText = isAccepted 
+      ? 'The issue has been reopened and will be reviewed again by the organization.' 
+      : 'The original decision has been upheld. If you believe this decision is incorrect, you may contact our support team.';
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Appeal Decision - CivicResolve</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0; font-size: 24px;">🏛️ CivicResolve</h1>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px;">Appeal Decision Update</h2>
+          <p style="color: #4b5563; margin: 0 0 10px 0;">Hello ${reporterName},</p>
+          <p style="color: #4b5563; margin: 0 0 20px 0; line-height: 1.6;">
+            We have reviewed your appeal and reached a decision. Please see the details below.
+          </p>
+        </div>
+
+        <div style="background-color: ${statusBgColor}; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid ${statusBorderColor};">
+          <h3 style="color: ${statusColor}; margin: 0 0 15px 0; font-size: 18px;">${statusIcon} ${statusText}</h3>
+          <p style="margin: 5px 0; color: ${statusColor};"><strong>Appeal ID:</strong> #${appeal.id}</p>
+          <p style="margin: 5px 0; color: ${statusColor};"><strong>Reviewed by:</strong> ${reviewerName}</p>
+        </div>
+
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #6b7280;">
+          <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px;">📋 Issue Details</h3>
+          <p style="margin: 5px 0; color: #374151;"><strong>Issue #${issue.id}:</strong> ${issue.title}</p>
+          <p style="margin: 5px 0; color: #374151;"><strong>Category:</strong> ${issue.category}</p>
+          <p style="margin: 5px 0; color: #374151;"><strong>Location:</strong> ${issue.address}</p>
+        </div>
+
+        ${appeal.reviewer_comment ? `
+        <div style="background-color: #f0f9ff; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #0ea5e9;">
+          <h3 style="color: #0369a1; margin: 0 0 15px 0; font-size: 16px;">💬 Review Comment</h3>
+          <div style="background-color: white; padding: 15px; border-radius: 4px; border: 1px solid #bae6fd;">
+            <p style="margin: 0; color: #374151; line-height: 1.6;">${appeal.reviewer_comment}</p>
+          </div>
+        </div>
+        ` : ''}
+
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 6px; margin-bottom: 25px;">
+          <h3 style="color: #475569; margin: 0 0 15px 0; font-size: 16px;">🔄 Next Steps</h3>
+          <p style="margin: 0; color: #475569; line-height: 1.6;">${nextStepsText}</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${issueUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            View Issue
+          </a>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            Thank you for using CivicResolve to improve your community.
+          </p>
+          <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
+            This is an automated message from CivicResolve. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
 }
 
 export const emailService = new EmailService();

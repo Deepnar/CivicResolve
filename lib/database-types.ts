@@ -30,7 +30,7 @@ export interface IssueRow extends RowDataPacket {
   title: string
   description: string
   category: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED'
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'UNDER_APPEAL'
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   latitude: number
   longitude: number
@@ -63,6 +63,19 @@ export interface VoteRow extends RowDataPacket {
   user_id: number
   vote_type: 'UPVOTE' | 'DOWNVOTE'
   created_at: Date
+}
+
+// Appeal-related types
+export interface AppealRow extends RowDataPacket {
+  id: number
+  issue_id: number
+  reporter_id: number
+  reason: string
+  status: 'PENDING' | 'UNDER_REVIEW' | 'ACCEPTED' | 'DENIED'
+  reviewer_id: number | null
+  reviewer_comment: string | null
+  created_at: Date
+  updated_at: Date
 }
 
 // Analytics types

@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API
+    participant AIService
+    participant Database
+    participant Cache
+    participant EmailService
+    participant Organization
+    
+    User->>Frontend: Fill out issue form
+    Frontend->>API: POST /api/issues
+    API->>AIService: Auto-fill suggestions (optional)
+    AIService->>API: Enhanced issue data
+    API->>Database: Create issue record
+    Database->>API: Issue created (ID: 123)
+    API->>Cache: Invalidate issues cache
+    Cache->>API: Cache invalidated
+    API->>EmailService: Notify organization (async)
+    EmailService->>Organization: Assignment notification
+    API->>Frontend: Issue created response
+    Frontend->>User: Success confirmation

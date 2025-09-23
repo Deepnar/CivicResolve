@@ -135,7 +135,8 @@ export interface Assignment {
 }
 
 export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "ENVIRONMENT" | "VANDALISM" | "TRANSPORTATION" | "NOISE" | "OTHER"
-export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REMOVED"
+export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REJECTED" | "UNDER_APPEAL"
+export type AppealStatus = "PENDING" | "UNDER_REVIEW" | "ACCEPTED" | "DENIED"
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
 export type UserRole = "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN" | "NGO_ADMIN"
 export type OrganizationRole = "ORGANIZATION_ADMIN" | "MEMBER"
@@ -189,4 +190,24 @@ export interface RegisterData {
   name: string
   email: string
   password: string
+}
+
+export interface Appeal {
+  id: number
+  issue_id: number
+  reporter_id: number
+  reason: string
+  status: AppealStatus
+  reviewer_id: number | null
+  reviewer_comment: string | null
+  created_at: Date
+  updated_at: Date
+  // Joined data from queries
+  reporter_name?: string
+  reporter_email?: string
+  reviewer_name?: string
+  reviewer_email?: string
+  issue_title?: string
+  issue_category?: string
+  issue_address?: string
 }

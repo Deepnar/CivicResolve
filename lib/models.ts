@@ -71,7 +71,7 @@ export interface Issue {
   title: string;
   description: string;
   category: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'UNDER_APPEAL';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   latitude: number;
   longitude: number;
@@ -98,6 +98,22 @@ export interface Vote {
   issue_id: number;
   user_id: number;
   created_at: Date;
+}
+
+export interface Appeal {
+  id: number;
+  issue_id: number;
+  reporter_id: number;
+  reason: string;
+  status: 'PENDING' | 'UNDER_REVIEW' | 'ACCEPTED' | 'DENIED';
+  reviewer_id: number | null;
+  reviewer_comment: string | null;
+  created_at: Date;
+  updated_at: Date;
+  // Joined data
+  reporter?: User;
+  reviewer?: User;
+  issue?: Issue;
 }
 
 // User model
@@ -306,14 +322,15 @@ export class IssueModel {
     if (!current) return null
 
     const currentStatus = current.status
-    const validTransition: Record<IssueStatus, IssueStatus> = {
-      PENDING: "IN_PROGRESS",
-      IN_PROGRESS: "RESOLVED",
-      RESOLVED: "RESOLVED",
-      REMOVED: "REMOVED",
+    const validTransitions: Record<IssueStatus, IssueStatus[]> = {
+      PENDING: ["IN_PROGRESS", "RESOLVED", "REJECTED"],
+      IN_PROGRESS: ["RESOLVED", "REJECTED", "PENDING"],
+      RESOLVED: ["UNDER_APPEAL"], // Allow appeals from resolved issues
+      REJECTED: ["UNDER_APPEAL", "PENDING"], // Allow appeals from rejected issues
+      UNDER_APPEAL: ["PENDING", "RESOLVED", "REJECTED"], // Allow status changes after appeal review
     }
 
-    if (validTransition[currentStatus] !== status) {
+    if (!validTransitions[currentStatus]?.includes(status as IssueStatus)) {
       throw new Error(`Invalid status transition: ${currentStatus} → ${status}`);
     }
 
@@ -501,10 +518,11 @@ export class IssueModel {
       const sql = `
         SELECT i.*, u.name as citizen_name, u.email as citizen_email,
                (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
-               assigned_users.name as assigned_to_name
+               o.name as organization_name
         FROM issues i
         JOIN users u ON i.reporter_id = u.id
-        LEFT JOIN users assigned_users ON i.assigned_to = assigned_users.id
+        LEFT JOIN issue_assignments ia ON i.id = ia.issue_id
+        LEFT JOIN organizations o ON ia.organization_id = o.id
         WHERE i.category IN (${placeholders})
         ORDER BY i.created_at DESC
         LIMIT ${sanitizedLimit}
@@ -558,10 +576,11 @@ export class IssueModel {
       let sql = `
         SELECT i.*, u.name as citizen_name, u.email as citizen_email,
                (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
-               assigned_users.name as assigned_to_name
+               o.name as organization_name
         FROM issues i
         JOIN users u ON i.reporter_id = u.id
-        LEFT JOIN users assigned_users ON i.assigned_to = assigned_users.id
+        LEFT JOIN issue_assignments ia ON i.id = ia.issue_id
+        LEFT JOIN organizations o ON ia.organization_id = o.id
         WHERE i.category IN (${categories.map(() => '?').join(', ')})
       `;
       
@@ -908,6 +927,45 @@ export class UserOrganizationModel {
     `;
     const result = await Database.queryOne<{ employee_id: string | null }>(sql, [userId, organizationId]);
     return result ? result.employee_id : null;
+  }
+
+  static async getOrganizationAdminsForIssue(issueId: number): Promise<any[]> {
+    const sql = `
+      SELECT DISTINCT u.id, u.name, u.email, u.role, o.name as organization_name
+      FROM users u
+      JOIN user_organizations uo ON u.id = uo.user_id
+      JOIN organizations o ON uo.organization_id = o.id
+      JOIN issue_assignments ia ON o.id = ia.organization_id
+      WHERE ia.issue_id = ? 
+        AND uo.role = 'ORGANIZATION_ADMIN' 
+        AND uo.is_active = TRUE 
+        AND o.is_active = TRUE
+        AND u.role IN ('ORGANIZATION_ADMIN', 'ADMIN')
+      ORDER BY u.name ASC
+    `;
+    return await Database.query(sql, [issueId]);
+  }
+
+  static async getUserOrganizationId(userId: number): Promise<number | null> {
+    const sql = `
+      SELECT organization_id 
+      FROM user_organizations 
+      WHERE user_id = ? AND is_active = TRUE
+      LIMIT 1
+    `;
+    const result: any[] = await Database.query(sql, [userId]);
+    return result.length > 0 ? result[0].organization_id : null;
+  }
+
+  static async isUserAuthorizedForIssue(userId: number, issueId: number): Promise<boolean> {
+    const sql = `
+      SELECT COUNT(*) as count
+      FROM user_organizations uo
+      JOIN issue_assignments ia ON uo.organization_id = ia.organization_id
+      WHERE uo.user_id = ? AND ia.issue_id = ? AND uo.is_active = TRUE
+    `;
+    const result: any[] = await Database.query(sql, [userId, issueId]);
+    return result[0].count > 0;
   }
 }
 
@@ -1296,5 +1354,115 @@ export class NGOPriorityNotificationModel {
       ORDER BY npn.created_at ASC
     `;
     return await Database.query(sql, []);
+  }
+}
+
+// Appeal model
+export class AppealModel {
+  static async create(appealData: {
+    issue_id: number;
+    reporter_id: number;
+    reason: string;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO appeals (issue_id, reporter_id, reason, status)
+      VALUES (?, ?, ?, 'PENDING')
+    `;
+    const appealId = await Database.insert(sql, [
+      appealData.issue_id,
+      appealData.reporter_id,
+      appealData.reason
+    ]);
+    return appealId;
+  }
+
+  static async findById(id: number): Promise<Appeal | null> {
+    const sql = `
+      SELECT a.*, 
+             u1.name as reporter_name, u1.email as reporter_email,
+             u2.name as reviewer_name, u2.email as reviewer_email,
+             i.title as issue_title, i.category as issue_category, i.address as issue_address
+      FROM appeals a
+      LEFT JOIN users u1 ON a.reporter_id = u1.id
+      LEFT JOIN users u2 ON a.reviewer_id = u2.id
+      LEFT JOIN issues i ON a.issue_id = i.id
+      WHERE a.id = ?
+    `;
+    const results: any[] = await Database.query(sql, [id]);
+    return results.length > 0 ? results[0] as Appeal : null;
+  }
+
+  static async findByIssueId(issueId: number): Promise<Appeal[]> {
+    const sql = `
+      SELECT a.*, 
+             u1.name as reporter_name, u1.email as reporter_email,
+             u2.name as reviewer_name, u2.email as reviewer_email
+      FROM appeals a
+      LEFT JOIN users u1 ON a.reporter_id = u1.id
+      LEFT JOIN users u2 ON a.reviewer_id = u2.id
+      WHERE a.issue_id = ?
+      ORDER BY a.created_at DESC
+    `;
+    return await Database.query(sql, [issueId]) as Appeal[];
+  }
+
+  static async hasActiveAppeal(issueId: number): Promise<boolean> {
+    const sql = `
+      SELECT COUNT(*) as count 
+      FROM appeals 
+      WHERE issue_id = ? AND status IN ('PENDING', 'UNDER_REVIEW')
+    `;
+    const results: any[] = await Database.query(sql, [issueId]);
+    return results[0].count > 0;
+  }
+
+  static async updateStatus(
+    id: number, 
+    status: 'UNDER_REVIEW' | 'ACCEPTED' | 'DENIED',
+    reviewerId: number,
+    reviewerComment?: string
+  ): Promise<boolean> {
+    const sql = `
+      UPDATE appeals 
+      SET status = ?, reviewer_id = ?, reviewer_comment = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    const affectedRows = await Database.update(sql, [
+      status,
+      reviewerId,
+      reviewerComment || null,
+      id
+    ]);
+    return affectedRows > 0;
+  }
+
+  static async findPendingAppealsForOrganization(organizationId: number): Promise<Appeal[]> {
+    const sql = `
+      SELECT a.*, 
+             u1.name as reporter_name, u1.email as reporter_email,
+             i.title as issue_title, i.category as issue_category, i.address as issue_address
+      FROM appeals a
+      JOIN issues i ON a.issue_id = i.id
+      JOIN issue_assignments ia ON i.id = ia.issue_id
+      JOIN users u1 ON a.reporter_id = u1.id
+      WHERE ia.organization_id = ? AND a.status IN ('PENDING', 'UNDER_REVIEW')
+      ORDER BY a.created_at ASC
+    `;
+    return await Database.query(sql, [organizationId]) as Appeal[];
+  }
+
+  static async findAll(): Promise<Appeal[]> {
+    const sql = `
+      SELECT a.*, 
+             u1.name as reporter_name, u1.email as reporter_email,
+             u2.name as reviewer_name, u2.email as reviewer_email,
+             i.title as issue_title, i.category as issue_category, i.address as issue_address
+      FROM appeals a
+      LEFT JOIN users u1 ON a.reporter_id = u1.id
+      LEFT JOIN users u2 ON a.reviewer_id = u2.id
+      LEFT JOIN issues i ON a.issue_id = i.id
+      ORDER BY a.created_at DESC
+    `;
+    return await Database.query(sql, []) as Appeal[];
   }
 }

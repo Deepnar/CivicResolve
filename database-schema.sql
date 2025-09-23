@@ -25,7 +25,7 @@ CREATE TABLE issues (
   title VARCHAR(500) NOT NULL,
   description TEXT NOT NULL,
   category VARCHAR(100) NOT NULL,
-  status ENUM('PENDING', 'IN_PROGRESS', 'RESOLVED', 'REJECTED') DEFAULT 'PENDING',
+  status ENUM('PENDING', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'UNDER_APPEAL') DEFAULT 'PENDING',
   priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
   latitude DECIMAL(10, 8) NOT NULL,
   longitude DECIMAL(11, 8) NOT NULL,
@@ -68,6 +68,26 @@ CREATE TABLE votes (
   UNIQUE KEY unique_vote (issue_id, user_id),
   INDEX idx_issue (issue_id),
   INDEX idx_user (user_id)
+);
+
+-- Appeals table
+CREATE TABLE appeals (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  issue_id INT NOT NULL,
+  reporter_id INT NOT NULL,
+  reason TEXT NOT NULL,
+  status ENUM('PENDING', 'UNDER_REVIEW', 'ACCEPTED', 'DENIED') DEFAULT 'PENDING',
+  reviewer_id INT NULL,
+  reviewer_comment TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+  FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_appeals_issue_id (issue_id),
+  INDEX idx_appeals_reporter_id (reporter_id),
+  INDEX idx_appeals_status (status),
+  INDEX idx_appeals_created_at (created_at)
 );
 
 -- Insert sample admin user (password: admin123)

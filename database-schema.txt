@@ -1,0 +1,118 @@
+category_organization_mappings:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'category', 'varchar(100)', 'NO', 'MUL', NULL, ''
+'organization_id', 'int', 'NO', 'MUL', NULL, ''
+'is_primary', 'tinyint(1)', 'YES', 'MUL', '0', ''
+'created_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+
+
+comments:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'content', 'text', 'NO', '', NULL, ''
+'issue_id', 'int', 'NO', 'MUL', NULL, ''
+'author_id', 'int', 'NO', 'MUL', NULL, ''
+'created_at', 'timestamp', 'YES', 'MUL', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+
+issue_assignments:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'issue_id', 'int', 'NO', 'MUL', NULL, ''
+'organization_id', 'int', 'NO', 'MUL', NULL, ''
+'assigned_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'assigned_by', 'int', 'YES', 'MUL', NULL, ''
+
+
+issues:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'title', 'varchar(500)', 'NO', '', NULL, ''
+'description', 'text', 'NO', '', NULL, ''
+'category', 'varchar(100)', 'NO', 'MUL', NULL, ''
+'status', 'enum(\'PENDING\',\'IN_PROGRESS\',\'RESOLVED\',\'REJECTED\')', 'YES', 'MUL', 'PENDING', ''
+'priority', 'enum(\'LOW\',\'MEDIUM\',\'HIGH\',\'URGENT\')', 'YES', 'MUL', 'MEDIUM', ''
+'latitude', 'decimal(10,8)', 'NO', 'MUL', NULL, ''
+'longitude', 'decimal(11,8)', 'NO', '', NULL, ''
+'address', 'varchar(500)', 'NO', '', NULL, ''
+'image_url', 'longtext', 'YES', '', NULL, ''
+'resolution_image_url', 'longtext', 'YES', 'MUL', NULL, ''
+'reporter_id', 'int', 'NO', 'MUL', NULL, ''
+'created_at', 'timestamp', 'YES', 'MUL', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'updated_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED on update CURRENT_TIMESTAMP'
+
+
+ngos:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'name', 'varchar(255)', 'NO', 'UNI', NULL, ''
+'description', 'text', 'YES', '', NULL, ''
+'email', 'varchar(255)', 'YES', '', NULL, ''
+'phone', 'varchar(50)', 'YES', '', NULL, ''
+'address', 'text', 'YES', '', NULL, ''
+'registration_number', 'varchar(100)', 'YES', '', NULL, ''
+'contact_person', 'varchar(255)', 'YES', '', NULL, ''
+'is_active', 'tinyint(1)', 'YES', 'MUL', '1', ''
+'created_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'updated_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED on update CURRENT_TIMESTAMP'
+
+
+organizations:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'name', 'varchar(255)', 'NO', 'UNI', NULL, ''
+'description', 'text', 'YES', '', NULL, ''
+'email', 'varchar(255)', 'YES', '', NULL, ''
+'phone', 'varchar(50)', 'YES', '', NULL, ''
+'address', 'text', 'YES', '', NULL, ''
+'is_active', 'tinyint(1)', 'YES', 'MUL', '1', ''
+'created_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'updated_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED on update CURRENT_TIMESTAMP'
+
+
+user_ngos:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'user_id', 'int', 'NO', 'MUL', NULL, ''
+'ngo_id', 'int', 'NO', 'MUL', NULL, ''
+'role', 'enum(\'NGO_ADMIN\',\'MEMBER\')', 'YES', 'MUL', 'MEMBER', ''
+'position', 'varchar(255)', 'YES', '', NULL, ''
+'is_active', 'tinyint(1)', 'YES', 'MUL', '1', ''
+'assigned_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'assigned_by', 'int', 'YES', 'MUL', NULL, ''
+
+user_organizations:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'user_id', 'int', 'NO', 'MUL', NULL, ''
+'organization_id', 'int', 'NO', 'MUL', NULL, ''
+'role', 'enum(\'ORGANIZATION_ADMIN\',\'MEMBER\')', 'YES', 'MUL', 'MEMBER', ''
+'employee_id', 'varchar(100)', 'YES', '', NULL, ''
+'position', 'varchar(255)', 'YES', '', NULL, ''
+'is_active', 'tinyint(1)', 'YES', 'MUL', '1', ''
+'assigned_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'assigned_by', 'int', 'YES', 'MUL', NULL, ''
+
+
+users:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'email', 'varchar(255)', 'NO', 'UNI', NULL, ''
+'name', 'varchar(255)', 'NO', '', NULL, ''
+'password', 'varchar(255)', 'NO', '', NULL, ''
+'role', 'enum(\'CITIZEN\',\'ADMIN\',\'ORGANIZATION_ADMIN\',\'NGO_ADMIN\')', 'YES', 'MUL', 'CITIZEN', ''
+'points', 'int', 'YES', '', '0', ''
+'created_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+'updated_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED on update CURRENT_TIMESTAMP'
+'is_verified', 'tinyint(1)', 'YES', '', '0', ''
+'verification_token', 'varchar(255)', 'YES', 'MUL', NULL, ''
+'verification_token_expires', 'timestamp', 'YES', '', NULL, ''
+
+
+votes:
+
+'id', 'int', 'NO', 'PRI', NULL, 'auto_increment'
+'issue_id', 'int', 'NO', 'MUL', NULL, ''
+'user_id', 'int', 'NO', 'MUL', NULL, ''
+'created_at', 'timestamp', 'YES', '', 'CURRENT_TIMESTAMP', 'DEFAULT_GENERATED'
+

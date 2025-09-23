@@ -1,0 +1,85 @@
+graph TB
+    subgraph "Client Layer"
+        Web[Web Browser]
+        PWA[Progressive Web App]
+        Mobile[Mobile Browser]
+    end
+    
+    subgraph "Frontend Layer"
+        NextJS[Next.js 15 Frontend]
+        React[React 19 Components]
+        TailwindCSS[Tailwind CSS]
+        PWAManifest[PWA Manifest]
+    end
+    
+    subgraph "API Gateway Layer"
+        APIRoutes[Next.js API Routes]
+        Middleware[Authentication Middleware]
+        RateLimit[Rate Limiting]
+        Validation[Input Validation]
+    end
+    
+    subgraph "Business Logic Layer"
+        UserModel[User Management]
+        IssueModel[Issue Management]
+        OrgModel[Organization Management]
+        AppealModel[Appeal System]
+        AIService[AI Integration]
+        EmailService[Email Service]
+    end
+    
+    subgraph "Caching Layer"
+        Redis[(Redis Cache)]
+        ServerCache[Server-Side Cache]
+        InvalidationEngine[Cache Invalidation]
+    end
+    
+    subgraph "Data Layer"
+        MySQL[(MySQL Database)]
+        FileStorage[Image Storage]
+        Analytics[Analytics Data]
+    end
+    
+    subgraph "External Services"
+        GoogleAI[Google Gemini AI]
+        EmailProvider[SMTP Email Provider]
+        MapService[OpenStreetMap]
+    end
+    
+    %% Connections
+    Web --> NextJS
+    PWA --> NextJS
+    Mobile --> NextJS
+    
+    NextJS --> APIRoutes
+    React --> NextJS
+    TailwindCSS --> NextJS
+    PWAManifest --> PWA
+    
+    APIRoutes --> Middleware
+    Middleware --> RateLimit
+    RateLimit --> Validation
+    Validation --> UserModel
+    Validation --> IssueModel
+    Validation --> OrgModel
+    Validation --> AppealModel
+    
+    UserModel --> Redis
+    IssueModel --> Redis
+    OrgModel --> Redis
+    AppealModel --> Redis
+    
+    Redis --> ServerCache
+    ServerCache --> InvalidationEngine
+    
+    UserModel --> MySQL
+    IssueModel --> MySQL
+    OrgModel --> MySQL
+    AppealModel --> MySQL
+    
+    AIService --> GoogleAI
+    EmailService --> EmailProvider
+    NextJS --> MapService
+    
+    IssueModel --> FileStorage
+    APIRoutes --> Analytics

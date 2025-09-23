@@ -1,0 +1,79 @@
+graph TD
+    subgraph "Load Balancer"
+        LB[Load Balancer / CDN]
+    end
+    
+    subgraph "Application Servers"
+        App1[Next.js App Server 1]
+        App2[Next.js App Server 2]
+        App3[Next.js App Server 3]
+    end
+    
+    subgraph "Database Cluster"
+        MySQLMaster[(MySQL Master)]
+        MySQLSlave1[(MySQL Read Replica 1)]
+        MySQLSlave2[(MySQL Read Replica 2)]
+    end
+    
+    subgraph "Cache Cluster"
+        RedisCluster[Redis Cluster]
+        RedisNode1[(Redis Node 1)]
+        RedisNode2[(Redis Node 2)]
+        RedisNode3[(Redis Node 3)]
+    end
+    
+    subgraph "File Storage"
+        S3[AWS S3 / File Storage]
+        CDN[Content Delivery Network]
+    end
+    
+    subgraph "External Services"
+        GoogleAI[Google Gemini AI]
+        EmailProvider[Email Service Provider]
+        Monitoring[Monitoring Service]
+    end
+    
+    subgraph "Security Layer"
+        WAF[Web Application Firewall]
+        SSL[SSL/TLS Certificates]
+        VPN[VPN Access]
+    end
+    
+    %% Load Balancer Distribution
+    LB --> App1
+    LB --> App2
+    LB --> App3
+    
+    %% Database Connections
+    App1 --> MySQLMaster
+    App2 --> MySQLMaster
+    App3 --> MySQLMaster
+    
+    App1 --> MySQLSlave1
+    App2 --> MySQLSlave2
+    App3 --> MySQLSlave1
+    
+    %% Cache Connections
+    App1 --> RedisCluster
+    App2 --> RedisCluster
+    App3 --> RedisCluster
+    
+    RedisCluster --> RedisNode1
+    RedisCluster --> RedisNode2
+    RedisCluster --> RedisNode3
+    
+    %% File Storage
+    App1 --> S3
+    App2 --> S3
+    App3 --> S3
+    S3 --> CDN
+    
+    %% External Services
+    App1 --> GoogleAI
+    App2 --> EmailProvider
+    App3 --> Monitoring
+    
+    %% Security
+    WAF --> LB
+    SSL --> LB
+    VPN --> MySQLMaster

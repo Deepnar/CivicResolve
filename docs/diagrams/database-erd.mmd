@@ -1,0 +1,143 @@
+erDiagram
+    users {
+        int id PK
+        string email UK
+        string name
+        string password_hash
+        enum role
+        int points
+        boolean is_verified
+        string verification_token
+        datetime verification_token_expires
+        datetime created_at
+        datetime updated_at
+    }
+    
+    organizations {
+        int id PK
+        string name
+        string description
+        string email
+        string phone
+        string address
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    
+    user_organizations {
+        int id PK
+        int user_id FK
+        int organization_id FK
+        enum role
+        string employee_id
+        string position
+        boolean is_active
+        datetime assigned_at
+        int assigned_by FK
+    }
+    
+    issues {
+        int id PK
+        string title
+        text description
+        string category
+        enum status
+        enum priority
+        decimal latitude
+        decimal longitude
+        string address
+        string image_url
+        string resolution_image_url
+        int reporter_id FK
+        int votes_count
+        int comments_count
+        datetime created_at
+        datetime updated_at
+    }
+    
+    issue_assignments {
+        int id PK
+        int issue_id FK
+        int organization_id FK
+        datetime assigned_at
+        int assigned_by FK
+    }
+    
+    comments {
+        int id PK
+        text content
+        int issue_id FK
+        int author_id FK
+        datetime created_at
+    }
+    
+    votes {
+        int id PK
+        int issue_id FK
+        int user_id FK
+        datetime created_at
+    }
+    
+    appeals {
+        int id PK
+        int issue_id FK
+        int reporter_id FK
+        text reason
+        enum status
+        int reviewer_id FK
+        text reviewer_comment
+        datetime created_at
+        datetime updated_at
+    }
+    
+    ngos {
+        int id PK
+        string name
+        string description
+        string email
+        string phone
+        string address
+        string registration_number
+        string contact_person
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    
+    user_ngos {
+        int id PK
+        int user_id FK
+        int ngo_id FK
+        enum role
+        string employee_id
+        string position
+        boolean is_active
+        datetime assigned_at
+        int assigned_by FK
+    }
+    
+    category_organization_mappings {
+        int id PK
+        string category
+        int organization_id FK
+        boolean is_primary
+        datetime created_at
+    }
+    
+    %% Relationships
+    users ||--o{ user_organizations : "has"
+    organizations ||--o{ user_organizations : "employs"
+    users ||--o{ issues : "reports"
+    issues ||--o{ comments : "has"
+    issues ||--o{ votes : "receives"
+    users ||--o{ comments : "writes"
+    users ||--o{ votes : "casts"
+    issues ||--o{ issue_assignments : "assigned_to"
+    organizations ||--o{ issue_assignments : "handles"
+    issues ||--o{ appeals : "has"
+    users ||--o{ appeals : "submits"
+    users ||--o{ appeals : "reviews"
+    users ||--o{ user_ngos : "member_of"
+    ngos ||--o{ user_ngos : "employs"
+    organizations ||--o{ category_organization_mappings : "handles"
