@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatTimeAgo } from "@/lib/date-utils"
 import AIAnalysisModal from "@/components/admin/ai-analysis-modal"
 import type { Issue, IssueStatus, IssueCategory } from "@/lib/types"
+import { number } from "zod"
 
 export default function AdminIssuesPage() {
   const router = useRouter()
@@ -28,7 +29,32 @@ export default function AdminIssuesPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchQuery);
+
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  type Stats = {
+    inProgressIssues: number;
+    pendingIssues: number;
+    resolvedIssues: number;
+    underAppealIssues: number;
+    totalComments: number;
+    totalCount: number;
+    totalVotes: number;
+  };
+
+  const [stats, setStats] = useState<Stats>({
+    inProgressIssues: 0,
+    pendingIssues: 0,
+    resolvedIssues: 0,
+    underAppealIssues: 0,
+    totalComments: 0,
+    totalCount: 0,
+    totalVotes: 0
+  });
+
+  const pageSize = 10
   const [aiAnalysisModal, setAiAnalysisModal] = useState<{
     isOpen: boolean
     issue?: Issue
@@ -36,11 +62,11 @@ export default function AdminIssuesPage() {
 
   // Calculate dynamic status counts
   const statusCounts = {
-    all: issues.length,
-    PENDING: issues.filter((i) => i.status === "PENDING").length,
-    IN_PROGRESS: issues.filter((i) => i.status === "IN_PROGRESS").length,
-    RESOLVED: issues.filter((i) => i.status === "RESOLVED").length,
-    UNDER_APPEAL: issues.filter((i) => i.status === "UNDER_APPEAL").length,
+    all: stats.totalCount,
+    PENDING: stats.pendingIssues,
+    IN_PROGRESS: stats.inProgressIssues,
+    RESOLVED: stats.resolvedIssues,
+    UNDER_APPEAL: stats.underAppealIssues,
   }
 
   const statusTabs = [
@@ -52,30 +78,48 @@ export default function AdminIssuesPage() {
   ]
 
   useEffect(() => {
-    const fetchIssues = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch('/api/issues')
+    setCurrentPage(1)
+    fetchIssues(1)
+  }, [debouncedSearchTerm])
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch issues')
-        }
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchQuery);
+    }, 1000); // 400ms debounce
 
-        const data = await response.json()
-        setIssues(data.issues || [])
-      } catch (error) {
-        console.error('Error fetching issues:', error)
-      } finally {
-        setLoading(false)
+    return () => clearTimeout(handler); // cleanup on every keystroke
+  }, [searchQuery]);
+
+  const fetchIssues = async (page = 1) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/issues?limit=${pageSize}&offset=${(page - 1) * pageSize}&search=${debouncedSearchTerm}`)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch issues')
       }
-    }
 
-    fetchIssues()
-  }, [])
+      const data = await response.json()
+      console.log(data)
+      const stats = data.stats;
+      setIssues(data.issues || [])
+      setStats({ totalCount: data.totalCount, ...stats });
+      setTotalPages(data.totalPages);
+      setCurrentPage(data.currentPage);
+    } catch (error) {
+      console.error('Error fetching issues:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    fetchIssues(page)
+  }
 
   const refreshIssues = async () => {
     try {
-      const response = await fetch('/api/issues')
+      const response = await fetch(`/api/issues?limit=${pageSize}&offset=${(currentPage - 1) * pageSize}&search=${debouncedSearchTerm}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch issues')
@@ -91,13 +135,13 @@ export default function AdminIssuesPage() {
   const filteredIssues = issues.filter((issue) => {
     const matchesStatus = activeTab === "all" || issue.status === activeTab
     const matchesCategory = selectedCategory === "all" || issue.category === selectedCategory
-    const matchesSearch =
-      searchQuery === "" ||
-      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.reporter.name.toLowerCase().includes(searchQuery.toLowerCase())
+    // const matchesSearch =
+    //   searchQuery === "" ||
+    //   issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    //   issue.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    //   issue.reporter.name.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesStatus && matchesCategory && matchesSearch
+    return matchesStatus && matchesCategory
   })
 
   const handleStatusUpdate = async (issueId: string, newStatus: IssueStatus) => {
@@ -285,7 +329,7 @@ export default function AdminIssuesPage() {
                     <TableBody>
                       {filteredIssues.map((issue, index) => (
                         <motion.tr
-                          key={issue.id}
+                          key={index}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -374,6 +418,85 @@ export default function AdminIssuesPage() {
                   </Table>
                 </div>
               )}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-4 space-x-2">
+                  {/* Previous Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                  >
+                    Previous
+                  </Button>
+                  {(() => {
+                    const pages: (number | string)[] = [];
+
+                    // Always include first page
+                    pages.push(1);
+
+                    // If gap between first and current-1, add placeholder
+                    if (currentPage > 3) {
+                      pages.push("_");
+                    }
+
+                    // Pages around currentPage
+                    for (
+                      let i = Math.max(2, currentPage - 1);
+                      i <= Math.min(totalPages - 1, currentPage + 1);
+                      i++
+                    ) {
+                      pages.push(i);
+                    }
+
+                    // If gap between current+1 and last, add placeholder
+                    if (currentPage < totalPages - 2) {
+                      pages.push("_");
+                    }
+
+                    // Always include last page
+                    if (totalPages > 1) {
+                      pages.push(totalPages);
+                    }
+
+                    // Remove duplicates (important!)
+                    const uniquePages = pages.filter(
+                      (val, idx) => pages.indexOf(val) === idx
+                    );
+
+                    return uniquePages.map((page, idx) =>
+                      page === "_" ? (
+                        <span key={`ellipsis-${idx}`} className="px-2">
+                          ...
+                        </span>
+                      ) : (
+                        <Button
+                          key={`page-${page}`}
+                          size="sm"
+                          variant={currentPage === page ? "default" : "outline"}
+                          onClick={() => handlePageChange(page as number)}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    );
+                  })()}
+
+
+
+                  {/* Next Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+
+              )}
+
             </CardContent>
           </Card>
         </motion.div>

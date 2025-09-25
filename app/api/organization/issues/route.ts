@@ -5,7 +5,7 @@ import { IssueModel, UserModel } from '@/lib/models'
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUser(request)
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
@@ -24,13 +24,16 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url)
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50;
+    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0;
+
     const filters = {
       status: searchParams.get('status') || undefined,
       category: searchParams.get('category') || undefined,
       priority: searchParams.get('priority') || undefined,
       search: searchParams.get('search') || undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0
+      limit,
+      offset
     }
 
     // Remove undefined values
@@ -40,10 +43,18 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const issues = await IssueModel.getOrganizationIssues(organizationId, filters)
+    const { issues, totalCount, stats } = await IssueModel.getOrganizationIssues(organizationId, filters);
 
-    return NextResponse.json({ issues })
-
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limit);
+    const currentPage = Math.floor(offset / limit) + 1;
+    return NextResponse.json({
+      issues,
+      totalCount,
+      totalPages,
+      currentPage,
+      stats
+    });
   } catch (error) {
     console.error('Error fetching organization issues:', error)
     return NextResponse.json(

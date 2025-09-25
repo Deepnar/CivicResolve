@@ -24,41 +24,46 @@ const createIssueSchema = z.object({
 // GET /api/issues - Get all issues with filters
 export async function GET(request: NextRequest) {
   const endTimer = PerformanceMonitor.start('GET /api/issues')
-  
+
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category") || undefined
     const status = searchParams.get("status") || undefined
     const priority = searchParams.get("priority") || undefined
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const search = searchParams.get("search") || undefined
+    const limit = Number.parseInt(searchParams.get("limit") || "40")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
     // Create cache key based on filters
-    const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${limit}:${offset}`
-    
+    const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${search || ''}:${limit}:${offset}`
+
     console.log(`🔍 [ISSUES GET] Requesting issues with filters:`, {
       category: category || 'all',
-      status: status || 'all', 
+      status: status || 'all',
       priority: priority || 'all',
+      search: search || '',
       limit,
       offset,
       cacheKey
     })
-    
-    const issues = await withServerCache(
+
+    const { issues: issuesList, totalCount, totalPages, currentPage, stats } = await withServerCache(
       cacheKey,
       async () => {
         console.log(`🗃️ [ISSUES GET] Cache miss - fetching from database with filters:`, {
-          category, status, priority, limit, offset
+          category, status, priority,search, limit, offset
         })
-        
-        const rawIssues = await IssueModel.getAll({
+
+        const { issues: rawIssues, totalCount, stats } = await IssueModel.getAll({
           category,
           status,
           priority,
+          search,
           limit,
           offset,
         })
+        const totalPages = Math.ceil(totalCount / limit);
+        const currentPage = Math.floor(offset / limit) + 1
 
         console.log(`📊 [ISSUES GET] Database returned ${rawIssues.length} issues`)
 
@@ -94,16 +99,23 @@ export async function GET(request: NextRequest) {
           createdAt: new Date(issue.created_at),
           updatedAt: new Date(issue.updated_at)
         }))
-        
+
         console.log(`✅ [ISSUES GET] Transformed ${transformedIssues.length} issues for caching`)
-        return transformedIssues
+        return { issues: transformedIssues, totalCount, totalPages, currentPage, stats }
       },
       SERVER_CACHE_TTL.MEDIUM // 5 minutes cache
     )
 
-    console.log(`🎯 [ISSUES GET] Returning ${issues.length} issues to client`)
+    console.log(`🎯 [ISSUES GET] Returning ${issuesList.length} issues to client`)
     endTimer()
-    return Response.json({ issues })
+    return Response.json({
+      issues: issuesList,
+      totalCount,
+      totalPages,
+      currentPage,
+      stats
+    })
+
   } catch (error) {
     endTimer()
     console.error("Error fetching issues:", error)
@@ -114,14 +126,14 @@ export async function GET(request: NextRequest) {
 // POST /api/issues - Create a new issue
 export async function POST(request: NextRequest) {
   const endTimer = PerformanceMonitor.start('POST /api/issues')
-  
+
   try {
     console.log(`🆕 [ISSUES POST] Starting new issue creation process`)
-    
+
     // Require authentication
     const user = await AuthUtils.requireAuth(request)
     console.log(`👤 [ISSUES POST] User authenticated: ${user.name} (ID: ${user.id})`)
-    
+
     const body = await request.json()
     console.log(`📝 [ISSUES POST] Request data:`, {
       title: body.title,
@@ -130,16 +142,16 @@ export async function POST(request: NextRequest) {
       address: body.address,
       hasImage: !!body.image_url
     })
-    
+
     const validationResult = createIssueSchema.safeParse(body)
     if (!validationResult.success) {
       console.log(`❌ [ISSUES POST] Validation failed:`, validationResult.error.flatten().fieldErrors)
-      return Response.json({ 
-        error: "Validation failed", 
-        details: validationResult.error.flatten().fieldErrors 
+      return Response.json({
+        error: "Validation failed",
+        details: validationResult.error.flatten().fieldErrors
       }, { status: 400 })
     }
-    
+
     const issueData = validationResult.data
     console.log(`✅ [ISSUES POST] Validation passed - creating issue`)
 
@@ -167,18 +179,18 @@ export async function POST(request: NextRequest) {
       // Send confirmation email to the user
       await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name);
       console.log(`✅ [ISSUES POST] Confirmation email sent to user`)
-      
+
       // Check if user is NGO admin and send priority notifications
       if (user.role && user.role === 'NGO_ADMIN') {
         console.log(`🚨 [ISSUES POST] NGO Admin detected - sending PRIORITY notifications`)
-        
+
         // Get NGO details for the user
         const { UserNGOModel, NGOModel } = await import('@/lib/models');
         const userNGOs = await UserNGOModel.getByUser(user.id);
-        
+
         if (userNGOs.length > 0) {
           const ngo = await NGOModel.findById(userNGOs[0].ngo_id);
-          
+
           if (ngo) {
             // Prepare NGO data for priority notification
             const ngoData = {
@@ -188,7 +200,7 @@ export async function POST(request: NextRequest) {
               citizen_phone: issueData.citizen_phone,
               ngo_notes: issueData.ngo_notes
             };
-            
+
             // Send PRIORITY notifications to organizations
             await emailService.sendNGOPriorityNotificationToOrganizations(issueId, issueData, ngoData);
             console.log(`🚨 [ISSUES POST] PRIORITY notification emails sent to organizations for NGO report`)
@@ -236,14 +248,14 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     endTimer()
     console.error("Error creating issue:", error)
-    
+
     if (error instanceof z.ZodError) {
       return Response.json(
         { error: "Validation failed", details: error.errors },
         { status: 400 }
       )
     }
-    
+
     if (error instanceof Error && error.message === "Authentication required") {
       return Response.json({ error: "Authentication required" }, { status: 401 })
     }

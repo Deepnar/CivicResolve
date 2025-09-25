@@ -141,7 +141,7 @@ export class UserModel {
     ]);
 
     // Invalidate user-related caches
-    
+
     return userId;
   }
 
@@ -167,11 +167,11 @@ export class UserModel {
       WHERE verification_token = ? AND verification_token_expires > NOW()
     `;
     const result = await Database.update(sql, [token]);
-    
+
     if (result > 0) {
       // Invalidate user-related caches
     }
-    
+
     return result > 0;
   }
 
@@ -187,7 +187,7 @@ export class UserModel {
   static async updatePoints(userId: number, points: number): Promise<void> {
     const sql = 'UPDATE users SET points = points + ? WHERE id = ?';
     await Database.update(sql, [points, userId]);
-    
+
     // Invalidate user-related caches
   }
 
@@ -212,14 +212,14 @@ export class UserModel {
 
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
-    
+
     // Invalidate user-related caches
   }
 
   static async updateRole(userId: number, role: 'CITIZEN' | 'ADMIN' | 'ORGANIZATION_ADMIN' | 'NGO_ADMIN'): Promise<void> {
     const sql = 'UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
     await Database.update(sql, [role, userId]);
-    
+
     // Note: Cache invalidation should be handled in the API route that calls this method
   }
 
@@ -275,7 +275,7 @@ export class IssueModel {
     ]);
 
     // Invalidate issue-related caches
-    
+
     return issueId;
   }
 
@@ -295,21 +295,109 @@ export class IssueModel {
     category?: string;
     status?: string;
     priority?: string;
+    search?: string,
     limit?: number;
     offset?: number;
-  }): Promise<Issue[]> {
+  }): Promise<{
+    issues: Issue[],
+    totalCount: number,
+    stats: {
+      resolvedIssues: number,
+      pendingIssues: number,
+      inProgressIssues: number,
+      underAppealIssues: number,
+      totalVotes: number,
+      totalComments: number
+    }
+  }> {
     // For now, let's simplify and just get all issues without complex filtering
+    const limit = filters?.limit ?? 10
+    const offset = filters?.offset ?? 0
+
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filters?.category && filters.category !== "all") {
+      conditions.push(`i.category = ?`)
+      params.push(filters.category)
+    }
+
+    if (filters?.status && filters.status !== "all") {
+      conditions.push(`i.status = ?`)
+      params.push(filters.status)
+    }
+
+    if (filters?.priority && filters.priority !== "all") {
+      conditions.push(`i.priority = ?`)
+      params.push(filters.priority)
+    }
+
+
+    if (filters?.search) {
+      conditions.push(`(i.title LIKE ? OR i.description LIKE ? OR i.address LIKE ?)`);
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ""
+
+    const countSql = `
+      SELECT COUNT(*) as totalCount,
+      SUM(CASE WHEN i.status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedIssues,
+      SUM(CASE WHEN i.status = 'PENDING' THEN 1 ELSE 0 END) as pendingIssues,
+      SUM(CASE WHEN i.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgressIssues,
+      SUM(CASE WHEN i.status = 'UNDER_APPEAL' THEN 1 ELSE 0 END) as underAppealIssues,
+      COALESCE(SUM((SELECT COUNT(*) FROM votes v WHERE v.issue_id = i.id)), 0) as totalVotes,
+      COALESCE(SUM((SELECT COUNT(*) FROM comments c WHERE c.issue_id = i.id)), 0) as totalComments
+      FROM issues i
+      ${whereClause}
+      ;
+  `
+
+    const countResult = await Database.query<{
+      totalCount: number,
+      resolvedIssues: number,
+      pendingIssues: number,
+      inProgressIssues: number,
+      underAppealIssues: number,
+      totalVotes: number,
+      totalComments: number
+    }>(countSql, params)
+
+    const {
+      totalCount = 0,
+      resolvedIssues = 0,
+      pendingIssues = 0,
+      inProgressIssues = 0,
+      underAppealIssues = 0,
+      totalVotes = 0,
+      totalComments = 0
+    } = countResult[0] || {}
+
     const sql = `
       SELECT i.*, u.name as reporter_name, u.role as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count
       FROM issues i
       JOIN users u ON i.reporter_id = u.id
-      ORDER BY i.created_at DESC
-      LIMIT 50
+      ${whereClause}
+      ORDER BY i.created_at DESC, i.id DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
-    return await Database.query(sql, []);
+    const issues = await Database.query<Issue>(sql, params);
+    return {
+      issues,
+      totalCount,
+      stats: {
+        resolvedIssues,
+        pendingIssues,
+        inProgressIssues,
+        underAppealIssues,
+        totalVotes,
+        totalComments
+      }
+    }
   }
 
   static async updateStatus(id: number, status: string): Promise<{ email: string, name: string, title: string } | null> {
@@ -357,7 +445,7 @@ export class IssueModel {
     type IssueRow = { status: IssueStatus }
     const currentSql = `SELECT status FROM issues WHERE id = ?`;
     const current = await Database.queryOne<IssueRow>(currentSql, [id]);
-    
+
     if (!current) {
       throw new Error('Issue not found');
     }
@@ -390,7 +478,7 @@ export class IssueModel {
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM issues WHERE id = ?';
     await Database.delete(sql, [id]);
-    
+
     // Invalidate issue-related caches
   }
 
@@ -465,7 +553,7 @@ export class IssueModel {
         FROM issues i
         WHERE i.category IN (${placeholders})
       `;
-      
+
       const issueStats = await Database.queryOne(issueStatsSql, categoriesHandled) as {
         totalIssues: number;
         pendingIssues: number;
@@ -498,7 +586,7 @@ export class IssueModel {
     try {
       // Ensure limit is a valid positive integer
       const sanitizedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-      
+
       // Get categories handled by this organization
       const categoriesSql = `
         SELECT DISTINCT category
@@ -527,7 +615,7 @@ export class IssueModel {
         ORDER BY i.created_at DESC
         LIMIT ${sanitizedLimit}
       `;
-      
+
       return await Database.query(sql, categoriesHandled);
     } catch (error) {
       console.error('Error getting organization recent issues:', error);
@@ -542,7 +630,7 @@ export class IssueModel {
         FROM organizations
         WHERE id = ?
       `;
-      
+
       return await Database.queryOne(sql, [organizationId]);
     } catch (error) {
       console.error('Error getting organization details:', error);
@@ -550,80 +638,153 @@ export class IssueModel {
     }
   }
 
-  static async getOrganizationIssues(organizationId: number, filters?: {
-    status?: string;
-    category?: string;
-    priority?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<any[]> {
+  static async getOrganizationIssues(
+    organizationId: number,
+    filters?: {
+      status?: string;
+      category?: string;
+      priority?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<{
+    issues: any[],
+    totalCount: number,
+    stats: {
+      resolvedIssues: number,
+      pendingIssues: number,
+      inProgressIssues: number,
+      totalVotes: number,
+      totalComments: number
+    }
+  }> {
     try {
+      // Defaults
+      const limit = filters?.limit ?? 10;
+      const offset = filters?.offset ?? 0;
+
       // Get categories handled by this organization
       const categoriesSql = `
-        SELECT DISTINCT category
-        FROM category_organization_mappings
-        WHERE organization_id = ?
-      `;
+      SELECT DISTINCT category
+      FROM category_organization_mappings
+      WHERE organization_id = ?
+    `;
       const categoriesResult = await Database.query(categoriesSql, [organizationId]);
       const categories = categoriesResult.map((row: any) => row.category);
-      
+
       if (categories.length === 0) {
-        return []; // No categories mapped, return empty array
+        return {
+          issues: [],
+          totalCount: 0,
+          stats: {
+            resolvedIssues: 0,
+            pendingIssues: 0,
+            inProgressIssues: 0,
+            totalVotes: 0,
+            totalComments: 0
+          }
+        };
       }
-      
-      // Build the main query
-      let sql = `
-        SELECT i.*, u.name as citizen_name, u.email as citizen_email,
-               (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
-               o.name as organization_name
-        FROM issues i
-        JOIN users u ON i.reporter_id = u.id
-        LEFT JOIN issue_assignments ia ON i.id = ia.issue_id
-        LEFT JOIN organizations o ON ia.organization_id = o.id
-        WHERE i.category IN (${categories.map(() => '?').join(', ')})
-      `;
-      
+
+      // Build WHERE conditions
+      const conditions: string[] = [`i.category IN (${categories.map(() => '?').join(', ')})`];
       const params: any[] = [...categories];
-      
+
       if (filters?.status) {
-        sql += ' AND i.status = ?';
+        conditions.push(`i.status = ?`);
         params.push(filters.status);
       }
-      
+
       if (filters?.category) {
-        sql += ' AND i.category = ?';
+        conditions.push(`i.category = ?`);
         params.push(filters.category);
       }
-      
+
       if (filters?.priority) {
-        sql += ' AND i.priority = ?';
+        conditions.push(`i.priority = ?`);
         params.push(filters.priority);
       }
-      
+
       if (filters?.search) {
-        sql += ' AND (i.title LIKE ? OR i.description LIKE ? OR i.address LIKE ?)';
+        conditions.push(`(i.title LIKE ? OR i.description LIKE ? OR i.address LIKE ?)`);
         const searchTerm = `%${filters.search}%`;
         params.push(searchTerm, searchTerm, searchTerm);
       }
-      
-      sql += ' ORDER BY i.created_at DESC';
-      
-      if (filters?.limit) {
-        // Sanitize limit and offset to prevent injection and ensure valid values
-        const sanitizedLimit = Math.max(1, Math.min(1000, Math.floor(filters.limit)));
-        sql += ` LIMIT ${sanitizedLimit}`;
-        
-        if (filters?.offset) {
-          const sanitizedOffset = Math.max(0, Math.floor(filters.offset));
-          sql += ` OFFSET ${sanitizedOffset}`;
+
+      const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : "";
+
+      // ---- Count + Stats Query ----
+      const countSql = `
+      SELECT COUNT(*) as totalCount,
+             SUM(CASE WHEN i.status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedIssues,
+             SUM(CASE WHEN i.status = 'PENDING' THEN 1 ELSE 0 END) as pendingIssues,
+             SUM(CASE WHEN i.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgressIssues,
+             COALESCE(SUM((SELECT COUNT(*) FROM votes v WHERE v.issue_id = i.id)), 0) as totalVotes,
+             COALESCE(SUM((SELECT COUNT(*) FROM comments c WHERE c.issue_id = i.id)), 0) as totalComments
+             FROM issues i
+             ${whereClause}
+    `;
+
+      const countResult = await Database.query<{
+        totalCount: number,
+        resolvedIssues: number,
+        pendingIssues: number,
+        inProgressIssues: number,
+        totalVotes: number,
+        totalComments: number
+      }>(countSql, params);
+
+      const {
+        totalCount = 0,
+        resolvedIssues = 0,
+        pendingIssues = 0,
+        inProgressIssues = 0,
+        totalVotes = 0,
+        totalComments = 0
+      } = countResult[0] || {};
+
+      // ---- Paginated Issues Query ----
+      let sql = `
+      SELECT i.*, u.name as citizen_name, u.email as citizen_email,
+             (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
+             (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments,
+             o.name as organization_name
+      FROM issues i
+      JOIN users u ON i.reporter_id = u.id
+      LEFT JOIN issue_assignments ia ON i.id = ia.issue_id
+      LEFT JOIN organizations o ON ia.organization_id = o.id
+      ${whereClause}
+      ORDER BY i.created_at DESC, i.id DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+      const issues = await Database.query(sql, params);
+
+      return {
+        issues,
+        totalCount,
+        stats: {
+          resolvedIssues,
+          pendingIssues,
+          inProgressIssues,
+          totalVotes,
+          totalComments
         }
-      }
-      
-      return await Database.query(sql, params);
+      };
     } catch (error) {
       console.error('Error getting organization issues:', error);
-      return [];
+      return {
+        issues: [],
+        totalCount: 0,
+        stats: {
+          resolvedIssues: 0,
+          pendingIssues: 0,
+          inProgressIssues: 0,
+          totalVotes: 0,
+          totalComments: 0
+        }
+      };
     }
   }
 }
@@ -643,7 +804,7 @@ export class CommentModel {
     ]);
 
     // Note: Cache invalidation handled in API routes that call this method
-    
+
     return commentId;
   }
 
@@ -661,7 +822,7 @@ export class CommentModel {
   static async delete(id: number): Promise<void> {
     const sql = 'DELETE FROM comments WHERE id = ?';
     await Database.delete(sql, [id]);
-    
+
     // Invalidate issue-related caches since comments affect issue details
   }
 
@@ -676,9 +837,9 @@ export class VoteModel {
   static async create(voteData: { issue_id: number; user_id: number }): Promise<number> {
     const sql = 'INSERT INTO votes (issue_id, user_id) VALUES (?, ?)';
     const voteId = await Database.insert(sql, [voteData.issue_id, voteData.user_id]);
-    
+
     // Note: Cache invalidation handled in API routes that call this method
-    
+
     return voteId;
   }
 
@@ -690,7 +851,7 @@ export class VoteModel {
   static async delete(issueId: number, userId: number): Promise<void> {
     const sql = 'DELETE FROM votes WHERE issue_id = ? AND user_id = ?';
     await Database.delete(sql, [issueId, userId]);
-    
+
     // Invalidate issue-related caches since votes affect issue details
     // Note: Cache invalidation handled in API routes that call this method
   }
@@ -729,7 +890,7 @@ export class OrganizationModel {
     ]);
 
     // Invalidate organization-related caches
-    
+
     return orgId;
   }
 
@@ -744,7 +905,7 @@ export class OrganizationModel {
   }
 
   static async getAll(includeInactive: boolean = false): Promise<Organization[]> {
-    const sql = includeInactive 
+    const sql = includeInactive
       ? 'SELECT * FROM organizations ORDER BY name ASC'
       : 'SELECT * FROM organizations WHERE is_active = TRUE ORDER BY name ASC';
     return await Database.query(sql);
@@ -775,14 +936,14 @@ export class OrganizationModel {
 
     const sql = `UPDATE organizations SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
-    
+
     // Invalidate organization-related caches
   }
 
   static async delete(id: number): Promise<void> {
     const sql = 'UPDATE organizations SET is_active = FALSE WHERE id = ?';
     await Database.update(sql, [id]);
-    
+
     // Invalidate organization-related caches
   }
 
@@ -822,7 +983,7 @@ export class UserOrganizationModel {
     ]);
 
     // Invalidate user and organization related caches
-    
+
     return userOrgId;
   }
 
@@ -876,14 +1037,14 @@ export class UserOrganizationModel {
     values.push(id);
     const sql = `UPDATE user_organizations SET ${updates.join(', ')} WHERE id = ?`;
     await Database.update(sql, values);
-    
+
     // Invalidate user and organization related caches
   }
 
   static async remove(userId: number, organizationId: number): Promise<void> {
     const sql = 'UPDATE user_organizations SET is_active = FALSE WHERE user_id = ? AND organization_id = ?';
     await Database.update(sql, [userId, organizationId]);
-    
+
     // Invalidate user and organization related caches
   }
 
@@ -1009,7 +1170,7 @@ export class CategoryOrganizationMappingModel {
       'UPDATE category_organization_mappings SET is_primary = FALSE WHERE category = ?',
       [category]
     );
-    
+
     // Then set the specified organization as primary
     await Database.update(
       'UPDATE category_organization_mappings SET is_primary = TRUE WHERE category = ? AND organization_id = ?',
@@ -1039,10 +1200,10 @@ export class IssueAssignmentModel {
       data.organization_id,
       data.assigned_by || null,
     ]);
-    
+
     // Invalidate cache after assignment is created
     // Note: Cache invalidation handled in API routes that call this method
-    
+
     return result;
   }
 
@@ -1078,7 +1239,7 @@ export class IssueAssignmentModel {
 
     // Get organizations responsible for this category
     const mappings = await CategoryOrganizationMappingModel.getByCategory(issue.category);
-    
+
     // Create assignments for each organization
     for (const mapping of mappings) {
       try {
@@ -1092,7 +1253,7 @@ export class IssueAssignmentModel {
         console.error('Error creating assignment:', error);
       }
     }
-    
+
     // Note: Cache invalidation handled in API routes that call this method
   }
 }
@@ -1417,7 +1578,7 @@ export class AppealModel {
   }
 
   static async updateStatus(
-    id: number, 
+    id: number,
     status: 'UNDER_REVIEW' | 'ACCEPTED' | 'DENIED',
     reviewerId: number,
     reviewerComment?: string

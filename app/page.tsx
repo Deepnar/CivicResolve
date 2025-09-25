@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Plus, MapPin, TrendingUp, Users, AlertCircle, FileText, CheckCircle, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
@@ -24,6 +24,8 @@ export default function HomePage() {
   const [activeStatusTab, setActiveStatusTab] = useState("all")
   const [activeCategoryTab, setActiveCategoryTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchQuery);
+
   const [stats, setStats] = useState({
     totalIssues: 0,
     resolvedIssues: 0,
@@ -45,25 +47,32 @@ export default function HomePage() {
     }
   })
 
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const pageSize = 10
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const anchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (page = 1) => {
       try {
         setLoading(true)
-        
+
         // Fetch issues and dashboard stats in parallel
         const [issuesResponse, statsResponse] = await Promise.all([
-          fetch('/api/issues'),
+          fetch(`/api/issues?limit=${pageSize}&offset=${(page - 1) * pageSize}&search=${debouncedSearchTerm}`),
           fetch('/api/dashboard/stats')
         ])
-        
+
         if (!issuesResponse.ok) {
           throw new Error('Failed to fetch issues')
         }
-        
+
         const issuesData = await issuesResponse.json()
         const fetchedIssues = issuesData.issues || []
         setIssues(fetchedIssues)
-        
+        setTotalPages(issuesData.totalPages);
+        setCurrentPage(issuesData.currentPage);
         // Set dashboard stats from API if successful
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
@@ -71,15 +80,20 @@ export default function HomePage() {
             setDashboardStats(statsData.stats)
           }
         }
-        
+
         // Calculate dynamic stats for filtering
-        const totalIssues = fetchedIssues.length
-        const resolvedIssues = fetchedIssues.filter((issue: Issue) => issue.status === "RESOLVED").length
-        const pendingIssues = fetchedIssues.filter((issue: Issue) => issue.status === "PENDING").length
-        const inProgressIssues = fetchedIssues.filter((issue: Issue) => issue.status === "IN_PROGRESS").length
-        const totalVotes = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.votes_count || 0), 0)
-        const totalComments = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.comments_count || 0), 0)
-        
+        const totalIssues = issuesData.totalCount
+        const resolvedIssues = issuesData.stats.resolvedIssues
+        const pendingIssues = issuesData.stats.pendingIssues
+        const inProgressIssues =  issuesData.stats.inProgressIssues
+        const totalVotes = issuesData.stats.totalVotes
+        const totalComments = issuesData.stats.totalComments
+        // const resolvedIssues = fetchedIssues.filter((issue: Issue) => issue.status === "RESOLVED").length
+        // const pendingIssues = fetchedIssues.filter((issue: Issue) => issue.status === "PENDING").length
+        // const inProgressIssues = fetchedIssues.filter((issue: Issue) => issue.status === "IN_PROGRESS").length
+        // const totalVotes = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.votes_count || 0), 0)
+        // const totalComments = fetchedIssues.reduce((sum: number, issue: Issue) => sum + (issue.comments_count || 0), 0)
+
         setStats({
           totalIssues,
           resolvedIssues,
@@ -97,13 +111,69 @@ export default function HomePage() {
     }
 
     fetchData()
-  }, [])
+  }, [debouncedSearchTerm])
+
+  //for infinite-scrolling
+  const fetchIssues = async (page = 1) => {
+    try {
+      setLoadingMore(true)
+      const response = await fetch(
+        `/api/issues?limit=${pageSize}&offset=${(page - 1) * pageSize}&search=${debouncedSearchTerm}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch issues')
+      }
+
+      const data = await response.json()
+      setIssues((prev) => [...prev, ...(data.issues || [])])  
+      setTotalPages(data.totalPages)
+      setCurrentPage(data.currentPage)
+    } catch (error) {
+      console.error('Error fetching issues:', error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    if (loadingMore) return;
+    if (observerRef.current) observerRef.current.disconnect();
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && currentPage < totalPages) {
+        fetchIssues(currentPage + 1);
+      }
+    });
+
+    if (anchorRef.current) {
+      observer.observe(anchorRef.current);
+    }
+
+    observerRef.current = observer;
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+
+  }, [totalPages, currentPage, loadingMore, fetchIssues, debouncedSearchTerm])
+
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchQuery);
+    }, 1000); // 400ms debounce
+
+    return () => clearTimeout(handler); // cleanup on every keystroke
+  }, [searchQuery]);
 
   // Refresh function for manual updates
   const refreshStats = async () => {
     try {
       setRefreshing(true)
-      
+
       // Fetch updated dashboard stats
       const statsResponse = await fetch('/api/dashboard/stats')
       if (statsResponse.ok) {
@@ -151,12 +221,12 @@ export default function HomePage() {
   const filteredIssues = issues.filter((issue) => {
     const matchesStatus = activeStatusTab === "all" || issue.status === activeStatusTab
     const matchesCategory = activeCategoryTab === "all" || issue.category === activeCategoryTab
-    const matchesSearch =
-      searchQuery === "" ||
-      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.description.toLowerCase().includes(searchQuery.toLowerCase())
+    // const matchesSearch =
+    //   searchQuery === "" ||
+    //   issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    //   issue.description.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesStatus && matchesCategory && matchesSearch
+    return matchesStatus && matchesCategory
   })
 
   if (isLoading) {
@@ -212,76 +282,76 @@ export default function HomePage() {
           </div>
         </PageHeader>
 
-      {/* Stats Section */}
-      <section className="py-6 sm:py-8 lg:py-12 bg-gray-50/50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 sm:mb-8 lg:mb-12">
-            <div className="flex items-center justify-center gap-3 mb-2 sm:mb-4">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
-                CivicResolve Impact
-              </h2>
-              <Button
-                onClick={refreshStats}
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-gray-700"
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
+        {/* Stats Section */}
+        <section className="py-6 sm:py-8 lg:py-12 bg-gray-50/50">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-6 sm:mb-8 lg:mb-12">
+              <div className="flex items-center justify-center gap-3 mb-2 sm:mb-4">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                  CivicResolve Impact
+                </h2>
+                <Button
+                  onClick={refreshStats}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700"
+                  disabled={loading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+              <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
+                Real-time statistics showing our community's progress in resolving civic issues
+              </p>
             </div>
-            <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
-              Real-time statistics showing our community's progress in resolving civic issues
-            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <StatsCard
+                title="Total Issues"
+                value={loading ? "..." : dashboardStats.totalIssues.toLocaleString()}
+                icon={FileText}
+                description="Issues reported by citizens"
+                trend={{
+                  value: dashboardStats.trends.totalIssues.value,
+                  label: "this month",
+                  isPositive: dashboardStats.trends.totalIssues.isPositive,
+                }}
+              />
+              <StatsCard
+                title="Resolved Issues"
+                value={loading ? "..." : dashboardStats.resolvedIssues.toLocaleString()}
+                icon={CheckCircle}
+                description="Successfully resolved"
+                trend={{
+                  value: dashboardStats.trends.resolvedIssues.value,
+                  label: "this month",
+                  isPositive: dashboardStats.trends.resolvedIssues.isPositive,
+                }}
+              />
+              <StatsCard
+                title="Active Users"
+                value={loading ? "..." : dashboardStats.activeUsers.toLocaleString()}
+                icon={Users}
+                description="Engaged community members"
+                trend={{
+                  value: dashboardStats.trends.activeUsers.value,
+                  label: "this month",
+                  isPositive: dashboardStats.trends.activeUsers.isPositive,
+                }}
+              />
+              <StatsCard
+                title="Response Time"
+                value={loading ? "..." : dashboardStats.responseTime}
+                icon={Clock}
+                description="Average response time"
+                trend={{
+                  value: dashboardStats.trends.responseTime.value,
+                  label: "improved",
+                  isPositive: dashboardStats.trends.responseTime.isPositive,
+                }}
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <StatsCard
-              title="Total Issues"
-              value={loading ? "..." : dashboardStats.totalIssues.toLocaleString()}
-              icon={FileText}
-              description="Issues reported by citizens"
-              trend={{
-                value: dashboardStats.trends.totalIssues.value,
-                label: "this month",
-                isPositive: dashboardStats.trends.totalIssues.isPositive,
-              }}
-            />
-            <StatsCard
-              title="Resolved Issues"
-              value={loading ? "..." : dashboardStats.resolvedIssues.toLocaleString()}
-              icon={CheckCircle}
-              description="Successfully resolved"
-              trend={{
-                value: dashboardStats.trends.resolvedIssues.value,
-                label: "this month",
-                isPositive: dashboardStats.trends.resolvedIssues.isPositive,
-              }}
-            />
-            <StatsCard
-              title="Active Users"
-              value={loading ? "..." : dashboardStats.activeUsers.toLocaleString()}
-              icon={Users}
-              description="Engaged community members"
-              trend={{
-                value: dashboardStats.trends.activeUsers.value,
-                label: "this month",
-                isPositive: dashboardStats.trends.activeUsers.isPositive,
-              }}
-            />
-            <StatsCard
-              title="Response Time"
-              value={loading ? "..." : dashboardStats.responseTime}
-              icon={Clock}
-              description="Average response time"
-              trend={{
-                value: dashboardStats.trends.responseTime.value,
-                label: "improved",
-                isPositive: dashboardStats.trends.responseTime.isPositive,
-              }}
-            />
-          </div>
-        </div>
-      </section>        {/* Search and Filters */}
+        </section>        {/* Search and Filters */}
         <motion.div
           className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 space-y-4 sm:space-y-6"
           initial={{ opacity: 0, y: 20 }}
@@ -328,18 +398,26 @@ export default function HomePage() {
               }}
             />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {filteredIssues.map((issue, index) => (
-                <motion.div
-                  key={issue.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="w-full"
-                >
-                  <IssueCard issue={issue} onClick={() => (window.location.href = `/issues/${issue.id}`)} />
-                </motion.div>
-              ))}
+            <div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                {filteredIssues.map((issue, index) => (
+                  <motion.div
+                    key={index} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="w-full"
+                  >
+                    <IssueCard issue={issue} onClick={() => (window.location.href = `/issues/${issue.id}`)} />
+                  </motion.div>
+                ))}
+              </div>
+              <div id="scroll-anchor" ref={anchorRef} className="h-4"></div>
+              {loadingMore && currentPage < totalPages &&(
+                <div className="flex justify-center py-8 sm:py-12">
+                  <LoadingSpinner size="lg" text="Loading more" />
+                </div>
+              )}
             </div>
           )}
         </motion.div>
