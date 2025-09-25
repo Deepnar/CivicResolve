@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Search, Filter, Download, Eye, MapPin, Calendar, User, Camera, CheckCircle, Bot } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
@@ -44,6 +44,8 @@ export default function OrganizationIssues() {
   const [issues, setIssues] = useState<Issue[]>([])
   const [filteredIssues, setFilteredIssues] = useState<Issue[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -57,23 +59,41 @@ export default function OrganizationIssues() {
     isOpen: boolean
     issue?: Issue
   }>({ isOpen: false })
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const pageSize = 10
+  type Stats = {
+    inProgressIssues: number;
+    pendingIssues: number;
+    resolvedIssues: number;
+    underAppealIssues: number;
+    totalComments: number;
+    totalCount: number;
+    totalVotes: number;
+  };
+
+  const [stats, setStats] = useState<Stats>({
+    inProgressIssues: 0,
+    pendingIssues: 0,
+    resolvedIssues: 0,
+    underAppealIssues: 0,
+    totalComments: 0,
+    totalCount: 0,
+    totalVotes: 0
+  }); const observerRef = useRef<IntersectionObserver | null>(null)
+  const anchorRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     checkOrganizationMembership()
   }, [user])
-
-  useEffect(() => {
-    if (isOrganizationMember) {
-      fetchOrganizationIssues()
-    }
-  }, [isOrganizationMember])
 
   const checkOrganizationMembership = async () => {
     if (!user) {
       setCheckingAccess(false)
       return
     }
-    
+
     try {
       setCheckingAccess(true)
       const response = await fetch('/api/user/organization-status', {
@@ -94,40 +114,94 @@ export default function OrganizationIssues() {
     filterIssues()
   }, [issues, searchTerm, statusFilter, categoryFilter, priorityFilter])
 
-  const fetchOrganizationIssues = async () => {
+  const fetchOrganizationIssues = async (page = 1, isRefresh = false) => {
     try {
-      setLoading(true)
-      
-      const response = await fetch('/api/organization/issues', {
+      if (page === 1) setLoading(true)
+      else setLoadingMore(true)
+
+      const response = await fetch(`/api/organization/issues?limit=${pageSize}&offset=${(page - 1) * pageSize}&search=${debouncedSearchTerm}`, {
         credentials: 'include'
       })
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch organization issues')
-      }
-      
+
+      if (!response.ok) throw new Error('Failed to fetch organization issues')
+
       const data = await response.json()
-      setIssues(data.issues || [])
-      
+      const stats = data.stats;
+      // Append new issues if not first page
+      setIssues(prev => {
+        if (page === 1) {
+          // fresh load (or new search/filter)
+          return data.issues
+        }
+        if (isRefresh) {
+          // replace only the issues of the current page
+          const startIndex = (page - 1) * pageSize
+          const endIndex = startIndex + pageSize
+          const newIssues = [...prev]
+          newIssues.splice(startIndex, pageSize, ...data.issues)
+          return newIssues
+        }
+        // normal infinite scroll append
+        return [...prev, ...data.issues]
+      })
+
+      setTotalPages(data.totalPages)
+      setCurrentPage(data.currentPage)
+      setStats({ totalCount: data.totalCount, ...stats })
+
     } catch (error) {
       console.error('Error fetching organization issues:', error)
-      // Fallback to empty array if API fails
-      setIssues([])
+      if (page === 1) setIssues([])
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
+
+  useEffect(() => {
+    if (!isOrganizationMember || loadingMore || loading) return
+
+    if (observerRef.current) observerRef.current.disconnect()
+
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && currentPage < totalPages) {
+        fetchOrganizationIssues(currentPage + 1)
+      }
+    })
+
+    if (anchorRef.current) observer.observe(anchorRef.current)
+    observerRef.current = observer
+
+    return () => observerRef.current?.disconnect()
+  }, [isOrganizationMember, currentPage, totalPages, loadingMore, loading])
+
+  useEffect(() => {
+    if (isOrganizationMember) {
+      setCurrentPage(1)
+      setIssues([])
+      fetchOrganizationIssues(1)
+    }
+  }, [isOrganizationMember, debouncedSearchTerm])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000); // 400ms debounce
+
+    return () => clearTimeout(handler); // cleanup on every keystroke
+  }, [searchTerm]);
+
 
   const filterIssues = () => {
     let filtered = issues
 
-    if (searchTerm) {
-      filtered = filtered.filter(issue => 
-        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.address.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
+    // if (searchTerm) {
+    //   filtered = filtered.filter(issue =>
+    //     issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //     issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //     issue.address.toLowerCase().includes(searchTerm.toLowerCase())
+    //   )
+    // }
 
     if (statusFilter !== "all") {
       filtered = filtered.filter(issue => issue.status === statusFilter)
@@ -167,7 +241,7 @@ export default function OrganizationIssues() {
       const response = await fetch('/api/organization/members', {
         credentials: 'include'
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setOrganizationMembers(data.members || [])
@@ -188,7 +262,7 @@ export default function OrganizationIssues() {
 
       if (response.ok) {
         // Refresh the issues list
-        fetchOrganizationIssues()
+        fetchOrganizationIssues(currentPage, true)
         setAssigningIssueId(null)
         alert(`Issue assigned to ${memberName}`)
       } else {
@@ -226,7 +300,7 @@ export default function OrganizationIssues() {
 
       if (response.ok) {
         // Refresh the issues list
-        fetchOrganizationIssues()
+        fetchOrganizationIssues(currentPage, true)
         alert('Issue resolved successfully with photo proof!')
       } else {
         const errorData = await response.json()
@@ -283,7 +357,7 @@ export default function OrganizationIssues() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title="Organization Issues"
-        description={`Managing ${filteredIssues.length} issues in your organization's categories`}
+        description={`Managing ${stats.totalCount} issues in your organization's categories`}
       />
 
       {/* Filters */}
@@ -304,7 +378,7 @@ export default function OrganizationIssues() {
                 />
               </div>
             </div>
-            
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />
@@ -348,8 +422,8 @@ export default function OrganizationIssues() {
 
       {/* Issues List */}
       <div className="space-y-4">
-        {filteredIssues.map((issue) => (
-          <Card key={issue.id} className="hover:shadow-md transition-shadow">
+        {filteredIssues.map((issue, index) => (
+          <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -357,7 +431,7 @@ export default function OrganizationIssues() {
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold mb-2">{issue.title}</h3>
                       <p className="text-gray-600 mb-3">{issue.description}</p>
-                      
+
                       <div className="flex items-center gap-2 mb-3">
                         <Badge className={getStatusColor(issue.status)}>
                           {issue.status.replace('_', ' ')}
@@ -397,12 +471,12 @@ export default function OrganizationIssues() {
                           View Details
                         </Button>
                       </Link>
-                      
+
                       {/* Temporary: Show for all organization members to debug */}
                       {((issue.images && issue.images.length > 0) || issue.image_url) && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleAIAnalysis(issue)}
                           className="flex items-center gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
                         >
@@ -410,7 +484,7 @@ export default function OrganizationIssues() {
                           AI Analysis
                         </Button>
                       )}
-                      
+
                       {issue.status === 'PENDING' && !issue.assigned_to && user?.role === 'ORGANIZATION_ADMIN' && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -439,8 +513,8 @@ export default function OrganizationIssues() {
                       )}
 
                       {issue.status === 'IN_PROGRESS' && (
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           onClick={() => handleResolveWithPhoto(issue)}
                           className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                         >
@@ -463,13 +537,18 @@ export default function OrganizationIssues() {
           </Card>
         ))}
       </div>
-
+      <div id="scroll-anchor" ref={anchorRef} className="h-4"></div>
+      {loadingMore && currentPage < totalPages && (
+        <div className="flex justify-center py-8 sm:py-12">
+          <LoadingSpinner size="lg" text="Loading more" />
+        </div>
+      )}
       {filteredIssues.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">No issues found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all" 
+              {searchTerm || statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all"
                 ? "Try adjusting your filters to see more results."
                 : "There are no issues in your organization's categories yet."
               }
