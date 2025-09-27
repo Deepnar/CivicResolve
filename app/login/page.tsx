@@ -237,7 +237,6 @@ function LoginPageContent() {
   // Alternative submit handler for mobile touch issues
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Form submit event triggered") // Debug log
     handleSubmit(onSubmit)(e)
   }
 

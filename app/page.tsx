@@ -477,9 +477,7 @@ export default function HomePage() {
                   )
                 })}
               </div>
-              <div id="scroll-anchor" ref={anchorRef} className="h-8 bg-blue-100 border border-blue-400 text-center text-xs">
-                Debug: Scroll Trigger (Page {currentPage} of {totalPages})
-              </div>
+              <div id="scroll-anchor" ref={anchorRef} className="h-1" />
               {loadingMore && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4">
                   <IssueCardSkeletonList count={2} />
