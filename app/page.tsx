@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Plus, MapPin, TrendingUp, Users, AlertCircle, FileText, CheckCircle, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
@@ -10,6 +10,7 @@ import { FilterTabs } from "@/components/ui/filter-tabs"
 import { StatsCard } from "@/components/ui/stats-card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { IssueCardSkeletonList } from "@/components/ui/issue-skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Navbar } from "@/components/navigation/navbar"
@@ -72,7 +73,7 @@ export default function HomePage() {
         const fetchedIssues = issuesData.issues || []
         setIssues(fetchedIssues)
         setTotalPages(issuesData.totalPages);
-        setCurrentPage(issuesData.currentPage);
+        setCurrentPage(1); // Always start from page 1 for initial fetch
         // Set dashboard stats from API if successful
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
@@ -113,10 +114,27 @@ export default function HomePage() {
     fetchData()
   }, [debouncedSearchTerm])
 
+  // Reset pagination and clear issues when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+    setIssues([])
+    setTotalPages(1)
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+  }, [debouncedSearchTerm])
+
   //for infinite-scrolling
-  const fetchIssues = async (page = 1) => {
+  const fetchIssues = useCallback(async (page = 1) => {
     try {
+      // Double-check conditions before proceeding
+      if (loadingMore || currentPage >= totalPages) {
+        return;
+      }
+
       setLoadingMore(true)
+      
       const response = await fetch(
         `/api/issues?limit=${pageSize}&offset=${(page - 1) * pageSize}&search=${debouncedSearchTerm}`
       )
@@ -126,7 +144,11 @@ export default function HomePage() {
       }
 
       const data = await response.json()
-      setIssues((prev) => [...prev, ...(data.issues || [])])  
+      
+      setIssues((prev) => {
+        const updated = [...prev, ...(data.issues || [])];
+        return updated;
+      })  
       setTotalPages(data.totalPages)
       setCurrentPage(data.currentPage)
     } catch (error) {
@@ -134,39 +156,77 @@ export default function HomePage() {
     } finally {
       setLoadingMore(false)
     }
-  }
+  }, [pageSize, debouncedSearchTerm, loadingMore, currentPage, totalPages])
 
   useEffect(() => {
-    if (loadingMore) return;
-    if (observerRef.current) observerRef.current.disconnect();
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && currentPage < totalPages) {
-        fetchIssues(currentPage + 1);
-      }
-    });
-
-    if (anchorRef.current) {
-      observer.observe(anchorRef.current);
-    }
-
-    observerRef.current = observer;
-
-    return () => {
+    // Add a small delay to ensure DOM is ready
+    const setupObserver = () => {
+      // Cleanup previous observer
       if (observerRef.current) {
         observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+
+      // Don't create observer if we're loading or no more pages
+      if (loadingMore || currentPage >= totalPages) {
+        return;
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+          
+          if (entry.isIntersecting) {
+            // Get fresh values from state
+            fetchIssues(currentPage + 1);
+          }
+        },
+        {
+          root: null,
+          rootMargin: '50px', // Increased to trigger earlier
+          threshold: 0.1
+        }
+      );
+
+      if (anchorRef.current) {
+        observer.observe(anchorRef.current);
+        observerRef.current = observer;
+      } else {
+        // Retry after a short delay if anchor not found
+        setTimeout(setupObserver, 100);
+        return;
       }
     };
 
-  }, [totalPages, currentPage, loadingMore, fetchIssues, debouncedSearchTerm])
+    // Small delay to ensure component is fully rendered
+    const timeoutId = setTimeout(setupObserver, 50);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, [totalPages, currentPage, loadingMore, fetchIssues])
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, [])
 
   
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchQuery);
-    }, 1000); // 400ms debounce
+    }, 300); // Reduced from 1000ms to 300ms for better UX
 
-    return () => clearTimeout(handler); // cleanup on every keystroke
+    return () => clearTimeout(handler);
   }, [searchQuery]);
 
   // Refresh function for manual updates
@@ -384,8 +444,8 @@ export default function HomePage() {
         {/* Issues List */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.4 }}>
           {loading ? (
-            <div className="flex justify-center py-8 sm:py-12">
-              <LoadingSpinner size="lg" text="Loading issues..." />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <IssueCardSkeletonList count={4} />
             </div>
           ) : filteredIssues.length === 0 ? (
             <EmptyState
@@ -400,22 +460,29 @@ export default function HomePage() {
           ) : (
             <div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                {filteredIssues.map((issue, index) => (
-                  <motion.div
-                    key={index} 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="w-full"
-                  >
-                    <IssueCard issue={issue} onClick={() => (window.location.href = `/issues/${issue.id}`)} />
-                  </motion.div>
-                ))}
+                {filteredIssues.map((issue, index) => {
+                  // Only animate first page items with stagger, later items appear instantly
+                  const animationDelay = index < pageSize ? index * 0.1 : 0
+                  
+                  return (
+                    <motion.div
+                      key={issue.id || index} 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: animationDelay }}
+                      className="w-full"
+                    >
+                      <IssueCard issue={issue} onClick={() => (window.location.href = `/issues/${issue.id}`)} />
+                    </motion.div>
+                  )
+                })}
               </div>
-              <div id="scroll-anchor" ref={anchorRef} className="h-4"></div>
-              {loadingMore && currentPage < totalPages &&(
-                <div className="flex justify-center py-8 sm:py-12">
-                  <LoadingSpinner size="lg" text="Loading more" />
+              <div id="scroll-anchor" ref={anchorRef} className="h-8 bg-blue-100 border border-blue-400 text-center text-xs">
+                Debug: Scroll Trigger (Page {currentPage} of {totalPages})
+              </div>
+              {loadingMore && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4">
+                  <IssueCardSkeletonList count={2} />
                 </div>
               )}
             </div>

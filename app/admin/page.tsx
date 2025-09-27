@@ -15,7 +15,7 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar, BarChart3 } from "lucide-react"
+import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar, BarChart3, RefreshCw } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatsCard } from "@/components/ui/stats-card"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -47,17 +47,190 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState("30d")
+  const [isExporting, setIsExporting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Export functionality
+  const exportStatistics = async () => {
+    setIsExporting(true)
+    
+    try {
+      // Create comprehensive statistics data
+      const exportData = {
+        reportMetadata: {
+          title: "Municipal Dashboard Analytics Report",
+          generatedDate: new Date().toISOString(),
+          timeRange: timeRange,
+          reportType: "Full Statistics Export"
+        },
+        overview: analyticsData?.overview,
+        issuesByCategory: analyticsData?.issuesByCategory,
+        issuesOverTime: analyticsData?.issuesOverTime,
+        topReporters: analyticsData?.topReporters,
+        recentIssues: recentIssues.map(issue => ({
+          id: issue.id,
+          title: issue.title,
+          status: issue.status,
+          priority: issue.priority,
+          category: issue.category,
+          createdAt: issue.createdAt,
+          updatedAt: issue.updatedAt
+        }))
+      }
+
+      // Generate CSV format for compatibility
+      const generateCSV = (data: any, filename: string) => {
+        const csvContent = convertToCSV(data)
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', filename)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      // Generate JSON format for full data
+      const generateJSON = (data: any, filename: string) => {
+        const jsonContent = JSON.stringify(data, null, 2)
+        const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', filename)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0]
+      const baseFilename = `municipal_dashboard_statistics_${timeRange}_${timestamp}`
+
+      // Export both formats
+      generateJSON(exportData, `${baseFilename}.json`)
+      
+      // Also generate a summary CSV
+      const summaryCSV = generateSummaryCSV(exportData)
+      const csvBlob = new Blob([summaryCSV], { type: 'text/csv;charset=utf-8;' })
+      const csvLink = document.createElement('a')
+      const csvUrl = URL.createObjectURL(csvBlob)
+      csvLink.setAttribute('href', csvUrl)
+      csvLink.setAttribute('download', `${baseFilename}_summary.csv`)
+      csvLink.style.visibility = 'hidden'
+      document.body.appendChild(csvLink)
+      csvLink.click()
+      document.body.removeChild(csvLink)
+
+    } catch (error) {
+      console.error('Export failed:', error)
+      setError('Failed to export statistics. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Helper function to convert data to CSV format
+  const convertToCSV = (data: any): string => {
+    const headers = Object.keys(data)
+    const csvArray = [headers.join(',')]
+    
+    const values = headers.map(header => {
+      const value = data[header]
+      if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value).replace(/"/g, '""')
+      }
+      return String(value).replace(/"/g, '""')
+    })
+    
+    csvArray.push(values.join(','))
+    return csvArray.join('\n')
+  }
+
+  // Generate comprehensive summary CSV
+  const generateSummaryCSV = (data: any): string => {
+    const lines = []
+    
+    // Report header
+    lines.push(`Municipal Dashboard Analytics Report`)
+    lines.push(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`)
+    lines.push(`Time Range: ${timeRange}`)
+    lines.push(``)
+    
+    // Overview statistics
+    lines.push(`OVERVIEW STATISTICS`)
+    lines.push(`Metric,Value`)
+    if (data.overview) {
+      Object.entries(data.overview).forEach(([key, value]) => {
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+        lines.push(`${label},${value}`)
+      })
+    }
+    lines.push(``)
+    
+    // Issues by category
+    lines.push(`ISSUES BY CATEGORY`)
+    lines.push(`Category,Count`)
+    if (data.issuesByCategory) {
+      data.issuesByCategory.forEach((item: any) => {
+        lines.push(`${item.category},${item.count}`)
+      })
+    }
+    lines.push(``)
+    
+    // Top reporters
+    lines.push(`TOP CONTRIBUTORS`)
+    lines.push(`Name,Issues Reported,Points`)
+    if (data.topReporters) {
+      data.topReporters.forEach((reporter: any) => {
+        lines.push(`${reporter.name},${reporter.issueCount},${reporter.points}`)
+      })
+    }
+    lines.push(``)
+    
+    // Issues over time (all entries)
+    lines.push(`ISSUES OVER TIME`)
+    lines.push(`Date,Pending,In Progress,Resolved`)
+    if (data.issuesOverTime) {
+      data.issuesOverTime.forEach((item: any) => {
+        lines.push(`${item.date},${item.pending},${item.inProgress},${item.resolved}`)
+      })
+    }
+    lines.push(``)
+    
+    // Recent issues (all available)
+    lines.push(`RECENT ISSUES`)
+    lines.push(`ID,Title,Status,Priority,Category,Created Date,Updated Date`)
+    if (data.recentIssues) {
+      data.recentIssues.forEach((issue: any) => {
+        const createdDate = issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : 'N/A'
+        const updatedDate = issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString() : 'N/A'
+        lines.push(`${issue.id},"${issue.title}",${issue.status},${issue.priority},${issue.category},${createdDate},${updatedDate}`)
+      })
+    }
+    
+    return lines.join('\n')
+  }
 
   useEffect(() => {
     fetchAnalytics()
     fetchRecentIssues()
   }, [])
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (isRefresh = false) => {
     try {
-      setLoading(true)
+      if (isRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
-      const response = await fetch('/api/analytics')
+      
+      // Add cache-busting parameter for refresh
+      const cacheParam = isRefresh ? `&_t=${Date.now()}` : ''
+      const response = await fetch(`/api/analytics${cacheParam}`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -75,6 +248,7 @@ export default function AdminDashboardPage() {
       setError(err instanceof Error ? err.message : 'Failed to load analytics')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -105,7 +279,7 @@ export default function AdminDashboardPage() {
           <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h1>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={fetchAnalytics}>Try Again</Button>
+          <Button onClick={() => fetchAnalytics(false)}>Try Again</Button>
         </div>
       </div>
     )
@@ -144,9 +318,25 @@ export default function AdminDashboardPage() {
                 <SelectItem value="1y">Last year</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2 bg-white/80">
+            
+            <Button 
+              variant="outline" 
+              className="gap-2 bg-white/80"
+              onClick={() => fetchAnalytics(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="gap-2 bg-white/80" 
+              onClick={exportStatistics}
+              disabled={isExporting || !analyticsData}
+            >
               <Download className="h-4 w-4" />
-              Export Report
+              {isExporting ? 'Exporting...' : 'Export Report'}
             </Button>
           </div>
         </PageHeader>

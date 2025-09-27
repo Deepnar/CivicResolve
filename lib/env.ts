@@ -103,3 +103,9 @@ console.log(`🚀 Environment: ${env.NODE_ENV}`)
 if (isDev) {
   console.log('📊 Development mode - Enhanced logging enabled')
 }
+
+// System initialization logging
+console.log('⚙️  CivicResolve System Initializing...')
+console.log(`📍 Database: ${env.DB_NAME}@${env.DB_HOST}:${env.DB_PORT}`)
+console.log(`� JWT Secret: ${env.JWT_SECRET.substring(0, 8)}...`)
+console.log(`📊 Log Level: ${env.LOG_LEVEL}`)

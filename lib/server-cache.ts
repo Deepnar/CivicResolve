@@ -71,18 +71,16 @@ export async function getServerRedisClient() {
     })
 
     client.on('connect', () => {
-      console.log('✅ Redis client connected')
+      console.log('✅ Redis connected successfully')
     })
-
+    
     client.on('ready', () => {
-      console.log('✅ Redis client ready')
+      console.log('🔥 Redis client ready for operations')
     })
-
+    
     client.on('end', () => {
-      console.log('❌ Redis client disconnected')
-    })
-
-    // Connect to Redis
+      console.warn('⚠️ Redis connection ended')
+    })    // Connect to Redis
     try {
       await client.connect()
     } catch (error) {
@@ -122,29 +120,22 @@ export const SERVER_CACHE_TTL = {
 export async function serverCacheGet<T>(key: string): Promise<T | null> {
   try {
     if (!(await isServerRedisAvailable())) {
-      console.log(`🔴 [CACHE] Redis not available - key: ${key}`)
       return null
     }
     
     const client = await getServerRedisClient()
     if (!client) {
-      console.log(`🔴 [CACHE] Redis client not available - key: ${key}`)
       return null
     }
     
-    console.log(`🔍 [CACHE] Attempting to get key: ${key}`)
     const cached = await client.get(key)
     
     if (cached) {
-      console.log(`✅ [CACHE HIT] Found cached data for key: ${key}`)
-      console.log(`📊 [CACHE HIT] Data preview: ${cached.substring(0, 200)}${cached.length > 200 ? '...' : ''}`)
       return JSON.parse(cached)
     } else {
-      console.log(`❌ [CACHE MISS] No cached data for key: ${key}`)
       return null
     }
   } catch (error) {
-    console.warn(`🚨 [CACHE ERROR] Get failed for key: ${key}`, error)
     return null
   }
 }
@@ -156,27 +147,18 @@ export async function serverCacheSet<T>(
 ): Promise<boolean> {
   try {
     if (!(await isServerRedisAvailable())) {
-      console.log(`🔴 [CACHE] Redis not available for SET - key: ${key}`)
       return false
     }
     
     const client = await getServerRedisClient()
     if (!client) {
-      console.log(`🔴 [CACHE] Redis client not available for SET - key: ${key}`)
       return false
     }
     
     const serialized = JSON.stringify(value)
-    console.log(`💾 [CACHE SET] Caching key: ${key}`)
-    console.log(`⏱️ [CACHE SET] TTL: ${ttl} seconds (${Math.round(ttl/60)} minutes)`)
-    console.log(`📊 [CACHE SET] Data size: ${serialized.length} characters`)
-    console.log(`📄 [CACHE SET] Data preview: ${serialized.substring(0, 200)}${serialized.length > 200 ? '...' : ''}`)
-    
     await client.setEx(key, ttl, serialized)
-    console.log(`✅ [CACHE SET] Successfully cached key: ${key}`)
     return true
   } catch (error) {
-    console.warn(`🚨 [CACHE ERROR] Set failed for key: ${key}`, error)
     return false
   }
 }
@@ -184,93 +166,61 @@ export async function serverCacheSet<T>(
 export async function serverCacheInvalidate(tags: string[]): Promise<void> {
   try {
     if (!(await isServerRedisAvailable())) {
-      console.log(`🔴 [CACHE] Redis not available for INVALIDATION - tags: ${tags.join(', ')}`)
       return
     }
     
     const client = await getServerRedisClient()
     if (!client) {
-      console.log(`🔴 [CACHE] Redis client not available for INVALIDATION - tags: ${tags.join(', ')}`)
       return
     }
     
-    console.log(`🗑️ [CACHE INVALIDATE] Starting invalidation for tags: [${tags.join(', ')}]`)
-    
-    let totalInvalidated = 0
-    
     // Find keys with tags and delete them - support multiple patterns
     for (const tag of tags) {
-      console.log(`🔍 [CACHE INVALIDATE] Searching for keys with tag: "${tag}"`)
-      
       // Pattern 1: Keys that start with the tag
       const keysStartingWithTag = await client.keys(`${tag}:*`)
-      console.log(`📋 [CACHE INVALIDATE] Keys starting with "${tag}": ${keysStartingWithTag.length} found`, keysStartingWithTag)
       
       // Pattern 2: Keys that contain the tag (original pattern)
       const keysContainingTag = await client.keys(`*:${tag}:*`)
-      console.log(`📋 [CACHE INVALIDATE] Keys containing "${tag}": ${keysContainingTag.length} found`, keysContainingTag)
       
       // Pattern 3: Keys that end with the tag
       const keysEndingWithTag = await client.keys(`*:${tag}`)
-      console.log(`📋 [CACHE INVALIDATE] Keys ending with "${tag}": ${keysEndingWithTag.length} found`, keysEndingWithTag)
       
       // Combine all found keys and remove duplicates
       const allKeys = [...new Set([...keysStartingWithTag, ...keysContainingTag, ...keysEndingWithTag])]
       
       if (allKeys.length > 0) {
-        console.log(`🗑️ [CACHE INVALIDATE] Deleting ${allKeys.length} cache keys for tag "${tag}":`)
-        allKeys.forEach(key => console.log(`  ❌ Deleting: ${key}`))
         await client.del(allKeys)
-        totalInvalidated += allKeys.length
-      } else {
-        console.log(`ℹ️ [CACHE INVALIDATE] No keys found for tag "${tag}"`)
       }
     }
-    
-    console.log(`✅ [CACHE INVALIDATE] Completed! Total keys invalidated: ${totalInvalidated}`)
   } catch (error) {
-    console.warn(`🚨 [CACHE ERROR] Invalidation failed for tags: [${tags.join(', ')}]`, error)
+    // Silently handle cache errors
   }
 }
 
-// Wrapper for caching function results
 export async function withServerCache<T>(
   key: string,
   fetchFunction: () => Promise<T>,
   ttl: number = SERVER_CACHE_TTL.MEDIUM
 ): Promise<T> {
-  const startTime = Date.now()
-  
   try {
-    console.log(`🚀 [CACHE WRAPPER] Starting cache operation for key: ${key}`)
-    
     // Try to get from cache first
     const cached = await serverCacheGet<T>(key)
     if (cached !== null) {
-      const duration = Date.now() - startTime
-      console.log(`🎯 [CACHE WRAPPER] Cache HIT! Returned cached data in ${duration}ms`)
+      console.log(`💨 Cache HIT: ${key.split(':')[0]}`)
       return cached
     }
     
-    console.log(`📥 [CACHE WRAPPER] Cache MISS - executing fetch function`)
-    const fetchStart = Date.now()
+    console.log(`🔄 Cache MISS: ${key.split(':')[0]} - fetching fresh data`)
     
     // Fetch fresh data
     const data = await fetchFunction()
     
-    const fetchDuration = Date.now() - fetchStart
-    console.log(`⚡ [CACHE WRAPPER] Fetch completed in ${fetchDuration}ms`)
-    
     // Cache the result
-    const cacheSuccess = await serverCacheSet(key, data, ttl)
-    
-    const totalDuration = Date.now() - startTime
-    console.log(`🏁 [CACHE WRAPPER] Operation completed in ${totalDuration}ms (fetch: ${fetchDuration}ms, cache: ${cacheSuccess ? 'success' : 'failed'})`)
+    await serverCacheSet(key, data, ttl)
     
     return data
   } catch (error) {
-    const duration = Date.now() - startTime
-    console.error(`💥 [CACHE WRAPPER] Error after ${duration}ms for key: ${key}`, error)
+    console.error(`❌ Cache error for ${key}:`, error)
     throw error
   }
 }

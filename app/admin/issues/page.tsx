@@ -100,7 +100,6 @@ export default function AdminIssuesPage() {
       }
 
       const data = await response.json()
-      console.log(data)
       const stats = data.stats;
       setIssues(data.issues || [])
       setStats({ totalCount: data.totalCount, ...stats });

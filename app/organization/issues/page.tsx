@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { Search, Filter, Download, Eye, MapPin, Calendar, User, Camera, CheckCircle, Bot } from "lucide-react"
 import { PageHeader } from "@/components/ui/page-header"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { IssueCardSkeletonList } from "@/components/ui/issue-skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -159,21 +160,47 @@ export default function OrganizationIssues() {
   }
 
   useEffect(() => {
-    if (!isOrganizationMember || loadingMore || loading) return
+    if (!isOrganizationMember || loadingMore || loading || currentPage >= totalPages) return
 
-    if (observerRef.current) observerRef.current.disconnect()
+    // Cleanup previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
 
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && currentPage < totalPages) {
-        fetchOrganizationIssues(currentPage + 1)
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && currentPage < totalPages && !loadingMore) {
+          fetchOrganizationIssues(currentPage + 1)
+        }
+      },
+      {
+        root: null,
+        rootMargin: '20px',
+        threshold: 0.1
       }
-    })
+    )
 
     if (anchorRef.current) observer.observe(anchorRef.current)
     observerRef.current = observer
 
-    return () => observerRef.current?.disconnect()
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+        observerRef.current = null
+      }
+    }
   }, [isOrganizationMember, currentPage, totalPages, loadingMore, loading])
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+        observerRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (isOrganizationMember) {
@@ -186,9 +213,9 @@ export default function OrganizationIssues() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 1000); // 400ms debounce
+    }, 300); // Reduced from 1000ms to 300ms for better UX
 
-    return () => clearTimeout(handler); // cleanup on every keystroke
+    return () => clearTimeout(handler);
   }, [searchTerm]);
 
 
@@ -346,8 +373,8 @@ export default function OrganizationIssues() {
           title="Organization Issues"
           description="Manage issues assigned to your organization"
         />
-        <div className="flex justify-center items-center h-64">
-          <LoadingSpinner />
+        <div className="space-y-6 mt-8">
+          <IssueCardSkeletonList count={6} />
         </div>
       </div>
     )
@@ -538,9 +565,9 @@ export default function OrganizationIssues() {
         ))}
       </div>
       <div id="scroll-anchor" ref={anchorRef} className="h-4"></div>
-      {loadingMore && currentPage < totalPages && (
-        <div className="flex justify-center py-8 sm:py-12">
-          <LoadingSpinner size="lg" text="Loading more" />
+      {loadingMore && (
+        <div className="space-y-4 mt-6">
+          <IssueCardSkeletonList count={3} />
         </div>
       )}
       {filteredIssues.length === 0 && (

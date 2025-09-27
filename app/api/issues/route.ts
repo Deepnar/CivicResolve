@@ -33,27 +33,17 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || undefined
     const limit = Number.parseInt(searchParams.get("limit") || "40")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
+    
+    if (search) {
+      console.log(`🔍 Search query: "${search}" (limit: ${limit})`)
+    }
 
     // Create cache key based on filters
     const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${search || ''}:${limit}:${offset}`
 
-    console.log(`🔍 [ISSUES GET] Requesting issues with filters:`, {
-      category: category || 'all',
-      status: status || 'all',
-      priority: priority || 'all',
-      search: search || '',
-      limit,
-      offset,
-      cacheKey
-    })
-
     const { issues: issuesList, totalCount, totalPages, currentPage, stats } = await withServerCache(
       cacheKey,
       async () => {
-        console.log(`🗃️ [ISSUES GET] Cache miss - fetching from database with filters:`, {
-          category, status, priority,search, limit, offset
-        })
-
         const { issues: rawIssues, totalCount, stats } = await IssueModel.getAll({
           category,
           status,
@@ -64,8 +54,6 @@ export async function GET(request: NextRequest) {
         })
         const totalPages = Math.ceil(totalCount / limit);
         const currentPage = Math.floor(offset / limit) + 1
-
-        console.log(`📊 [ISSUES GET] Database returned ${rawIssues.length} issues`)
 
         // Transform the data to match the expected Issue type structure
         const transformedIssues = rawIssues.map((issue: any) => ({
@@ -100,13 +88,11 @@ export async function GET(request: NextRequest) {
           updatedAt: new Date(issue.updated_at)
         }))
 
-        console.log(`✅ [ISSUES GET] Transformed ${transformedIssues.length} issues for caching`)
         return { issues: transformedIssues, totalCount, totalPages, currentPage, stats }
       },
       SERVER_CACHE_TTL.MEDIUM // 5 minutes cache
     )
 
-    console.log(`🎯 [ISSUES GET] Returning ${issuesList.length} issues to client`)
     endTimer()
     return Response.json({
       issues: issuesList,
@@ -128,24 +114,13 @@ export async function POST(request: NextRequest) {
   const endTimer = PerformanceMonitor.start('POST /api/issues')
 
   try {
-    console.log(`🆕 [ISSUES POST] Starting new issue creation process`)
-
     // Require authentication
     const user = await AuthUtils.requireAuth(request)
-    console.log(`👤 [ISSUES POST] User authenticated: ${user.name} (ID: ${user.id})`)
 
     const body = await request.json()
-    console.log(`📝 [ISSUES POST] Request data:`, {
-      title: body.title,
-      category: body.category,
-      priority: body.priority,
-      address: body.address,
-      hasImage: !!body.image_url
-    })
 
     const validationResult = createIssueSchema.safeParse(body)
     if (!validationResult.success) {
-      console.log(`❌ [ISSUES POST] Validation failed:`, validationResult.error.flatten().fieldErrors)
       return Response.json({
         error: "Validation failed",
         details: validationResult.error.flatten().fieldErrors
@@ -153,37 +128,30 @@ export async function POST(request: NextRequest) {
     }
 
     const issueData = validationResult.data
-    console.log(`✅ [ISSUES POST] Validation passed - creating issue`)
 
     // Create the issue
-    console.log(`💾 [ISSUES POST] Saving issue to database...`)
     const issueId = await IssueModel.create({
       ...issueData,
       reporter_id: user.id,
       image_url: issueData.image_url || undefined, // Convert null to undefined
     })
-    console.log(`🎉 [ISSUES POST] Issue created with ID: ${issueId}`)
+    
+    console.log(`✅ New issue created: #${issueId} by ${user.name} (${issueData.category})`)
 
     // Automatically assign issue to responsible organizations
     try {
-      console.log(`🏢 [ISSUES POST] Attempting to assign issue to organizations...`)
       await IssueAssignmentModel.assignIssueToOrganizations(issueId, user.id);
-      console.log(`✅ [ISSUES POST] Issue assigned to organizations successfully`)
     } catch (assignmentError) {
-      console.error('🚨 [ISSUES POST] Failed to assign issue to organizations:', assignmentError);
+      console.error('Failed to assign issue to organizations:', assignmentError);
     }
 
     // Send notifications to organizations and user
     try {
-      console.log(`📧 [ISSUES POST] Sending email notifications...`)
       // Send confirmation email to the user
       await emailService.sendIssueReportedEmail(user.email, issueId, issueData, user.name);
-      console.log(`✅ [ISSUES POST] Confirmation email sent to user`)
 
       // Check if user is NGO admin and send priority notifications
       if (user.role && user.role === 'NGO_ADMIN') {
-        console.log(`🚨 [ISSUES POST] NGO Admin detected - sending PRIORITY notifications`)
-
         // Get NGO details for the user
         const { UserNGOModel, NGOModel } = await import('@/lib/models');
         const userNGOs = await UserNGOModel.getByUser(user.id);
@@ -203,40 +171,32 @@ export async function POST(request: NextRequest) {
 
             // Send PRIORITY notifications to organizations
             await emailService.sendNGOPriorityNotificationToOrganizations(issueId, issueData, ngoData);
-            console.log(`🚨 [ISSUES POST] PRIORITY notification emails sent to organizations for NGO report`)
           } else {
-            console.log(`⚠️ [ISSUES POST] NGO not found for NGO admin user ${user.id}`)
             // Fallback to standard notifications
             await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
           }
         } else {
-          console.log(`⚠️ [ISSUES POST] No NGO association found for NGO admin user ${user.id}`)
           // Fallback to standard notifications
           await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
         }
       } else {
         // Send standard notifications to organization members for regular users
         await emailService.sendIssueNotificationToOrganizations(issueId, issueData);
-        console.log(`✅ [ISSUES POST] Standard notification emails sent to organizations`)
       }
     } catch (emailError) {
-      console.error('🚨 [ISSUES POST] Failed to send email notifications:', emailError);
+      console.error('Failed to send email notifications:', emailError);
     }
 
     // Get the created issue with all details
-    console.log(`📖 [ISSUES POST] Fetching created issue details...`)
     const issue = await IssueModel.findById(issueId)
 
     // Invalidate issues cache when new issue is created
-    console.log(`🗑️ [ISSUES POST] **CACHE INVALIDATION TRIGGERED** - New issue created`)
-    console.log(`🎯 [ISSUES POST] About to invalidate cache tags: ['issues', 'list', 'stats']`)
     await serverCacheInvalidate(['issues', 'list', 'stats'])
-    console.log(`✅ [ISSUES POST] Cache invalidation completed - fresh data will be fetched on next request`)
+    console.log(`🗑️ Cache invalidated after new issue creation`)
 
     // Award points to the user for reporting an issue
     // await UserModel.updatePoints(user.id, 10) // 10 points for reporting
 
-    console.log(`🎉 [ISSUES POST] Issue creation process completed successfully`)
     endTimer()
     return Response.json(
       {

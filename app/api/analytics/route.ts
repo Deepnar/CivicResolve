@@ -52,17 +52,37 @@ export async function GET(request: NextRequest) {
   const endTimer = PerformanceMonitor.start('GET /api/analytics')
   
   try {
+    // Check if this is a cache-busting refresh request
+    const { searchParams } = new URL(request.url)
+    const isRefresh = searchParams.has('_t')
+    const cacheKey = isRefresh ? `analytics:dashboard:${Date.now()}` : 'analytics:dashboard'
+    
+    if (isRefresh) {
+      console.log('🔄 Analytics refresh requested - bypassing cache')
+    }
+    
     const analytics = await withServerCache(
-      'analytics:dashboard',
+      cacheKey,
       async () => {
-        // Get basic statistics
-        const totalIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues")
-        const resolvedIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'RESOLVED'")
-        const pendingIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'PENDING'")
-        const inProgressIssues = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM issues WHERE status = 'IN_PROGRESS'")
-        const totalUsers = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM users")
-        const totalVotes = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM votes")
-        const totalComments = await Database.queryOne<CountResult>("SELECT COUNT(*) as count FROM comments")
+        // Optimized single query for basic statistics - eliminates 7 separate queries
+        const basicStats = await Database.queryOne<{
+          totalIssues: number
+          resolvedIssues: number
+          pendingIssues: number
+          inProgressIssues: number
+          totalUsers: number
+          totalVotes: number
+          totalComments: number
+        }>(`
+          SELECT 
+            (SELECT COUNT(*) FROM issues) as totalIssues,
+            (SELECT COUNT(*) FROM issues WHERE status = 'RESOLVED') as resolvedIssues,
+            (SELECT COUNT(*) FROM issues WHERE status = 'PENDING') as pendingIssues,
+            (SELECT COUNT(*) FROM issues WHERE status = 'IN_PROGRESS') as inProgressIssues,
+            (SELECT COUNT(*) FROM users) as totalUsers,
+            (SELECT COUNT(*) FROM votes) as totalVotes,
+            (SELECT COUNT(*) FROM comments) as totalComments
+        `)
 
         // Issues by category
         const issuesByCategory = await Database.query<CategoryResult>(`
@@ -141,13 +161,13 @@ export async function GET(request: NextRequest) {
         // Format the response to match the dashboard expectations
         return {
           overview: {
-            totalIssues: totalIssues?.count || 0,
-            pendingIssues: pendingIssues?.count || 0,
-            inProgressIssues: inProgressIssues?.count || 0,
-            resolvedIssues: resolvedIssues?.count || 0,
-            totalUsers: totalUsers?.count || 0,
-            totalComments: totalComments?.count || 0,
-            totalVotes: totalVotes?.count || 0,
+            totalIssues: basicStats?.totalIssues || 0,
+            pendingIssues: basicStats?.pendingIssues || 0,
+            inProgressIssues: basicStats?.inProgressIssues || 0,
+            resolvedIssues: basicStats?.resolvedIssues || 0,
+            totalUsers: basicStats?.totalUsers || 0,
+            totalComments: basicStats?.totalComments || 0,
+            totalVotes: basicStats?.totalVotes || 0,
             avgResolutionTime
           },
           issuesByCategory: (issuesByCategory || []).map((item: any) => ({
@@ -161,7 +181,11 @@ export async function GET(request: NextRequest) {
             issueCount: reporter.issueCount || 0,
             points: reporter.points || 0
           })),
-          issuesByStatus,
+          issuesByStatus: [
+            { status: 'PENDING', count: basicStats?.pendingIssues || 0 },
+            { status: 'IN_PROGRESS', count: basicStats?.inProgressIssues || 0 },
+            { status: 'RESOLVED', count: basicStats?.resolvedIssues || 0 }
+          ],
           recentIssues: recentIssues?.count || 0
         }
       },
