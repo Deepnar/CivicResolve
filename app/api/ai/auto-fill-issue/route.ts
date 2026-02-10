@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     console.log(`🤖 [AUTO-FILL] Starting auto-fill for user ${user.id}`)
 
