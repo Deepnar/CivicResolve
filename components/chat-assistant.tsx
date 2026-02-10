@@ -324,7 +324,7 @@ export function ChatAssistant() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Powered by Google Gemini 2.0 Flash
+                CivicResolve AI
               </p>
             </div>
           </>

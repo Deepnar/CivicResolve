@@ -66,7 +66,7 @@ const teamMembers: TeamMember[] = [
   },
   {
     id: "ai-lead",
-    name: "Chinmay Takke",
+    name: "Yask Tiwaari",
     role: "Frontend Developer",
     specialization: "Front end UI design & Development",
     bio: "Focuses on building responsive, user-friendly applications with clean UI and robust backend integration.",
@@ -88,7 +88,7 @@ const teamMembers: TeamMember[] = [
   },
   {
     id: "backend-dev",
-    name: "Sumit Sonkamble",
+    name: "Rishit Singh",
     role: "Backend Developer",
     specialization: "Feature Development & Continuous Improvement",
     bio: "Dedicated developer who keeps on adding new features and improving existing ones to refine the project experience.",
@@ -155,7 +155,7 @@ const teamMembers: TeamMember[] = [
   },
   {
     id: "community-manager",
-    name: "Yash Vishwakarma",
+    name: "Navneet Singh",
     role: "Research & Insights Manager",
     specialization: "Trends & Market Awareness",
     bio: "Keeps the team updated with the latest insights, technology news, and civic engagement trends to guide project direction.",
