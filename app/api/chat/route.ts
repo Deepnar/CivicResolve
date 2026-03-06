@@ -904,7 +904,7 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
     }
 
     // Get the generative model - using Gemini 2.0 Flash for faster responses
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     // Create cache key for AI response based on message content and user role
     // Don't cache user-specific queries or admin data
