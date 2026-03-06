@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react"
 import { motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
-import { ArrowLeft, MapPin, Calendar, MessageCircle, Send } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, MessageCircle, Send, Activity, Upload, X } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatusBadge } from "@/components/ui/badge-status"
@@ -19,7 +19,7 @@ import { Navbar } from "@/components/navigation/navbar"
 import { AppealButton, AppealStatusDisplay, AdminAppealReview } from "@/components/appeals"
 import { useAuth } from "@/hooks/use-auth"
 import { convertToIST } from "@/lib/date-utils"
-import type { Issue, Comment, Appeal } from "@/lib/types"
+import type { Issue, Comment, Appeal, IssueUpdate } from "@/lib/types"
 
 interface IssueDetailPageProps {
   params: Promise<{ id: string }>
@@ -37,6 +37,11 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
   const [voteCount, setVoteCount] = useState(0)
   const [appeals, setAppeals] = useState<Appeal[]>([])
   const [appealsLoading, setAppealsLoading] = useState(false)
+  const [updates, setUpdates] = useState<IssueUpdate[]>([])
+  const [updatesLoading, setUpdatesLoading] = useState(false)
+  const [newUpdate, setNewUpdate] = useState("")
+  const [updateImage, setUpdateImage] = useState<string | null>(null)
+  const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false)
 
   useEffect(() => {
     const fetchIssue = async () => {
@@ -88,6 +93,28 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
 
   useEffect(() => {
     fetchAppeals()
+  }, [resolvedParams.id])
+
+  // Fetch updates for this issue
+  const fetchUpdates = async () => {
+    if (!resolvedParams.id) return
+    
+    setUpdatesLoading(true)
+    try {
+      const response = await fetch(`/api/issues/${resolvedParams.id}/updates`)
+      if (response.ok) {
+        const data = await response.json()
+        setUpdates(data.updates || [])
+      }
+    } catch (err) {
+      console.error('Error fetching updates:', err)
+    } finally {
+      setUpdatesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUpdates()
   }, [resolvedParams.id])
 
   const handleAppealSubmitted = () => {
@@ -161,6 +188,53 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
       setVoteCount(data.votesCount)
     } catch (error) {
       console.error('Error voting:', error)
+    }
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setUpdateImage(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmitUpdate = async () => {
+    if (!newUpdate.trim() || isSubmittingUpdate || !user) return
+
+    setIsSubmittingUpdate(true)
+    try {
+      const response = await fetch(`/api/issues/${resolvedParams.id}/updates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          message: newUpdate,
+          image: updateImage,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit update')
+      }
+
+      const data = await response.json()
+      
+      // Refresh updates list
+      setUpdates(data.updates)
+      setNewUpdate("")
+      setUpdateImage(null)
+    } catch (error) {
+      console.error('Error submitting update:', error)
+      alert(error instanceof Error ? error.message : 'Failed to submit update')
+    } finally {
+      setIsSubmittingUpdate(false)
     }
   }
 
@@ -396,6 +470,131 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                         <Button variant="outline" size="sm" asChild>
                           <Link href="/login">Sign In</Link>
                         </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Progress Updates Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Progress Updates ({updates.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {updatesLoading ? (
+                      <div className="flex justify-center py-8">
+                        <LoadingSpinner size="md" text="Loading updates..." />
+                      </div>
+                    ) : updates && updates.length > 0 ? (
+                      <div className="space-y-6">
+                        {updates.map((update) => (
+                          <div key={update.id} className="relative pl-4 pb-6 border-l-2 border-blue-200 last:pb-0">
+                            <div className="absolute -left-2 top-0 w-4 h-4 rounded-full bg-blue-500 border-2 border-white"></div>
+                            <div className="bg-blue-50/50 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                                    {update.user_name?.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-sm text-gray-900">{update.user_name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {formatDistanceToNow(new Date(update.created_at), { addSuffix: true })}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 leading-relaxed mb-2">{update.message}</p>
+                              {update.image_url && (
+                                <div className="mt-3 rounded-lg overflow-hidden">
+                                  <img 
+                                    src={update.image_url} 
+                                    alt="Update image" 
+                                    className="w-full h-auto max-h-64 object-cover"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-center py-8">No progress updates yet.</p>
+                    )}
+
+                    {/* Add Update Form - Only for assigned worker or org admin */}
+                    {user && issue && (
+                      (issue as any).assigned_to && (issue as any).assigned_to.toString() === user.id.toString() ||
+                      user.role === 'ORGANIZATION_ADMIN' ||
+                      user.role === 'ADMIN'
+                    ) && (
+                      <div className="border-t pt-4 mt-6">
+                        <div className="flex gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-blue-100 text-blue-700">
+                              {user.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-3">
+                            <Textarea
+                              placeholder="Post a progress update..."
+                              value={newUpdate}
+                              onChange={(e) => setNewUpdate(e.target.value)}
+                              rows={3}
+                            />
+                            
+                            {/* Image Upload */}
+                            <div className="flex items-center gap-3">
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  className="hidden"
+                                />
+                                <Button type="button" variant="outline" size="sm" asChild>
+                                  <span>
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Upload Image
+                                  </span>
+                                </Button>
+                              </label>
+                              {updateImage && (
+                                <div className="relative inline-block">
+                                  <img 
+                                    src={updateImage} 
+                                    alt="Preview" 
+                                    className="h-16 w-16 object-cover rounded-md border"
+                                  />
+                                  <button
+                                    onClick={() => setUpdateImage(null)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex justify-end">
+                              <Button
+                                onClick={handleSubmitUpdate}
+                                disabled={!newUpdate.trim() || isSubmittingUpdate}
+                                size="sm"
+                              >
+                                {isSubmittingUpdate ? (
+                                  <LoadingSpinner size="sm" className="mr-2" />
+                                ) : (
+                                  <Send className="h-4 w-4 mr-2" />
+                                )}
+                                {isSubmittingUpdate ? "Posting..." : "Post Update"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

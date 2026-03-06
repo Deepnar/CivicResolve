@@ -211,3 +211,14 @@ export interface Appeal {
   issue_category?: string
   issue_address?: string
 }
+
+export interface IssueUpdate {
+  id: number
+  issue_id: number
+  user_id: number
+  message: string
+  image_url?: string
+  created_at: Date
+  user_name?: string
+  user_email?: string
+}

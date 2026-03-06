@@ -116,6 +116,18 @@ export interface Appeal {
   issue?: Issue;
 }
 
+export interface IssueUpdate {
+  id: number;
+  issue_id: number;
+  user_id: number;
+  message: string;
+  image_url?: string;
+  created_at: Date;
+  // Joined data
+  user_name?: string;
+  user_email?: string;
+}
+
 // User model
 export class UserModel {
   static async create(userData: {
@@ -1625,5 +1637,59 @@ export class AppealModel {
       ORDER BY a.created_at DESC
     `;
     return await Database.query(sql, []) as Appeal[];
+  }
+}
+
+// Issue Update model
+export class IssueUpdateModel {
+  static async create(updateData: {
+    issue_id: number;
+    user_id: number;
+    message: string;
+    image_url?: string;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO issue_updates (issue_id, user_id, message, image_url)
+      VALUES (?, ?, ?, ?)
+    `;
+    const updateId = await Database.insert(sql, [
+      updateData.issue_id,
+      updateData.user_id,
+      updateData.message,
+      updateData.image_url || null
+    ]);
+    return updateId;
+  }
+
+  static async findByIssueId(issueId: number): Promise<IssueUpdate[]> {
+    const sql = `
+      SELECT iu.*, 
+             u.name as user_name,
+             u.email as user_email
+      FROM issue_updates iu
+      LEFT JOIN users u ON iu.user_id = u.id
+      WHERE iu.issue_id = ?
+      ORDER BY iu.created_at DESC
+    `;
+    return await Database.query(sql, [issueId]) as IssueUpdate[];
+  }
+
+  static async findById(id: number): Promise<IssueUpdate | null> {
+    const sql = `
+      SELECT iu.*, 
+             u.name as user_name,
+             u.email as user_email
+      FROM issue_updates iu
+      LEFT JOIN users u ON iu.user_id = u.id
+      WHERE iu.id = ?
+    `;
+    const results: any[] = await Database.query(sql, [id]);
+    return results.length > 0 ? results[0] as IssueUpdate : null;
+  }
+
+  static async deleteById(id: number): Promise<boolean> {
+    const sql = 'DELETE FROM issue_updates WHERE id = ?';
+    const affectedRows = await Database.delete(sql, [id]);
+    return affectedRows > 0;
   }
 }

@@ -75,6 +75,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       assignments: [],
       votes_count: (rawIssue as any).votes_count || 0,
       comments_count: (rawIssue as any).comments_count || 0,
+      assigned_to: (rawIssue as any).assigned_to,
+      assigned_to_name: (rawIssue as any).assigned_to_name,
+      assigned_at: (rawIssue as any).assigned_at,
+      assigned_by: (rawIssue as any).assigned_by,
       hasVoted, // Include user's vote status
       createdAt: new Date((rawIssue as any).created_at),
       updatedAt: new Date((rawIssue as any).updated_at)
