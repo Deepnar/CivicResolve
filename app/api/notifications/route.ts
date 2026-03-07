@@ -50,8 +50,9 @@ export async function GET(request: NextRequest) {
         i.priority,
         i.address,
         i.created_at,
-        u.name as reporter_name,
-        u.role as reporter_role,
+        i.is_anonymous,
+        CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as reporter_name,
+        CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
         CASE 
           WHEN ia.id IS NOT NULL THEN 'assigned'
           ELSE 'new'

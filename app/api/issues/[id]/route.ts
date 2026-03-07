@@ -60,6 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       imageUrl: (rawIssue as any).image_url,
       resolutionImageUrl: (rawIssue as any).resolution_image_url,
       reporterId: (rawIssue as any).reporter_id?.toString(),
+      isAnonymous: (rawIssue as any).is_anonymous || false,
       reporter: {
         id: (rawIssue as any).reporter_id?.toString(),
         name: (rawIssue as any).reporter_name || 'Unknown',

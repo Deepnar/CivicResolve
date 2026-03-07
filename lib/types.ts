@@ -85,6 +85,7 @@ export interface Issue {
   imageUrl?: string
   resolutionImageUrl?: string  // Photo proof of issue resolution
   reporterId: string
+  isAnonymous?: boolean  // Whether the reporter is anonymous
   reporter: User
   comments: Comment[]
   votes: Vote[]
@@ -150,6 +151,7 @@ export interface CreateIssueData {
   longitude: number
   address: string
   imageUrl?: string
+  isAnonymous?: boolean
   // NGO-specific fields for reporting on behalf of citizens
   citizen_name?: string
   citizen_phone?: string

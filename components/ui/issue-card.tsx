@@ -144,7 +144,12 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
                       {issue.reporter.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-xs font-medium truncate">{issue.reporter.name}</span>
+                  <span className="text-xs font-medium truncate">
+                    {issue.reporter.name}
+                    {issue.isAnonymous && (
+                      <span className="ml-1 text-gray-400">🕶️</span>
+                    )}
+                  </span>
                 </motion.div>
               )}
               <span className="text-xs whitespace-nowrap">{formatTimeAgo(issue.createdAt)}</span>

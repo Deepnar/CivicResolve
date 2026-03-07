@@ -41,6 +41,7 @@ const reportIssueSchema = z.object({
   address: z.string().min(5, "Address is required"),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+  isAnonymous: z.boolean().optional(),
   // NGO-specific fields
   citizen_name: z.string().optional(),
   citizen_phone: z.string().optional(),
@@ -68,6 +69,7 @@ export default function ReportIssuePage() {
   } | null>(null)
   const [showAiReview, setShowAiReview] = useState(false)
   const [useManualInput, setUseManualInput] = useState(false)
+  const [isAnonymous, setIsAnonymous] = useState(false)
 
   const {
     register,
@@ -238,6 +240,7 @@ export default function ReportIssuePage() {
         latitude: data.latitude || 19.0760, // Default to Mumbai center if not set
         longitude: data.longitude || 72.8777, // Default to Mumbai center if not set
         address: data.address,
+        is_anonymous: isAnonymous,
         image_url: imagePreview && imagePreview.startsWith('data:') ? imagePreview : null, // Only send valid data URLs
         // Include NGO fields if user is NGO admin
         ...(user?.role === 'NGO_ADMIN' && {
@@ -603,6 +606,28 @@ export default function ReportIssuePage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Anonymous Reporting Toggle */}
+                  <div className="space-y-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="anonymous"
+                        checked={isAnonymous}
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="anonymous" className="text-sm font-medium cursor-pointer">
+                          Submit this report anonymously
+                        </Label>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Your identity will not be visible publicly or to organizations handling the issue. 
+                          Your report will be attributed to "Anonymous Citizen" for privacy.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Submit Button */}
                   <Button

@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
-import { IssueModel, AuthUtils } from "@/lib/db"
+import { IssueModel, AuthUtils, Database } from "@/lib/db"
 import { IssueAssignmentModel } from "@/lib/models"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
@@ -15,6 +15,7 @@ const createIssueSchema = z.object({
   longitude: z.number().min(-180).max(180),
   address: z.string().min(5, "Address is required"),
   image_url: z.string().optional().nullable(), // Allow data URLs and null values
+  is_anonymous: z.boolean().default(false),
   // NGO-specific fields (optional for regular users)
   citizen_name: z.string().optional(),
   citizen_phone: z.string().optional(),
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
           imageUrl: issue.image_url,
           resolutionImageUrl: issue.resolution_image_url,
           reporterId: issue.reporter_id?.toString(),
+          isAnonymous: issue.is_anonymous || false,
           reporter: {
             id: issue.reporter_id?.toString(),
             name: issue.reporter_name,
@@ -134,9 +136,29 @@ export async function POST(request: NextRequest) {
       ...issueData,
       reporter_id: user.id,
       image_url: issueData.image_url || undefined, // Convert null to undefined
+      is_anonymous: issueData.is_anonymous,
     })
     
-    console.log(`✅ New issue created: #${issueId} by ${user.name} (${issueData.category})`)
+    console.log(`✅ New issue created: #${issueId} by ${issueData.is_anonymous ? 'Anonymous User' : user.name} (${issueData.category})${issueData.is_anonymous ? ' [ANONYMOUS]' : ''}`)
+
+    // Log anonymous submission to audit table for security and moderation
+    if (issueData.is_anonymous) {
+      try {
+        const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+        const userAgent = request.headers.get('user-agent') || 'unknown';
+        
+        await Database.insert(
+          `INSERT INTO anonymous_submissions_audit (issue_id, reporter_id, ip_address_hash, user_agent_hash) 
+           VALUES (?, ?, SHA2(?, 256), SHA2(?, 256))`,
+          [issueId, user.id, ipAddress, userAgent]
+        );
+        
+        console.log(`📝 Anonymous submission logged to audit table for issue #${issueId}`);
+      } catch (auditError) {
+        console.error('Failed to log anonymous submission to audit:', auditError);
+        // Don't fail the request if audit logging fails
+      }
+    }
 
     // Automatically assign issue to responsible organizations
     try {

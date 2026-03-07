@@ -78,6 +78,7 @@ export interface Issue {
   address: string;
   image_url?: string;
   reporter_id: number;
+  is_anonymous: boolean;
   votes_count: number;
   comments_count: number;
   created_at: Date;
@@ -269,10 +270,11 @@ export class IssueModel {
     address: string;
     image_url?: string;
     reporter_id: number;
+    is_anonymous?: boolean;
   }): Promise<number> {
     const sql = `
-      INSERT INTO issues (title, description, category, priority, latitude, longitude, address, image_url, reporter_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (title, description, category, priority, latitude, longitude, address, image_url, reporter_id, is_anonymous)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const issueId = await Database.insert(sql, [
       issueData.title,
@@ -284,6 +286,7 @@ export class IssueModel {
       issueData.address,
       issueData.image_url || null,
       issueData.reporter_id,
+      issueData.is_anonymous || false,
     ]);
 
     // Invalidate issue-related caches
@@ -293,7 +296,9 @@ export class IssueModel {
 
   static async findById(id: number): Promise<Issue | null> {
     const sql = `
-      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
+      SELECT i.*, 
+             CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as reporter_name,
+             CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count
       FROM issues i
@@ -387,7 +392,9 @@ export class IssueModel {
     } = countResult[0] || {}
 
     const sql = `
-      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
+      SELECT i.*, 
+             CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as reporter_name,
+             CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count
       FROM issues i
@@ -496,7 +503,9 @@ export class IssueModel {
 
   static async getByLocation(lat: number, lng: number, radius: number = 5): Promise<Issue[]> {
     const sql = `
-      SELECT i.*, u.name as reporter_name, u.role as reporter_role,
+      SELECT i.*, 
+             CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as reporter_name,
+             CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes_count,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments_count,
              (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance
@@ -616,7 +625,10 @@ export class IssueModel {
       // Get recent issues for categories handled by this organization
       const placeholders = categoriesHandled.map(() => '?').join(',');
       const sql = `
-        SELECT i.*, u.name as citizen_name, u.email as citizen_email,
+        SELECT i.*, 
+               CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as citizen_name,
+               CASE WHEN i.is_anonymous = TRUE THEN '' ELSE u.email END as citizen_email,
+               CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
                (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
                o.name as organization_name
         FROM issues i
@@ -758,7 +770,10 @@ export class IssueModel {
 
       // ---- Paginated Issues Query ----
       let sql = `
-      SELECT i.*, u.name as citizen_name, u.email as citizen_email,
+      SELECT i.*, 
+             CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as citizen_name,
+             CASE WHEN i.is_anonymous = TRUE THEN '' ELSE u.email END as citizen_email,
+             CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
              (SELECT COUNT(*) FROM votes WHERE issue_id = i.id) as votes,
              (SELECT COUNT(*) FROM comments WHERE issue_id = i.id) as comments,
              o.name as organization_name

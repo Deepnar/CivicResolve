@@ -261,9 +261,9 @@ async function getIssueDetails(issueId: string) {
     const issue = await Database.queryOne<IssueDetailsResult>(`
       SELECT 
         i.*,
-        u.name as reporter_name,
-        u.email as reporter_email,
-        u.role as reporter_role,
+        CASE WHEN i.is_anonymous = TRUE THEN 'Anonymous Citizen' ELSE u.name END as reporter_name,
+        CASE WHEN i.is_anonymous = TRUE THEN '' ELSE u.email END as reporter_email,
+        CASE WHEN i.is_anonymous = TRUE THEN 'CITIZEN' ELSE u.role END as reporter_role,
         u.is_verified as reporter_verified,
         assignee.name as assigned_to_name,
         assigner.name as assigned_by_name,
