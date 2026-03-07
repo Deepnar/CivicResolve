@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const prompt = `
 You are an expert in civic infrastructure issues. Analyze this image and create a clear, concise issue report for citizens to submit to municipal authorities. Do not ask for any additional information or do not leave any input fields for the user to add.
 
-Generate a title and description that a citizen would write when reporting this issue. Focus on:
+Generate a title, description, and category that a citizen would write when reporting this issue. Focus on:
 - What they can see in the image
 - The location/area type (road, sidewalk, park, etc.)
 - The specific problem (damage, safety concern, maintenance needed)
@@ -71,10 +71,24 @@ Generate a title and description that a citizen would write when reporting this 
 
 Keep the language simple, direct, and citizen-friendly. Avoid technical jargon.
 
+Choose the most appropriate category from these options:
+- ROADS: Road damage, potholes, cracks, road maintenance
+- LIGHTING: Street lights, public lighting issues
+- SANITATION: Garbage, cleanliness, waste management
+- PARKS: Parks maintenance, playground issues, green spaces
+- UTILITIES: Water supply, drainage, sewage
+- SAFETY: Public safety concerns, hazards
+- ENVIRONMENT: Pollution, environmental issues, trees
+- VANDALISM: Property damage, graffiti
+- TRANSPORTATION: Public transport issues, traffic problems
+- NOISE: Noise pollution, disturbances
+- OTHER: Issues that don't fit other categories
+
 Respond ONLY with valid JSON in this exact format:
 {
   "title": "A clear, descriptive title (5-50 words)",
   "description": "A detailed but concise description of the issue (20-200 words)",
+  "category": "ONE OF: ROADS, LIGHTING, SANITATION, PARKS, UTILITIES, SAFETY, ENVIRONMENT, VANDALISM, TRANSPORTATION, NOISE, OTHER",
   "confidence": "percentage confidence (e.g., '85%')"
 }
 
@@ -125,6 +139,10 @@ Make sure the title is specific but not too technical. The description should ex
 
     if (!autoFillData.description) {
       autoFillData.description = "An infrastructure issue has been identified in this location that requires municipal attention and assessment."
+    }
+
+    if (!autoFillData.category) {
+      autoFillData.category = "OTHER"
     }
 
     if (!autoFillData.confidence) {

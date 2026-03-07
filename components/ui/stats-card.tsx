@@ -80,8 +80,8 @@ export function StatsCard({
               transition={{ delay: 0.3 }}
             >
               <span className="font-medium">
-                {trend.isPositive ? "+" : ""}
-                {trend.value}%
+                {trend.isPositive ? "+" : "-"}
+                {Math.abs(trend.value)}%
               </span>
               <span className="text-gray-500">{trend.label}</span>
             </motion.div>

@@ -63,6 +63,7 @@ export default function ReportIssuePage() {
   const [aiSuggestions, setAiSuggestions] = useState<{
     title: string
     description: string
+    category: string
     confidence: string
   } | null>(null)
   const [showAiReview, setShowAiReview] = useState(false)
@@ -182,11 +183,12 @@ export default function ReportIssuePage() {
     if (aiSuggestions) {
       setValue("title", aiSuggestions.title)
       setValue("description", aiSuggestions.description)
+      setValue("category", aiSuggestions.category as IssueCategory)
       setShowAiReview(false)
       
       toast({
         title: "AI Suggestions Applied",
-        description: "Please select a category and location to complete your report"
+        description: "Please select a location to complete your report"
       })
     }
   }
@@ -430,6 +432,19 @@ export default function ReportIssuePage() {
                             {aiSuggestions.description}
                           </p>
                         </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-blue-800">Suggested Category:</Label>
+                          <div className="bg-white p-2 rounded border flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: ISSUE_CATEGORIES[aiSuggestions.category as IssueCategory]?.color || '#6B7280' }}
+                            />
+                            <span className="text-sm text-gray-700 font-medium">
+                              {ISSUE_CATEGORIES[aiSuggestions.category as IssueCategory]?.label || aiSuggestions.category}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="flex gap-2 mt-4">
@@ -477,8 +492,16 @@ export default function ReportIssuePage() {
 
                   {/* Category */}
                   <div className="space-y-2">
-                    <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
-                    <Select onValueChange={(value) => setValue("category", value as IssueCategory)}>
+                    <Label htmlFor="category" className="text-sm font-medium">
+                      Category *
+                      {aiSuggestions && !showAiReview && (
+                        <span className="text-xs text-blue-600 ml-2">(AI suggested)</span>
+                      )}
+                    </Label>
+                    <Select 
+                      value={selectedCategory}
+                      onValueChange={(value) => setValue("category", value as IssueCategory)}
+                    >
                       <SelectTrigger className={`h-11 ${errors.category ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Select issue category" />
                       </SelectTrigger>
