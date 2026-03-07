@@ -280,7 +280,7 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
       <Navbar />
       
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -300,9 +300,9 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
             />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-12">
+            {/* Main Content - Column 1 */}
+            <div className="md:col-span-2 xl:col-span-6 space-y-6">
               {/* Issue Details Card */}
               <Card>
                 <CardHeader>
@@ -475,16 +475,84 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                   </div>
                 </CardContent>
               </Card>
+            </div>
 
-              {/* Progress Updates Section */}
+            {/* Metadata Column - Column 2 */}
+            <div className="xl:col-span-3 space-y-6">
+              {/* Reporter Info */}
               <Card>
+                <CardHeader>
+                  <CardTitle>Reported By</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-gray-100 text-gray-700">
+                        {issue.reporter.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{issue.reporter.name}</p>
+                      <p className="text-sm text-gray-500">{issue.reporter.role}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Issue Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Issue Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Votes</span>
+                    <span className="font-medium">{(issue as any).votes_count || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Comments</span>
+                    <span className="font-medium">{(issue as any).comments_count || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Status</span>
+                    <StatusBadge status={issue.status} />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Priority</span>
+                    <PriorityIndicator priority={issue.priority} variant="full" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Location */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Location</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-1 text-gray-500" />
+                      <p className="text-sm">{issue.address}</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {typeof issue.latitude === 'number' ? issue.latitude.toFixed(6) : issue.latitude}, {typeof issue.longitude === 'number' ? issue.longitude.toFixed(6) : issue.longitude}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Progress Updates Column - Column 3 */}
+            <div className="xl:col-span-3 md:col-span-2">
+              <Card className="sticky top-4 max-h-[calc(100vh-8rem)]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Activity className="h-5 w-5" />
                     Progress Updates ({updates.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-y-auto max-h-[calc(100vh-16rem)]">
                   <div className="space-y-4">
                     {updatesLoading ? (
                       <div className="flex justify-center py-8">
@@ -597,72 +665,6 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                         </div>
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Reporter Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reported By</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-gray-100 text-gray-700">
-                        {issue.reporter.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{issue.reporter.name}</p>
-                      <p className="text-sm text-gray-500">{issue.reporter.role}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Issue Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Issue Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Votes</span>
-                    <span className="font-medium">{(issue as any).votes_count || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Comments</span>
-                    <span className="font-medium">{(issue as any).comments_count || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Status</span>
-                    <StatusBadge status={issue.status} />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Priority</span>
-                    <PriorityIndicator priority={issue.priority} variant="full" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Location */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Location</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-1 text-gray-500" />
-                      <p className="text-sm">{issue.address}</p>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {typeof issue.latitude === 'number' ? issue.latitude.toFixed(6) : issue.latitude}, {typeof issue.longitude === 'number' ? issue.longitude.toFixed(6) : issue.longitude}
-                    </p>
                   </div>
                 </CardContent>
               </Card>
