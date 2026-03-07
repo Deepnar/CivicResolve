@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
       },
       votes_count: issue.votes || 0,
       comments_count: issue.comments || 0,
-      createdAt: new Date(issue.created_at),
-      updatedAt: new Date(issue.updated_at)
+      createdAt: issue.created_at ? new Date(issue.created_at).toISOString() : new Date().toISOString(),
+      updatedAt: issue.updated_at ? new Date(issue.updated_at).toISOString() : new Date().toISOString()
     }))
     
     // Get organization details

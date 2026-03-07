@@ -33,8 +33,20 @@ export function convertToUserTime(utcDate: string | Date): Date {
  * @returns Formatted distance string (e.g., "2 hours ago")
  */
 export function formatTimeAgo(utcDate: string | Date): string {
+  // Handle null, undefined, or invalid dates
+  if (!utcDate) {
+    return 'Recently'
+  }
+  
+  const date = convertToUserTime(utcDate)
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return 'Recently'
+  }
+  
   const { formatDistanceToNow } = require('date-fns')
-  return formatDistanceToNow(convertToUserTime(utcDate), { addSuffix: true })
+  return formatDistanceToNow(date, { addSuffix: true })
 }
 
 /**

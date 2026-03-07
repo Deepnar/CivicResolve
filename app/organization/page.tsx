@@ -26,7 +26,7 @@ interface RecentIssue {
   category: string
   status: string
   priority: string
-  created_at: string
+  createdAt: string
   address: string
 }
 
@@ -236,7 +236,7 @@ export default function OrganizationDashboard() {
                         {issue.status.replace('_', ' ')}
                       </Badge>
                       <span className="text-xs text-gray-500">
-                        {formatTimeAgo(issue.created_at)}
+                        {formatTimeAgo(issue.createdAt)}
                       </span>
                     </div>
                   </div>
