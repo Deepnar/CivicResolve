@@ -435,7 +435,7 @@ export default function AdminDashboardPage() {
               { href: '/admin/users', label: 'Users', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
               { href: '/admin/appeals', label: 'Appeals', icon: Scale, color: 'text-red-600', bg: 'bg-red-50' },
               { href: '/admin/organizations', label: 'Organizations', icon: Building2, color: 'text-green-600', bg: 'bg-green-50' },
-              { href: '/admin/monitoring', label: 'Monitoring', icon: ActivityIcon, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { href: '/admin/monitoring/performance', label: 'Monitoring', icon: ActivityIcon, color: 'text-indigo-600', bg: 'bg-indigo-50' },
             ].map(({ href, label, icon: Icon, color, bg }) => (
               <Link
                 key={href}
