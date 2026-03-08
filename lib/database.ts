@@ -9,6 +9,13 @@ import type {
   QueryResult 
 } from './database-types'
 
+// Persist pool on global to survive Next.js hot module reloads in dev mode.
+// Without this, every HMR cycle creates a new pool of connections and
+// exhausts MySQL's max_connections limit.
+const globalForDb = global as typeof globalThis & {
+  _mysqlPool?: mysql.Pool
+}
+
 export interface DatabaseConfig {
   host: string;
   port: number;
@@ -64,8 +71,9 @@ class DatabaseManager {
       const poolConfig: mysql.PoolOptions = {
         ...this.config,
         waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0,
+        connectionLimit: 5,
+        queueLimit: 30,
+        connectTimeout: 10000,
         multipleStatements: false, // Security: prevent SQL injection through multiple statements
         timezone: 'Z', // Use UTC
       };
@@ -90,7 +98,13 @@ class DatabaseManager {
     if (!this.initialized) {
       this.initialize();
     }
-    
+
+    // Reuse the pool stored on global across HMR reloads
+    if (globalForDb._mysqlPool) {
+      this.pool = globalForDb._mysqlPool;
+      return this.pool;
+    }
+
     if (!this.pool && this.config) {
       try {
         this.pool = mysql.createPool({
@@ -100,9 +114,17 @@ class DatabaseManager {
           password: this.config.password,
           database: this.config.database,
           waitForConnections: true,
-          connectionLimit: 10,
-          queueLimit: 0,
+          connectionLimit: 5,   // low enough to stay within MySQL's max_connections
+          queueLimit: 30,        // queue requests instead of rejecting them
+          connectTimeout: 10000, // 10s connect timeout
+          multipleStatements: false,
+          timezone: 'Z',
         });
+
+        // Persist across HMR so we don't leak pools on every reload
+        if (process.env.NODE_ENV !== 'production') {
+          globalForDb._mysqlPool = this.pool;
+        }
 
         logger.info('Database connection pool created successfully');
       } catch (error) {

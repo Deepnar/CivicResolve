@@ -5,6 +5,7 @@ import { IssueAssignmentModel } from "@/lib/models"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
 import { withServerCache, serverCacheInvalidate, SERVER_CACHE_TTL } from "@/lib/server-cache"
+import { DuplicateDetection } from "@/lib/duplicate-detection"
 
 const createIssueSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -16,6 +17,10 @@ const createIssueSchema = z.object({
   address: z.string().min(5, "Address is required"),
   image_url: z.string().optional().nullable(), // Allow data URLs and null values
   is_anonymous: z.boolean().default(false),
+  // Reporter acknowledgement for duplicate detection
+  reporter_confirmed_unique: z.boolean().optional(),
+  reporter_acknowledgement: z.enum(["SAME_ISSUE", "DIFFERENT_ISSUE"]).optional(),
+  selected_duplicate_of: z.number().int().positive().optional(),
   // NGO-specific fields (optional for regular users)
   citizen_name: z.string().optional(),
   citizen_phone: z.string().optional(),
@@ -131,6 +136,57 @@ export async function POST(request: NextRequest) {
 
     const issueData = validationResult.data
 
+    // Run duplicate detection BEFORE creating the issue
+    // Only skip if user selected "Different Issue" (confirmed unique)
+    let duplicateDetectionResult = null
+    
+    // Skip detection only if user confirmed it's unique (DIFFERENT_ISSUE)
+    const shouldRunDetection = !issueData.reporter_confirmed_unique || issueData.reporter_acknowledgement === 'SAME_ISSUE'
+    
+    if (shouldRunDetection) {
+      try {
+        console.log(`🔍 Running duplicate detection for new issue: "${issueData.title.substring(0, 50)}"`)
+        
+        duplicateDetectionResult = await DuplicateDetection.detectDuplicates({
+          title: issueData.title,
+          description: issueData.description,
+          category: issueData.category,
+          latitude: issueData.latitude,
+          longitude: issueData.longitude,
+        })
+
+        // Only return 409 if user hasn't made a choice yet
+        // If reporter_acknowledgement is set, user already reviewed - proceed with creation
+        if (
+          duplicateDetectionResult.isDuplicate && 
+          duplicateDetectionResult.possibleDuplicates.length > 0 &&
+          !issueData.reporter_acknowledgement // Only block if user hasn't acknowledged yet
+        ) {
+          console.log(`⚠️ Found ${duplicateDetectionResult.possibleDuplicates.length} possible duplicate(s) - returning for user confirmation`)
+          endTimer()
+          return Response.json(
+            {
+              duplicate_check_required: true,
+              possible_duplicates: duplicateDetectionResult.possibleDuplicates,
+              message: 'Similar issues found. Please review before submitting.',
+            },
+            { status: 409 } // Conflict status
+          )
+        }
+        
+        if (issueData.reporter_acknowledgement) {
+          console.log(`✅ User acknowledged duplicates (${issueData.reporter_acknowledgement}), proceeding with creation`)
+        } else {
+          console.log(`✅ No duplicates detected, proceeding with issue creation`)
+        }
+      } catch (detectionError) {
+        console.error('Duplicate detection failed:', detectionError)
+        // Don't fail the request if duplicate detection fails
+      }
+    } else {
+      console.log(`✅ User confirmed uniqueness (DIFFERENT_ISSUE), skipping duplicate detection`)
+    }
+
     // Create the issue
     const issueId = await IssueModel.create({
       ...issueData,
@@ -140,6 +196,82 @@ export async function POST(request: NextRequest) {
     })
     
     console.log(`✅ New issue created: #${issueId} by ${issueData.is_anonymous ? 'Anonymous User' : user.name} (${issueData.category})${issueData.is_anonymous ? ' [ANONYMOUS]' : ''}`)
+
+    // Store duplicate detection results and reporter acknowledgement
+    if (issueData.reporter_confirmed_unique) {
+      try {
+        // Store duplicate detection results if we have them
+        if (duplicateDetectionResult) {
+          await DuplicateDetection.storeDuplicateDetection(issueId, duplicateDetectionResult)
+        }
+        
+        // Always store reporter acknowledgement when user has confirmed
+        await Database.update(
+          `UPDATE issues 
+           SET reporter_confirmed_unique = ?, 
+               reporter_acknowledgement = ?
+           WHERE id = ?`,
+          [true, issueData.reporter_acknowledgement || null, issueId]
+        )
+        
+        console.log(`📝 Reporter confirmation stored for issue #${issueId} (acknowledgement: ${issueData.reporter_acknowledgement})`)
+      } catch (storeError) {
+        console.error('Failed to store reporter confirmation:', storeError)
+      }
+    } else if (issueData.reporter_acknowledgement === 'SAME_ISSUE' && issueData.selected_duplicate_of) {
+      // User confirmed this is the same as an existing issue - link them
+      try {
+        await Database.update(
+          `UPDATE issues 
+           SET possible_duplicate_of = ?,
+               duplicate_status = 'MERGED',
+               reporter_confirmed_unique = 0,
+               reporter_acknowledgement = 'SAME_ISSUE'
+           WHERE id = ?`,
+          [issueData.selected_duplicate_of, issueId]
+        )
+        
+        // Create a duplicate relationship record
+        const { DuplicateRelationshipModel, DuplicateDetectionAuditModel } = await import('@/lib/models')
+        await DuplicateRelationshipModel.create({
+          original_issue_id: issueData.selected_duplicate_of,
+          duplicate_issue_id: issueId,
+          action: 'MERGED',
+          admin_id: user.id,
+          similarity_score: duplicateDetectionResult?.possibleDuplicates?.find(
+            (d: any) => d.issueId === issueData.selected_duplicate_of
+          )?.similarityScore ?? undefined,
+        })
+        
+        // Log to audit
+        await DuplicateDetectionAuditModel.create({
+          issue_id: issueId,
+          action_type: 'MERGED',
+          performed_by: user.id,
+          details: {
+            selected_duplicate_of: issueData.selected_duplicate_of,
+            acknowledgement: 'SAME_ISSUE'
+          }
+        })
+        
+        // Store detection results if available
+        if (duplicateDetectionResult) {
+          await DuplicateDetection.storeDuplicateDetection(issueId, duplicateDetectionResult)
+        }
+        
+        console.log(`🔗 Issue #${issueId} linked as duplicate of #${issueData.selected_duplicate_of}`)
+      } catch (linkError) {
+        console.error('Failed to link duplicate issue:', linkError)
+      }
+    } else if (duplicateDetectionResult) {
+      // Store detection results even if no duplicates were found (for analytics)
+      try {
+        await DuplicateDetection.storeDuplicateDetection(issueId, duplicateDetectionResult)
+        console.log(`📝 Duplicate detection results stored for issue #${issueId}`)
+      } catch (storeError) {
+        console.error('Failed to store duplicate detection:', storeError)
+      }
+    }
 
     // Log anonymous submission to audit table for security and moderation
     if (issueData.is_anonymous) {

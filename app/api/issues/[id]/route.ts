@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { IssueModel, VoteModel, CommentModel, AuthUtils, UserModel, UserOrganizationModel } from "@/lib/db"
+import { IssueModel, VoteModel, CommentModel, AuthUtils, UserModel, UserOrganizationModel, Database } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
 import { emailService } from "@/lib/email-service"
 import { serverCacheInvalidate } from "@/lib/server-cache"
@@ -41,6 +41,71 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get comments for this issue
     const comments = await CommentModel.getByIssueId(issueId)
 
+    // Get linked/duplicate issues
+    let linkedIssues: any[] = []
+    let parentIssue: any = null
+    let combinedVotesCount = (rawIssue as any).votes_count || 0
+    
+    try {
+      // Check if this issue is a duplicate of another (has a parent)
+      if ((rawIssue as any).possible_duplicate_of) {
+        const parentRows = await Database.query(
+          `SELECT i.id, i.title, i.category, i.status, i.address, i.created_at,
+                  u.name as reporter_name,
+                  (SELECT COUNT(*) FROM votes v WHERE v.issue_id = i.id) as votes_count
+           FROM issues i
+           LEFT JOIN users u ON i.reporter_id = u.id
+           WHERE i.id = ?`,
+          [(rawIssue as any).possible_duplicate_of]
+        ) as any[]
+        if (parentRows && parentRows.length > 0) {
+          parentIssue = {
+            id: parentRows[0].id,
+            title: parentRows[0].title,
+            category: parentRows[0].category,
+            status: parentRows[0].status,
+            address: parentRows[0].address,
+            reporter_name: parentRows[0].reporter_name,
+            votes_count: parentRows[0].votes_count || 0,
+            created_at: parentRows[0].created_at,
+          }
+        }
+      }
+      
+      // Get all issues that are duplicates of this one (children)
+      const childRows = await Database.query(
+        `SELECT i.id, i.title, i.category, i.status, i.address, i.created_at,
+                i.duplicate_confidence,
+                u.name as reporter_name,
+                (SELECT COUNT(*) FROM votes v WHERE v.issue_id = i.id) as votes_count
+         FROM issues i
+         LEFT JOIN users u ON i.reporter_id = u.id
+         WHERE i.possible_duplicate_of = ?
+         ORDER BY i.created_at DESC`,
+        [issueId]
+      ) as any[]
+      
+      if (childRows && childRows.length > 0) {
+        linkedIssues = childRows.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          category: row.category,
+          status: row.status,
+          address: row.address,
+          reporter_name: row.reporter_name,
+          votes_count: row.votes_count || 0,
+          confidence: row.duplicate_confidence,
+          created_at: row.created_at,
+        }))
+        
+        // Calculate combined votes (this issue + all linked duplicates)
+        combinedVotesCount = ((rawIssue as any).votes_count || 0) + 
+          childRows.reduce((sum: number, row: any) => sum + (row.votes_count || 0), 0)
+      }
+    } catch (linkedError) {
+      console.error('Failed to fetch linked issues:', linkedError)
+    }
+
     // Filter out any undefined comments and ensure they have required fields
     const validComments = (comments || []).filter(comment =>
       comment && comment.id && comment.content && comment.author_name
@@ -81,6 +146,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       assigned_at: (rawIssue as any).assigned_at,
       assigned_by: (rawIssue as any).assigned_by,
       hasVoted, // Include user's vote status
+      linkedIssues, // Issues that are duplicates of this one
+      parentIssue, // Issue this one is a duplicate of (if any)
+      combinedVotesCount, // Total votes including linked duplicates
       createdAt: new Date((rawIssue as any).created_at),
       updatedAt: new Date((rawIssue as any).updated_at)
     }

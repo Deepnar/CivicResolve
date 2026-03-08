@@ -18,6 +18,7 @@ export const ISSUE_STATUS = {
   RESOLVED: { label: "Resolved", color: "#10b981", bgColor: "#d1fae5" },
   REJECTED: { label: "Rejected", color: "#ef4444", bgColor: "#fee2e2" },
   UNDER_APPEAL: { label: "Under Appeal", color: "#8b5cf6", bgColor: "#ede9fe" },
+  CLOSED_DUPLICATE: { label: "Closed (Duplicate)", color: "#6b7280", bgColor: "#f3f4f6" },
 } as const
 
 export const PRIORITY_LEVELS = {

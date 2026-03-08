@@ -108,7 +108,7 @@ Return the analysis in the following JSON format:
   "resources_needed": {
     "equipment": ["list of equipment needed"],
     "materials": ["list of materials needed"],
-    "estimated_cost": "cost estimate if possible",
+    "estimated_cost": "cost estimate if possible in RUPEES",
     "estimated_time": "time estimate for resolution"
   },
   "immediate_actions": ["list of immediate actions needed"],

@@ -71,7 +71,7 @@ export interface Issue {
   title: string;
   description: string;
   category: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'UNDER_APPEAL';
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'UNDER_APPEAL' | 'CLOSED_DUPLICATE';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   latitude: number;
   longitude: number;
@@ -273,8 +273,8 @@ export class IssueModel {
     is_anonymous?: boolean;
   }): Promise<number> {
     const sql = `
-      INSERT INTO issues (title, description, category, priority, latitude, longitude, address, image_url, reporter_id, is_anonymous)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (title, description, category, priority, latitude, longitude, address, image_url, reporter_id, is_anonymous, location_point)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?))
     `;
     const issueId = await Database.insert(sql, [
       issueData.title,
@@ -287,6 +287,8 @@ export class IssueModel {
       issueData.image_url || null,
       issueData.reporter_id,
       issueData.is_anonymous || false,
+      issueData.longitude,
+      issueData.latitude,
     ]);
 
     // Invalidate issue-related caches
@@ -435,6 +437,7 @@ export class IssueModel {
       RESOLVED: ["UNDER_APPEAL"], // Allow appeals from resolved issues
       REJECTED: ["UNDER_APPEAL", "PENDING"], // Allow appeals from rejected issues
       UNDER_APPEAL: ["PENDING", "RESOLVED", "REJECTED"], // Allow status changes after appeal review
+      CLOSED_DUPLICATE: [], // Closed duplicates cannot be transitioned
     }
 
     if (!validTransitions[currentStatus]?.includes(status as IssueStatus)) {
@@ -1708,3 +1711,269 @@ export class IssueUpdateModel {
     return affectedRows > 0;
   }
 }
+
+// =================================================================
+// DUPLICATE DETECTION MODELS
+// =================================================================
+
+export class DuplicateRelationshipModel {
+  static async create(data: {
+    original_issue_id: number;
+    duplicate_issue_id: number;
+    action: 'MERGED' | 'IGNORED' | 'SEPARATE';
+    admin_id: number;
+    admin_comment?: string;
+    similarity_score?: number;
+    distance_meters?: number;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO duplicate_relationships 
+      (original_issue_id, duplicate_issue_id, action, admin_id, admin_comment, similarity_score, distance_meters)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        action = VALUES(action),
+        admin_id = VALUES(admin_id),
+        admin_comment = COALESCE(VALUES(admin_comment), admin_comment),
+        similarity_score = COALESCE(VALUES(similarity_score), similarity_score),
+        distance_meters = COALESCE(VALUES(distance_meters), distance_meters)
+    `;
+    const relationshipId = await Database.insert(sql, [
+      data.original_issue_id,
+      data.duplicate_issue_id,
+      data.action,
+      data.admin_id,
+      data.admin_comment || null,
+      data.similarity_score || null,
+      data.distance_meters || null,
+    ]);
+    return relationshipId;
+  }
+
+  static async findByIssueId(issueId: number): Promise<any[]> {
+    const sql = `
+      SELECT dr.*,
+             u.name as admin_name,
+             i1.title as original_issue_title,
+             i2.title as duplicate_issue_title
+      FROM duplicate_relationships dr
+      LEFT JOIN users u ON dr.admin_id = u.id
+      LEFT JOIN issues i1 ON dr.original_issue_id = i1.id
+      LEFT JOIN issues i2 ON dr.duplicate_issue_id = i2.id
+      WHERE dr.original_issue_id = ? OR dr.duplicate_issue_id = ?
+      ORDER BY dr.created_at DESC
+    `;
+    return await Database.query(sql, [issueId, issueId]);
+  }
+
+  static async findById(id: number): Promise<any | null> {
+    const sql = `
+      SELECT dr.*,
+             u.name as admin_name
+      FROM duplicate_relationships dr
+      LEFT JOIN users u ON dr.admin_id = u.id
+      WHERE dr.id = ?
+    `;
+    return await Database.queryOne(sql, [id]);
+  }
+
+  static async getAll(): Promise<any[]> {
+    const sql = `
+      SELECT dr.*,
+             u.name as admin_name,
+             i1.title as original_issue_title,
+             i2.title as duplicate_issue_title
+      FROM duplicate_relationships dr
+      LEFT JOIN users u ON dr.admin_id = u.id
+      LEFT JOIN issues i1 ON dr.original_issue_id = i1.id
+      LEFT JOIN issues i2 ON dr.duplicate_issue_id = i2.id
+      ORDER BY dr.created_at DESC
+    `;
+    return await Database.query(sql);
+  }
+}
+
+export class DuplicateDetectionAuditModel {
+  static async create(data: {
+    issue_id: number;
+    action_type: 'DETECTED' | 'MERGED' | 'IGNORED' | 'SEPARATE' | 'AUTO_DETECTED';
+    performed_by?: number;
+    details?: any;
+    similarity_score?: number;
+    distance_meters?: number;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO duplicate_detection_audit 
+      (issue_id, action_type, performed_by, details, similarity_score, distance_meters)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    const auditId = await Database.insert(sql, [
+      data.issue_id,
+      data.action_type,
+      data.performed_by || null,
+      data.details ? JSON.stringify(data.details) : null,
+      data.similarity_score || null,
+      data.distance_meters || null,
+    ]);
+    return auditId;
+  }
+
+  static async findByIssueId(issueId: number): Promise<any[]> {
+    const sql = `
+      SELECT dda.*,
+             u.name as performer_name,
+             i.title as issue_title
+      FROM duplicate_detection_audit dda
+      LEFT JOIN users u ON dda.performed_by = u.id
+      LEFT JOIN issues i ON dda.issue_id = i.id
+      WHERE dda.issue_id = ?
+      ORDER BY dda.created_at DESC
+    `;
+    return await Database.query(sql, [issueId]);
+  }
+
+  static async getRecent(limit: number = 50): Promise<any[]> {
+    const sql = `
+      SELECT dda.*,
+             u.name as performer_name,
+             i.title as issue_title
+      FROM duplicate_detection_audit dda
+      LEFT JOIN users u ON dda.performed_by = u.id
+      LEFT JOIN issues i ON dda.issue_id = i.id
+      ORDER BY dda.created_at DESC
+      LIMIT ?
+    `;
+    return await Database.query(sql, [limit]);
+  }
+
+  static async getByActionType(actionType: string): Promise<any[]> {
+    const sql = `
+      SELECT dda.*,
+             u.name as performer_name,
+             i.title as issue_title
+      FROM duplicate_detection_audit dda
+      LEFT JOIN users u ON dda.performed_by = u.id
+      LEFT JOIN issues i ON dda.issue_id = i.id
+      WHERE dda.action_type = ?
+      ORDER BY dda.created_at DESC
+    `;
+    return await Database.query(sql, [actionType]);
+  }
+}
+
+export class DuplicateIgnorePairModel {
+  static async create(data: {
+    issue_id_1: number;
+    issue_id_2: number;
+    added_by: number;
+    reason?: string;
+  }): Promise<number> {
+    const sql = `
+      INSERT INTO duplicate_ignore_pairs 
+      (issue_id_1, issue_id_2, added_by, reason)
+      VALUES (?, ?, ?, ?)
+    `;
+    const pairId = await Database.insert(sql, [
+      Math.min(data.issue_id_1, data.issue_id_2), // Store in consistent order
+      Math.max(data.issue_id_1, data.issue_id_2),
+      data.added_by,
+      data.reason || null,
+    ]);
+    return pairId;
+  }
+
+  static async exists(issueId1: number, issueId2: number): Promise<boolean> {
+    const sql = `
+      SELECT COUNT(*) as count 
+      FROM duplicate_ignore_pairs 
+      WHERE issue_id_1 = ? AND issue_id_2 = ?
+    `;
+    const result = await Database.queryOne<{ count: number }>(sql, [
+      Math.min(issueId1, issueId2),
+      Math.max(issueId1, issueId2),
+    ]);
+    return (result?.count || 0) > 0;
+  }
+
+  static async getAll(): Promise<any[]> {
+    const sql = `
+      SELECT dip.*,
+             u.name as added_by_name,
+             i1.title as issue_1_title,
+             i2.title as issue_2_title
+      FROM duplicate_ignore_pairs dip
+      LEFT JOIN users u ON dip.added_by = u.id
+      LEFT JOIN issues i1 ON dip.issue_id_1 = i1.id
+      LEFT JOIN issues i2 ON dip.issue_id_2 = i2.id
+      ORDER BY dip.created_at DESC
+    `;
+    return await Database.query(sql);
+  }
+
+  static async deleteById(id: number): Promise<boolean> {
+    const sql = 'DELETE FROM duplicate_ignore_pairs WHERE id = ?';
+    const affected = await Database.delete(sql, [id]);
+    return affected > 0;
+  }
+}
+
+export class DuplicateReviewQueueModel {
+  static async getPending(): Promise<any[]> {
+    const sql = `
+      SELECT * FROM admin_duplicate_review_queue
+    `;
+    return await Database.query(sql);
+  }
+
+  static async getPendingCount(): Promise<number> {
+    const sql = `
+      SELECT COUNT(*) as count 
+      FROM issues 
+      WHERE duplicate_status = 'PENDING' 
+        AND status != 'CLOSED_DUPLICATE'
+        AND possible_duplicate_of IS NOT NULL
+    `;
+    const result = await Database.queryOne<{ count: number }>(sql);
+    return result?.count || 0;
+  }
+
+  static async getByCategory(category: string): Promise<any[]> {
+    const sql = `
+      SELECT * FROM admin_duplicate_review_queue
+      WHERE issue_category = ?
+    `;
+    return await Database.query(sql, [category]);
+  }
+
+  static async getPaginated(limit: number = 20, offset: number = 0): Promise<{
+    items: any[];
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    const countSql = `
+      SELECT COUNT(*) as count 
+      FROM issues 
+      WHERE duplicate_status = 'PENDING' 
+        AND status != 'CLOSED_DUPLICATE'
+        AND possible_duplicate_of IS NOT NULL
+    `;
+    const countResult = await Database.queryOne<{ count: number }>(countSql);
+    const totalCount = countResult?.count || 0;
+
+    const safeLimit = Math.max(1, Math.min(parseInt(String(limit), 10) || 20, 100))
+    const safeOffset = Math.max(0, parseInt(String(offset), 10) || 0)
+    const sql = `
+      SELECT * FROM admin_duplicate_review_queue
+      LIMIT ${safeLimit} OFFSET ${safeOffset}
+    `;
+    const items = await Database.query(sql);
+
+    return {
+      items,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: Math.floor(offset / limit) + 1,
+    };
+  }
+}
+

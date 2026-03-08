@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react"
 import { motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
-import { ArrowLeft, MapPin, Calendar, MessageCircle, Send, Activity, Upload, X } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, MessageCircle, Send, Activity, Upload, X, Link2, AlertTriangle, ThumbsUp, GitMerge, Anchor } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatusBadge } from "@/components/ui/badge-status"
@@ -298,6 +298,92 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
               title={issue.title}
               description={`Issue #${issue.id} • Reported ${formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}`}
             />
+
+            {/* Root Issue Banner */}
+            {!(issue as any).parentIssue && (issue as any).linkedIssues && (issue as any).linkedIssues.length > 0 && (
+              <div className="mt-4 p-4 rounded-lg bg-green-50 border border-green-200">
+                <div className="flex items-start gap-3">
+                  <Anchor className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+                        Root Issue
+                      </span>
+                      <span className="text-xs text-green-700">
+                        {(issue as any).linkedIssues.length} linked report{(issue as any).linkedIssues.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-800">
+                      This is the primary issue. {(issue as any).linkedIssues.length} similar report{(issue as any).linkedIssues.length !== 1 ? 's have' : ' has'} been linked here — all votes and support are combined.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(issue as any).linkedIssues.slice(0, 3).map((linked: any) => (
+                        <Link
+                          key={linked.id}
+                          href={`/issues/${linked.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-100 hover:bg-green-200 text-xs text-green-800 transition-colors"
+                        >
+                          <GitMerge className="h-3 w-3" />
+                          #{linked.id} by {linked.reporter_name}
+                        </Link>
+                      ))}
+                      {(issue as any).linkedIssues.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded bg-green-100 text-xs text-green-700">
+                          +{(issue as any).linkedIssues.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Leaf / Linked Duplicate Banner */}
+            {(issue as any).parentIssue && (
+              <div className="mt-4 p-4 rounded-lg bg-orange-50 border border-orange-200">
+                <div className="flex items-start gap-3">
+                  <GitMerge className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-300">
+                        Linked Duplicate
+                      </span>
+                    </div>
+                    <p className="text-sm text-orange-800 mb-2">
+                      This report has been linked to a root issue. Votes and support are combined there.
+                    </p>
+                    <Link
+                      href={`/issues/${(issue as any).parentIssue.id}`}
+                      className="block p-3 rounded-lg bg-white border border-orange-200 hover:border-orange-400 hover:shadow-sm transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 line-clamp-1">
+                          Issue #{(issue as any).parentIssue.id}: {(issue as any).parentIssue.title}
+                        </span>
+                        <StatusBadge status={(issue as any).parentIssue.status} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                        <CategoryBadge category={(issue as any).parentIssue.category} />
+                        <span className="flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                          {(issue as any).parentIssue.reporter_name}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ThumbsUp className="h-3 w-3" />
+                          {(issue as any).parentIssue.votes_count} votes
+                        </span>
+                        {(issue as any).parentIssue.address && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span className="truncate max-w-[140px]">{(issue as any).parentIssue.address}</span>
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-12">
@@ -309,7 +395,13 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <CategoryBadge category={issue.category} />
-                      <StatusBadge status={issue.status} />
+                      <StatusBadge
+                        status={issue.status}
+                        href={issue.status === 'CLOSED_DUPLICATE' && (issue as any).parentIssue
+                          ? `/issues/${(issue as any).parentIssue.id}`
+                          : undefined
+                        }
+                      />
                       <PriorityIndicator priority={issue.priority} />
                     </div>
                     <VoteButton 
@@ -509,6 +601,12 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                     <span className="text-sm text-gray-600">Votes</span>
                     <span className="font-medium">{(issue as any).votes_count || 0}</span>
                   </div>
+                  {(issue as any).combinedVotesCount > ((issue as any).votes_count || 0) && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Combined Votes</span>
+                      <span className="font-medium text-orange-600">{(issue as any).combinedVotesCount}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Comments</span>
                     <span className="font-medium">{(issue as any).comments_count || 0}</span>
@@ -541,6 +639,58 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Linked Reports */}
+              {(issue as any).linkedIssues && (issue as any).linkedIssues.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Link2 className="h-5 w-5" />
+                      Linked Reports ({(issue as any).linkedIssues.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {(issue as any).linkedIssues.map((linked: any) => (
+                        <Link
+                          key={linked.id}
+                          href={`/issues/${linked.id}`}
+                          className="block p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start mb-1 gap-1">
+                            <span className="text-sm font-medium text-gray-900 line-clamp-1">
+                              #{linked.id}: {linked.title}
+                            </span>
+                            <StatusBadge status={linked.status} />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-1">
+                            <CategoryBadge category={linked.category} />
+                            <span className="flex items-center gap-1">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                              {linked.reporter_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <ThumbsUp className="h-3 w-3" />
+                              {linked.votes_count}
+                            </span>
+                          </div>
+                          {linked.address && (
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{linked.address}</span>
+                            </div>
+                          )}
+                          {linked.confidence && (
+                            <div className="mt-1 text-xs text-orange-600">
+                              {(linked.confidence * 100).toFixed(0)}% similar
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Progress Updates Column - Column 3 */}

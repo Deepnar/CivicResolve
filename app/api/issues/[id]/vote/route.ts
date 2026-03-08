@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { VoteModel, AuthUtils } from "@/lib/db"
+import { VoteModel, AuthUtils, Database } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
 import { serverCacheInvalidate } from "@/lib/server-cache"
 
@@ -22,6 +22,13 @@ export async function POST(
       return Response.json({ error: "Invalid issue ID" }, { status: 400 })
     }
 
+    // Check if this issue is a CLOSED_DUPLICATE — if so, bubble up to root
+    const issueRow = await Database.queryOne<{ possible_duplicate_of: number | null }>(
+      `SELECT possible_duplicate_of FROM issues WHERE id = ?`,
+      [issueId]
+    )
+    const rootIssueId = issueRow?.possible_duplicate_of ?? null
+
     // Check if user has already voted
     const existingVote = await VoteModel.findByIssueAndUser(issueId, user.id)
     console.log(`🗳️ [VOTE] User ${user.id} ${existingVote ? 'already voted' : 'has not voted'} on issue ${issueId}`)
@@ -30,17 +37,28 @@ export async function POST(
     let votesCount: number
 
     if (existingVote) {
-      // Remove the vote
+      // Remove the vote from this issue
       console.log(`➖ [VOTE] Removing vote for user ${user.id} on issue ${issueId}`)
       await VoteModel.delete(issueId, user.id)
+      // Also remove from root issue if this is a leaf
+      if (rootIssueId) {
+        await VoteModel.delete(rootIssueId, user.id)
+      }
       message = "Vote removed"
     } else {
-      // Add the vote
+      // Add the vote to this issue
       console.log(`➕ [VOTE] Adding vote for user ${user.id} on issue ${issueId}`)
       await VoteModel.create({
         issue_id: issueId,
         user_id: user.id,
       })
+      // Also mirror vote to root issue (INSERT IGNORE prevents duplicate)
+      if (rootIssueId) {
+        await Database.query(
+          `INSERT IGNORE INTO votes (issue_id, user_id, created_at) VALUES (?, ?, NOW())`,
+          [rootIssueId, user.id]
+        )
+      }
       message = "Vote added"
     }
 

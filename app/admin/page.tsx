@@ -15,7 +15,8 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar, BarChart3, RefreshCw } from "lucide-react"
+import { AlertCircle, TrendingUp, Users, Clock, CheckCircle, XCircle, Download, Calendar, BarChart3, RefreshCw, GitMerge, Shield, FileText, Building2, Scale, ActivityIcon } from "lucide-react"
+import Link from "next/link"
 import { PageHeader } from "@/components/ui/page-header"
 import { StatsCard } from "@/components/ui/stats-card"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -417,6 +418,37 @@ export default function AdminDashboardPage() {
             icon={AlertCircle}
             color="#10b981"
           />
+        </motion.div>
+
+        {/* Management Tools */}
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.18 }}
+        >
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">Management Tools</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { href: '/admin/issues', label: 'Issues', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { href: '/admin/duplicates', label: 'Duplicates', icon: GitMerge, color: 'text-orange-600', bg: 'bg-orange-50' },
+              { href: '/admin/users', label: 'Users', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { href: '/admin/appeals', label: 'Appeals', icon: Scale, color: 'text-red-600', bg: 'bg-red-50' },
+              { href: '/admin/organizations', label: 'Organizations', icon: Building2, color: 'text-green-600', bg: 'bg-green-50' },
+              { href: '/admin/monitoring', label: 'Monitoring', icon: ActivityIcon, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+            ].map(({ href, label, icon: Icon, color, bg }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border bg-white/80 hover:shadow-md hover:border-gray-300 transition-all group`}
+              >
+                <div className={`p-2 rounded-lg ${bg}`}>
+                  <Icon className={`h-5 w-5 ${color}`} />
+                </div>
+                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{label}</span>
+              </Link>
+            ))}
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

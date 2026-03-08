@@ -25,6 +25,7 @@ import type { IssueCategory } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { Badge } from "@/components/ui/badge"
+import { DuplicateConfirmationDialog } from "@/components/duplicate-confirmation-dialog"
 
 // Load LocationPicker dynamically with SSR disabled
 const LocationPicker = dynamic(() => import("@/components/location-picker"), {
@@ -70,6 +71,11 @@ export default function ReportIssuePage() {
   const [showAiReview, setShowAiReview] = useState(false)
   const [useManualInput, setUseManualInput] = useState(false)
   const [isAnonymous, setIsAnonymous] = useState(false)
+
+  // Duplicate detection states
+  const [possibleDuplicates, setPossibleDuplicates] = useState<any[]>([])
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
+  const [pendingIssueData, setPendingIssueData] = useState<any>(null)
 
   const {
     register,
@@ -262,6 +268,21 @@ export default function ReportIssuePage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+        
+        // Handle duplicate detection (409 Conflict)
+        if (response.status === 409 && errorData.possible_duplicates) {
+          console.log('⚠️ Duplicate issues detected:', errorData.possible_duplicates.length)
+          logger.info('Duplicates found - showing confirmation dialog', 'ReportPage', {
+            count: errorData.possible_duplicates.length,
+            pendingDataKeys: Object.keys(apiData)
+          })
+          setPossibleDuplicates(errorData.possible_duplicates)
+          setPendingIssueData(apiData)
+          setShowDuplicateDialog(true)
+          setIsSubmitting(false)
+          return
+        }
+        
         logger.error('Issue submission failed', undefined, 'ReportPage', { 
           status: response.status, 
           errorData 
@@ -301,6 +322,99 @@ export default function ReportIssuePage() {
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to submit issue"
       })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDuplicateConfirmation = async (acknowledgement: 'SAME_ISSUE' | 'DIFFERENT_ISSUE', selectedIssueId?: number) => {
+    setShowDuplicateDialog(false)
+    setIsSubmitting(true)
+
+    try {
+      // Check if pendingIssueData exists
+      if (!pendingIssueData) {
+        logger.error('Pending issue data is null', new Error('pendingIssueData is null'), 'ReportPage')
+        throw new Error("Issue data is missing. Please try submitting again.")
+      }
+
+      logger.info('Resubmitting issue with duplicate confirmation', 'ReportPage', {
+        acknowledgement,
+        selectedIssueId,
+        hasPendingData: !!pendingIssueData
+      })
+
+      // Resubmit with reporter confirmation
+      const apiData = {
+        ...pendingIssueData,
+        reporter_confirmed_unique: acknowledgement === 'DIFFERENT_ISSUE',
+        reporter_acknowledgement: acknowledgement,
+        ...(acknowledgement === 'SAME_ISSUE' && selectedIssueId ? { selected_duplicate_of: selectedIssueId } : {}),
+      }
+
+      console.log('📤 Submitting issue with duplicate confirmation:', {
+        title: apiData.title?.substring(0, 50),
+        acknowledgement,
+        reporter_confirmed_unique: apiData.reporter_confirmed_unique
+      })
+
+      const response = await fetch("/api/issues", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(apiData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        
+        logger.error('Issue resubmission failed', undefined, 'ReportPage', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        })
+
+        // Show specific error message if available
+        if (errorData.details) {
+          const errorMessages = Object.entries(errorData.details)
+            .map(([field, messages]) => 
+              `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`
+            )
+            .join('\n')
+          throw new Error(errorMessages)
+        }
+
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      console.log('✅ Issue submitted successfully after duplicate confirmation')
+      
+      toast({
+        title: "Success!",
+        description: acknowledgement === 'SAME_ISSUE' 
+          ? "Thanks for confirming! Your report has been linked to the existing issue."
+          : "Issue reported successfully!"
+      })
+      
+      // Reset state before navigation
+      setPendingIssueData(null)
+      setPossibleDuplicates([])
+      setShowDuplicateDialog(false)
+      
+      router.push("/")
+    } catch (error) {
+      logger.error('Issue submission after confirmation failed', error instanceof Error ? error : new Error(String(error)), 'ReportPage')
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit issue"
+      })
+      // Reset dialog state on error so user can try again
+      setShowDuplicateDialog(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -722,6 +836,20 @@ export default function ReportIssuePage() {
             </div>
           </div>
         )}
+
+        {/* Duplicate Confirmation Dialog */}
+        <DuplicateConfirmationDialog
+          open={showDuplicateDialog}
+          onOpenChange={setShowDuplicateDialog}
+          possibleDuplicates={possibleDuplicates}
+          onConfirm={handleDuplicateConfirmation}
+          onCancel={() => {
+            setShowDuplicateDialog(false)
+            setPendingIssueData(null)
+            setPossibleDuplicates([])
+            setIsSubmitting(false)
+          }}
+        />
       </div>
     </div>
   )

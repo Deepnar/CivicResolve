@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { z } from "zod"
-import { CommentModel, AuthUtils } from "@/lib/db"
+import { CommentModel, AuthUtils, Database } from "@/lib/db"
 import { PerformanceMonitor } from "@/lib/performance"
 import { serverCacheInvalidate } from "@/lib/server-cache"
 
@@ -58,13 +58,30 @@ export async function POST(
     console.log(`💬 [COMMENT] User ${user.id} (${user.name}) adding comment to issue ${issueId}`)
     console.log(`📝 [COMMENT] Comment content preview: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`)
 
-    // Create the comment
+    // Check if this issue is a CLOSED_DUPLICATE — if so, mirror comment to root
+    const issueRow = await Database.queryOne<{ possible_duplicate_of: number | null }>(
+      `SELECT possible_duplicate_of FROM issues WHERE id = ?`,
+      [issueId]
+    )
+    const rootIssueId = issueRow?.possible_duplicate_of ?? null
+
+    // Create the comment on this issue
     const commentId = await CommentModel.create({
       content,
       issue_id: issueId,
       author_id: user.id,
     })
     console.log(`✅ [COMMENT] Comment created with ID: ${commentId}`)
+
+    // Mirror comment to root issue so it appears in the main thread
+    if (rootIssueId) {
+      await CommentModel.create({
+        content: `[via linked issue #${issueId}] ${content}`,
+        issue_id: rootIssueId,
+        author_id: user.id,
+      })
+      console.log(`🔗 [COMMENT] Mirrored to root issue #${rootIssueId}`)
+    }
 
     // Get all comments for the issue to return
     const comments = await CommentModel.getByIssueId(issueId)

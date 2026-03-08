@@ -102,6 +102,12 @@ export interface Issue {
   citizen_name?: string  // Name of the actual citizen on whose behalf NGO is reporting
   citizen_phone?: string  // Phone number of the citizen (if available)
   ngo_notes?: string  // Additional notes from the NGO about the citizen or situation
+  // Duplicate detection fields
+  possible_duplicate_of?: number  // ID of the issue this might be a duplicate of
+  duplicate_confidence?: number  // Similarity score (0.0 - 1.0)
+  duplicate_status?: DuplicateStatus  // Status of duplicate review
+  reporter_confirmed_unique?: boolean  // Whether reporter confirmed it's unique
+  reporter_acknowledgement?: ReporterAcknowledgement  // Reporter's acknowledgement
   createdAt: Date
   updatedAt: Date
 }
@@ -136,12 +142,15 @@ export interface Assignment {
 }
 
 export type IssueCategory = "ROADS" | "LIGHTING" | "SANITATION" | "PARKS" | "UTILITIES" | "SAFETY" | "ENVIRONMENT" | "VANDALISM" | "TRANSPORTATION" | "NOISE" | "OTHER"
-export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REJECTED" | "UNDER_APPEAL"
+export type IssueStatus = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "REJECTED" | "UNDER_APPEAL" | "CLOSED_DUPLICATE"
 export type AppealStatus = "PENDING" | "UNDER_REVIEW" | "ACCEPTED" | "DENIED"
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
 export type UserRole = "CITIZEN" | "ADMIN" | "ORGANIZATION_ADMIN" | "NGO_ADMIN"
 export type OrganizationRole = "ORGANIZATION_ADMIN" | "MEMBER"
 export type NGORole = "NGO_ADMIN" | "MEMBER"
+export type DuplicateStatus = "PENDING" | "MERGED" | "IGNORED" | "SEPARATE"
+export type DuplicateAction = "MERGED" | "IGNORED" | "SEPARATE"
+export type ReporterAcknowledgement = "SAME_ISSUE" | "DIFFERENT_ISSUE"
 
 export interface CreateIssueData {
   title: string
@@ -223,4 +232,148 @@ export interface IssueUpdate {
   created_at: Date
   user_name?: string
   user_email?: string
+}
+
+// =================================================================
+// DUPLICATE DETECTION SYSTEM TYPES
+// =================================================================
+
+export interface DuplicateDetectionResult {
+  isDuplicate: boolean
+  possibleDuplicates: PossibleDuplicate[]
+  similarityScore?: number
+  bestMatch?: PossibleDuplicate
+}
+
+export interface PossibleDuplicate {
+  issueId: number
+  title: string
+  description: string
+  category: string
+  status: IssueStatus
+  latitude: number
+  longitude: number
+  address: string
+  reporterId: number
+  reporterName: string
+  createdAt: Date
+  distanceMeters: number
+  similarityScore: number
+  titleSimilarity: number
+  descriptionSimilarity: number
+  votes_count: number
+  comments_count: number
+  linked_count?: number
+}
+
+export interface DuplicateRelationship {
+  id: number
+  original_issue_id: number
+  duplicate_issue_id: number
+  action: DuplicateAction
+  admin_id: number
+  admin_comment?: string
+  similarity_score?: number
+  distance_meters?: number
+  created_at: Date
+  updated_at: Date
+  // Joined data
+  admin_name?: string
+  original_issue?: Issue
+  duplicate_issue?: Issue
+}
+
+export interface DuplicatePendingReview {
+  issue_id: number
+  issue_title: string
+  issue_category: string
+  issue_status: IssueStatus
+  issue_latitude: number
+  issue_longitude: number
+  issue_address: string
+  issue_created_at: Date
+  issue_reporter_id: number
+  issue_reporter_name: string
+  issue_votes: number
+  issue_comments: number
+  
+  original_issue_id: number
+  original_title: string
+  original_category: string
+  original_status: IssueStatus
+  original_latitude: number
+  original_longitude: number
+  original_address: string
+  original_created_at: Date
+  original_reporter_id: number
+  original_reporter_name: string
+  original_votes: number
+  original_comments: number
+  
+  similarity_score: number
+  duplicate_status: DuplicateStatus
+  distance_meters: number
+}
+
+export interface DuplicateDetectionConfig {
+  similarity_threshold: number
+  distance_threshold_meters: number
+  enabled: boolean
+  auto_merge_enabled: boolean
+  check_same_category_only: boolean
+  title_weight: number
+  description_weight: number
+  location_weight: number
+}
+
+export interface DuplicateMergeRequest {
+  original_issue_id: number
+  duplicate_issue_id: number
+  admin_comment?: string
+}
+
+export interface DuplicateIgnoreRequest {
+  original_issue_id: number
+  duplicate_issue_id: number
+  admin_comment?: string
+}
+
+export interface DuplicateSeparateRequest {
+  original_issue_id: number
+  duplicate_issue_id: number
+  admin_comment?: string
+  reason?: string
+}
+
+export interface DuplicateDetectionAudit {
+  id: number
+  issue_id: number
+  action_type: 'DETECTED' | 'MERGED' | 'IGNORED' | 'SEPARATE' | 'AUTO_DETECTED'
+  performed_by?: number
+  details?: any
+  similarity_score?: number
+  distance_meters?: number
+  created_at: Date
+  // Joined data
+  performer_name?: string
+  issue_title?: string
+}
+
+export interface DuplicateConfirmationDialog {
+  possibleDuplicates: PossibleDuplicate[]
+  showDialog: boolean
+  userAcknowledgement?: ReporterAcknowledgement
+}
+
+export interface DuplicateSuggestion {
+  issueId: number
+  title: string
+  description: string
+  address: string
+  distanceMeters: number
+  similarityScore: number
+  category: string
+  createdAt: Date
+  reporterName: string
+  votes_count: number
 }

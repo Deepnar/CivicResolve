@@ -18,6 +18,37 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 })
 
+// Custom icon for existing issues (red)
+const existingIssueIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+})
+
+// Custom icon for new location (blue)
+const newLocationIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+})
+
+interface ExistingIssue {
+  id: string
+  title: string
+  category: string
+  status: string
+  latitude: number
+  longitude: number
+  address: string
+  createdAt: string
+}
+
 interface LocationPickerProps {
   onLocationSelect: (lat: number, lng: number, address: string) => void
   initialAddress?: string
@@ -41,6 +72,9 @@ export default function LocationPicker({
   const [mounted, setMounted] = useState(false)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
+  const existingIssuesMarkersRef = useRef<L.Marker[]>([])
+  const [existingIssues, setExistingIssues] = useState<ExistingIssue[]>([])
+  const [isLoadingIssues, setIsLoadingIssues] = useState(false)
 
   // Default to Mumbai, India
   const defaultCenter: [number, number] = [19.0760, 72.8777]
@@ -65,6 +99,15 @@ export default function LocationPicker({
     return () => {
       clearTimeout(timer)
       setMounted(false)
+      // Clean up existing issue markers
+      existingIssuesMarkersRef.current.forEach(marker => {
+        mapInstanceRef.current?.removeLayer(marker)
+      })
+      existingIssuesMarkersRef.current = []
+      // Clean up selected location marker
+      if (markerRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(markerRef.current)
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
@@ -95,7 +138,10 @@ export default function LocationPicker({
       
       // Add initial marker if position exists
       if (selectedPosition) {
-        markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng]).addTo(mapInstanceRef.current)
+        markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng], {
+          icon: newLocationIcon
+        }).addTo(mapInstanceRef.current)
+        markerRef.current.bindPopup("<b>Your selected location</b>")
       }
     }
   }, [mounted, selectedPosition])
@@ -108,11 +154,78 @@ export default function LocationPicker({
         mapInstanceRef.current.removeLayer(markerRef.current)
       }
       
-      // Add new marker
-      markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng]).addTo(mapInstanceRef.current)
+      // Add new marker with blue icon
+      markerRef.current = L.marker([selectedPosition.lat, selectedPosition.lng], {
+        icon: newLocationIcon
+      }).addTo(mapInstanceRef.current)
+      markerRef.current.bindPopup("<b>Your selected location</b>")
       mapInstanceRef.current.setView([selectedPosition.lat, selectedPosition.lng], 16)
     }
   }, [selectedPosition])
+
+  // Fetch existing issues
+  useEffect(() => {
+    const fetchExistingIssues = async () => {
+      setIsLoadingIssues(true)
+      try {
+        const response = await fetch('/api/issues?limit=1000')
+        if (response.ok) {
+          const data = await response.json()
+          setExistingIssues(data.issues || [])
+        }
+      } catch (error) {
+        console.error('Error fetching existing issues:', error)
+      } finally {
+        setIsLoadingIssues(false)
+      }
+    }
+
+    fetchExistingIssues()
+  }, [])
+
+  // Display existing issues on map
+  useEffect(() => {
+    if (mapInstanceRef.current && existingIssues.length > 0) {
+      // Remove old markers
+      existingIssuesMarkersRef.current.forEach(marker => {
+        mapInstanceRef.current?.removeLayer(marker)
+      })
+      existingIssuesMarkersRef.current = []
+
+      // Add markers for all existing issues
+      existingIssues.forEach(issue => {
+        if (issue.latitude && issue.longitude) {
+          const marker = L.marker([issue.latitude, issue.longitude], {
+            icon: existingIssueIcon
+          }).addTo(mapInstanceRef.current!)
+
+          // Create popup content
+          const popupContent = `
+            <div style="min-width: 200px;">
+              <h3 style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${issue.title}</h3>
+              <div style="font-size: 12px; color: #666;">
+                <p><strong>Category:</strong> ${issue.category}</p>
+                <p><strong>Status:</strong> <span style="color: ${getStatusColor(issue.status)};">${issue.status}</span></p>
+                <p><strong>Reported:</strong> ${new Date(issue.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          `
+          marker.bindPopup(popupContent)
+          existingIssuesMarkersRef.current.push(marker)
+        }
+      })
+    }
+  }, [mapInstanceRef.current, existingIssues])
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PENDING': return '#f59e0b'
+      case 'IN_PROGRESS': return '#3b82f6'
+      case 'RESOLVED': return '#10b981'
+      case 'REJECTED': return '#ef4444'
+      default: return '#6b7280'
+    }
+  }
 
   const handleMapClick = async (latlng: LatLng) => {
     setSelectedPosition(latlng)
@@ -183,8 +296,21 @@ export default function LocationPicker({
         </div>
 
         {/* Instructions overlay */}
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000]">
-          <p className="text-sm text-gray-700">Click on the map or search for an address to select a location</p>
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg z-[1000] max-w-xs">
+          <p className="text-sm text-gray-700 mb-2">Click on the map or search for an address to select a location</p>
+          <div className="flex items-center gap-2 text-xs text-gray-600 mt-2 pt-2 border-t">
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>
+              <span>Your location</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 bg-red-500 rounded-full"></span>
+              <span>Existing issues ({existingIssues.length})</span>
+            </div>
+          </div>
+          {isLoadingIssues && (
+            <p className="text-xs text-gray-500 mt-1">Loading existing issues...</p>
+          )}
         </div>
       </div>
 
