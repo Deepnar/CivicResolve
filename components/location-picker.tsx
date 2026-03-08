@@ -168,10 +168,11 @@ export default function LocationPicker({
     const fetchExistingIssues = async () => {
       setIsLoadingIssues(true)
       try {
-        const response = await fetch('/api/issues?limit=1000')
+        const response = await fetch('/api/issues?limit=100&exclude_images=true')
         if (response.ok) {
           const data = await response.json()
-          setExistingIssues(data.issues || [])
+          const all: ExistingIssue[] = data.issues || []
+          setExistingIssues(all.filter(i => i.status !== 'RESOLVED' && i.status !== 'CLOSED_DUPLICATE'))
         }
       } catch (error) {
         console.error('Error fetching existing issues:', error)

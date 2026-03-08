@@ -39,13 +39,14 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || undefined
     const limit = Number.parseInt(searchParams.get("limit") || "40")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
+    const excludeImages = searchParams.get("exclude_images") === "true"
     
     if (search) {
       console.log(`🔍 Search query: "${search}" (limit: ${limit})`)
     }
 
     // Create cache key based on filters
-    const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${search || ''}:${limit}:${offset}`
+    const cacheKey = `issues:all:${category || 'all'}:${status || 'all'}:${priority || 'all'}:${search || ''}:${limit}:${offset}:${excludeImages}`
 
     const { issues: issuesList, totalCount, totalPages, currentPage, stats } = await withServerCache(
       cacheKey,
@@ -72,8 +73,8 @@ export async function GET(request: NextRequest) {
           latitude: Number(issue.latitude),
           longitude: Number(issue.longitude),
           address: issue.address,
-          imageUrl: issue.image_url,
-          resolutionImageUrl: issue.resolution_image_url,
+          imageUrl: excludeImages ? null : issue.image_url,
+          resolutionImageUrl: excludeImages ? null : issue.resolution_image_url,
           reporterId: issue.reporter_id?.toString(),
           isAnonymous: issue.is_anonymous || false,
           reporter: {
