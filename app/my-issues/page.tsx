@@ -66,7 +66,6 @@ export default function MyIssues() {
 
   useEffect(() => {
     filterIssues()
-    calculateStats()
   }, [issues, searchTerm, statusFilter, categoryFilter, priorityFilter])
 
   const fetchMyIssues = async () => {
@@ -116,15 +115,13 @@ export default function MyIssues() {
     }
 
     setFilteredIssues(filtered)
-  }
-
-  const calculateStats = () => {
-    const total = filteredIssues.length
-    const pending = filteredIssues.filter(issue => issue.status === 'PENDING').length
-    const inProgress = filteredIssues.filter(issue => issue.status === 'IN_PROGRESS').length
-    const resolved = filteredIssues.filter(issue => issue.status === 'RESOLVED').length
-    
-    setStats({ total, pending, inProgress, resolved })
+    // Derive stats from the SAME filtered array (previous code read stale state -> always 0)
+    setStats({
+      total: filtered.length,
+      pending: filtered.filter(issue => issue.status === 'PENDING').length,
+      inProgress: filtered.filter(issue => issue.status === 'IN_PROGRESS').length,
+      resolved: filtered.filter(issue => issue.status === 'RESOLVED').length,
+    })
   }
 
   // Photo handling functions
@@ -269,7 +266,7 @@ export default function MyIssues() {
       <div className="container mx-auto px-4 py-8">
         <PageHeader
           title="My Issues"
-          description="Issues assigned to me"
+          description="Issues you reported or are assigned to"
         />
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner />
@@ -282,7 +279,7 @@ export default function MyIssues() {
     <div className="container mx-auto px-4 py-8">
       <PageHeader
         title="My Issues"
-        description={`${filteredIssues.length} issues assigned to me`}
+        description={`${filteredIssues.length} issues you reported or are assigned to`}
       />
 
       {/* Stats Cards */}

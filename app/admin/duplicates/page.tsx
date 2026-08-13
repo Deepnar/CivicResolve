@@ -34,6 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, MapPin, Calendar, Users, MessageSquare, ThumbsUp, AlertCircle, Link2, Activity, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface DuplicatePair {
   issue_id: number
@@ -213,10 +214,11 @@ export default function AdminDuplicatesPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Admin Dashboard
         </Link>
-        <h1 className="text-3xl font-bold mb-2">Duplicate Issue Management</h1>
-        <p className="text-muted-foreground">
-          Review, manage, and track duplicate issue reports
-        </p>
+        <PageHeader
+          title="Duplicate Issue Management"
+          description="Review, manage, and track duplicate issue reports"
+          icon={Link2}
+        />
       </div>
 
       {/* Stats Cards */}

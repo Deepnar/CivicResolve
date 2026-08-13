@@ -207,10 +207,12 @@ export function IssueMap({
 
     // Add issue markers using sorted issues for proper z-index
     sortedIssues.forEach((issue) => {
+      // Skip issues without a real pin (0,0 / null) — they'd render in the ocean
+      if (!issue.latitude || !issue.longitude) return
+
       const marker = L.marker([issue.latitude, issue.longitude], {
         icon: createIssueIcon(issue),
       })
-
       // Create popup content with engagement info
       const engagementScore = calculateEngagementScore(issue)
       const categoryKey = issue.category?.toUpperCase() as keyof typeof ISSUE_CATEGORIES
@@ -279,6 +281,17 @@ export function IssueMap({
         maxZoom: MAP_ZOOM_LEVELS.STREET,
         padding: [20, 20]
       })
+    } else if (!onLocationSelect && sortedIssues.length > 0) {
+      // Fit view to ALL issue markers so nothing is stranded off-screen
+      const coords = sortedIssues
+        .filter(i => i.latitude && i.longitude)
+        .map(i => [i.latitude, i.longitude] as [number, number])
+      if (coords.length > 1) {
+        mapInstanceRef.current.fitBounds(L.latLngBounds(coords), {
+          maxZoom: MAP_ZOOM_LEVELS.CITY,
+          padding: [40, 40],
+        })
+      }
     }
   }, [sortedIssues, selectedIssue, onIssueSelect, maxEngagementScore])
 

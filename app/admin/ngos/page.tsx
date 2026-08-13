@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Building2, Users, Search, Edit, Trash2 } from 'lucide-react'
+import { Plus, Building2, Users, Search, Edit, Trash2, Heart } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface NGO {
   id: number
@@ -173,9 +174,7 @@ export default function NGOManagementPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-tight">NGO Management</h1>
-        </div>
+        <PageHeader title="NGO Management" icon={Heart} />
         <div className="text-center py-8">Loading...</div>
       </div>
     )
@@ -184,13 +183,11 @@ export default function NGOManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">NGO Management</h1>
-          <p className="text-muted-foreground">
-            Manage NGO organizations that report civic issues
-          </p>
-        </div>
+      <PageHeader
+        title="NGO Management"
+        description="Manage NGO organizations that report civic issues"
+        icon={Heart}
+      >
         <Button onClick={() => {
           setEditingNGO(null)
           setFormData({
@@ -207,7 +204,7 @@ export default function NGOManagementPage() {
           <Plus className="h-4 w-4 mr-2" />
           Add NGO
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">

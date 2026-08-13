@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         (SELECT COUNT(*) FROM issues WHERE possible_duplicate_of IS NOT NULL) as total_linked,
         (SELECT COUNT(*) FROM issues WHERE duplicate_status = 'MERGED') as confirmed_duplicates,
-        (SELECT COUNT(*) FROM issues WHERE duplicate_status = 'PENDING') as pending_review,
+        (SELECT COUNT(*) FROM issues WHERE possible_duplicate_of IS NOT NULL AND duplicate_status = 'PENDING') as pending_review,
         (SELECT COUNT(*) FROM duplicate_relationships) as total_relationships,
         (SELECT COUNT(*) FROM duplicate_detection_audit) as total_audits,
         (SELECT COUNT(*) FROM duplicate_ignore_pairs) as total_ignored
