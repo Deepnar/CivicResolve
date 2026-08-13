@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ollamaGenerate, OLLAMA_CHAT_MODEL } from '@/lib/ollama';
 import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
 import { PerformanceMonitor } from '@/lib/performance';
@@ -251,9 +251,6 @@ interface IssueAssignmentResult {
   current_status: string
   days_since_assignment: number
 }
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Function to get comprehensive issue details with all related data
 async function getIssueDetails(issueId: string) {
@@ -713,15 +710,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Check if API key is configured
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key-here') {
-      endTimer()
-      return NextResponse.json(
-        { error: 'AI service not configured. Please set GEMINI_API_KEY in environment variables.' },
-        { status: 500 }
-      );
-    }
-
     // Fetch real-time platform statistics
     const platformStats = await getPlatformStatistics();
     
@@ -903,8 +891,11 @@ Guidelines:
 IMPORTANT: When asked "Who am I?" or similar personal questions, only respond with public information like "You are ${user.name}, a community member who has reported ${currentUserStats?.issues_reported || 0} issues and cast ${currentUserStats?.votes_cast || 0} votes." Do NOT expose internal IDs, emails, or sensitive data.`;
     }
 
-    // Get the generative model - using Gemini 2.0 Flash for faster responses
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    // Local Ollama chat model (no cloud keys needed)
+    const chatMessages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}\n\nUser Message: ${message}` },
+    ]
 
     // Create cache key for AI response based on message content and user role
     // Don't cache user-specific queries or admin data
@@ -931,25 +922,13 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
       }
       
       // Generate new response
-      const result = await model.generateContent([
-        { text: systemPrompt },
-        { text: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}` },
-        { text: `User Message: ${message}` }
-      ]);
-      const response = await result.response;
-      aiResponse = response.text();
+      aiResponse = await ollamaGenerate({ messages: chatMessages, model: OLLAMA_CHAT_MODEL, temperature: 0.6 });
       
       // Cache the response for 30 minutes (avoid caching user-specific content)
       await serverCacheSet(cacheKey, aiResponse, SERVER_CACHE_TTL.LONG); // 30 minutes
     } else {
       // Generate response without caching for user-specific queries
-      const result = await model.generateContent([
-        { text: systemPrompt },
-        { text: `User Context: ${context ? JSON.stringify(context) : 'General inquiry'}` },
-        { text: `User Message: ${message}` }
-      ]);
-      const response = await result.response;
-      aiResponse = response.text();
+      aiResponse = await ollamaGenerate({ messages: chatMessages, model: OLLAMA_CHAT_MODEL, temperature: 0.6 });
     }
 
     endTimer()
@@ -991,7 +970,7 @@ export async function GET() {
   return NextResponse.json({
     service: 'CivicResolve Chat Assistant',
     status: 'operational',
-    model: 'gemini-2.0-flash-lite',
+    model: `${OLLAMA_CHAT_MODEL} (AI)`,
     features: [
       'Platform guidance',
       'Issue reporting help',

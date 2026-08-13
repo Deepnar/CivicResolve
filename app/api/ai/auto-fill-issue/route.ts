@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth-utils'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { ollamaGenerate, OLLAMA_VISION_MODEL } from '@/lib/ollama'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,22 +29,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if Gemini API key is configured
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
-    if (!geminiApiKey) {
-      return NextResponse.json(
-        { error: 'AI service is not configured' },
-        { status: 503 }
-      )
-    }
-
-    // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
-
     console.log(`🤖 [AUTO-FILL] Starting auto-fill for user ${user.id}`)
 
-    // Convert base64 image data to the format expected by Gemini
+    // Convert base64 image data to the format expected by the vision model
     let imageBase64 = imageData
     let mimeType = 'image/jpeg'
 
@@ -95,19 +82,14 @@ Respond ONLY with valid JSON in this exact format:
 Make sure the title is specific but not too technical. The description should explain what's wrong and why it needs attention.
 `
 
-    // Analyze the image with Gemini
-    const result = await model.generateContent([
+    // Analyze the image with the local Ollama vision model
+    const analysisText = await ollamaGenerate({
+      model: OLLAMA_VISION_MODEL,
       prompt,
-      {
-        inlineData: {
-          data: imageBase64,
-          mimeType: mimeType
-        }
-      }
-    ])
-
-    const response = await result.response
-    const analysisText = response.text()
+      images: [imageBase64],
+      format: 'json',
+      temperature: 0.3,
+    })
 
     console.log(`🤖 [AUTO-FILL] Raw response: ${analysisText.substring(0, 200)}...`)
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth-utils'
 import { UserModel, OrganizationModel, UserOrganizationModel } from '@/lib/models'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { ollamaGenerate, OLLAMA_VISION_MODEL } from '@/lib/ollama'
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,22 +49,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if Gemini API key is configured
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
-    if (!geminiApiKey) {
-      return NextResponse.json(
-        { error: 'AI analysis service is not configured' },
-        { status: 503 }
-      )
-    }
-
     console.log(`🤖 [AI ANALYSIS] Starting analysis for issue ${issueId || 'unknown'} by user ${user.id}`)
 
-    // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" })
-
-    // Convert base64 image data to the format expected by Gemini
+    // Convert base64 image data to the format expected by the vision model
     let imageBase64 = imageData
     let mimeType = 'image/jpeg'
 
@@ -120,19 +107,14 @@ Return the analysis in the following JSON format:
 Only return valid JSON, no additional text.
 `
 
-    // Analyze the image with Gemini
-    const result = await model.generateContent([
+    // Analyze the image with the local Ollama vision model
+    const analysisText = await ollamaGenerate({
+      model: OLLAMA_VISION_MODEL,
       prompt,
-      {
-        inlineData: {
-          data: imageBase64,
-          mimeType: mimeType
-        }
-      }
-    ])
-
-    const response = await result.response
-    const analysisText = response.text()
+      images: [imageBase64],
+      format: 'json',
+      temperature: 0.3,
+    })
 
     console.log(`🤖 [AI ANALYSIS] Raw response: ${analysisText.substring(0, 200)}...`)
 

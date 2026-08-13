@@ -1405,3 +1405,7 @@ For technical support or feature requests:
 
 *Last Updated: September 10, 2025 - Production Readiness Audit Complete* ✅
 
+
+## Database schema — single source of truth
+
+`prisma/schema.prisma` is the canonical definition of the whole database (app tables + WhatsApp bridge tables). The app reads/writes via raw SQL at runtime (unchanged); the WhatsApp bridge generates its Prisma client from this file (symlinked). Keep `scripts/*.sql` and `migrations/*.sql` as historical reference only — schema changes go through `prisma/schema.prisma` + `npx prisma db push`.

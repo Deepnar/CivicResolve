@@ -10,6 +10,12 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   email: CommonSchemas.email,
   password: CommonSchemas.password,
+  // Optional: pre-link this account to a WhatsApp number (digits only).
+  phone: z
+    .string()
+    .regex(/^\+?[0-9]{10,15}$/, "Phone must be 10-15 digits")
+    .optional()
+    .or(z.literal("")),
 })
 
 export async function POST(request: NextRequest) {
@@ -17,7 +23,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { name, email, password } = registerSchema.parse(body)
+    const { name, email, password, phone } = registerSchema.parse(body)
 
     // Check if user already exists
     const existingUser = await UserModel.findByEmail(email)
@@ -38,6 +44,7 @@ export async function POST(request: NextRequest) {
       role: "CITIZEN",
       verification_token: verificationToken,
       verification_token_expires: tokenExpires,
+      ...(phone ? { phone: String(phone).replace(/\D/g, "") } : {}),
     })
 
     // Send verification email

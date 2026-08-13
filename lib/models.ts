@@ -138,11 +138,12 @@ export class UserModel {
     role?: 'CITIZEN' | 'ADMIN';
     verification_token?: string;
     verification_token_expires?: Date;
+    phone?: string;
   }): Promise<number> {
     const hashedPassword = await bcrypt.hash(userData.password, 12);
     const sql = `
-      INSERT INTO users (email, name, password, role, points, is_verified, verification_token, verification_token_expires)
-      VALUES (?, ?, ?, ?, 0, FALSE, ?, ?)
+      INSERT INTO users (email, name, password, role, points, is_verified, verification_token, verification_token_expires, phone)
+      VALUES (?, ?, ?, ?, 0, FALSE, ?, ?, ?)
     `;
     const userId = await Database.insert(sql, [
       userData.email,
@@ -151,6 +152,7 @@ export class UserModel {
       userData.role || 'CITIZEN',
       userData.verification_token || null,
       userData.verification_token_expires || null,
+      userData.phone || null,
     ]);
 
     // Invalidate user-related caches
