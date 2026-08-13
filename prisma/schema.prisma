@@ -1,0 +1,502 @@
+// CivicResolve schema — mirrored 1:1 from /tmp/CivicResolve DDL files:
+// database-schema.sql, scripts/organization-schema.sql, add-appeals-system.sql,
+// add-issue-updates.sql, add-email-verification.sql, add-assignment-columns.sql,
+// migrations/add_anonymous_reporting.sql, migrations/add_duplicate_detection_system.sql
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  ADMIN
+  ORGANIZATION_ADMIN
+  NGO_ADMIN
+}
+
+enum IssueStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  UNDER_APPEAL
+  CLOSED_DUPLICATE
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AppealStatus {
+  PENDING
+  UNDER_REVIEW
+  ACCEPTED
+  DENIED
+}
+
+enum DuplicateStatus {
+  PENDING
+  MERGED
+  IGNORED
+  SEPARATE
+}
+
+enum OrganizationRole {
+  ORGANIZATION_ADMIN
+  MEMBER
+}
+
+model User {
+  id                        Int       @id @default(autoincrement())
+  email                     String    @unique @db.VarChar(255)
+  name                      String    @db.VarChar(255)
+  password                  String    @db.VarChar(255)
+  role                      Role      @default(CITIZEN)
+  points                    Int       @default(0)
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @default(now()) @updatedAt
+  is_verified               Boolean   @default(false)
+  verification_token        String?   @db.VarChar(255)
+  verification_token_expires DateTime? @db.Timestamp(0)
+  phone                     String?   @unique @db.VarChar(20)
+
+  accountLinks               AccountLink[]
+
+  issuesReported              Issue[]                     @relation("IssueReporter")
+  comments                    Comment[]
+  votes                       Vote[]
+  appealsFiled                Appeal[]                    @relation("AppealReporter")
+  appealsReviewed             Appeal[]                    @relation("AppealReviewer")
+  organizations               UserOrganization[]
+  userOrgAssignmentsMade      UserOrganization[]           @relation("UserOrgAssigner")
+  issueAssignmentsMade        IssueAssignment[]           @relation("IssueAssignmentBy")
+  issueUpdates                IssueUpdate[]
+  anonymousSubmissionsAudit   AnonymousSubmissionsAudit[]
+  aiReports                   AiReport[] @relation("AiReports")
+  userNgos                    UserNgo[]
+  ngoAssignmentsMade          UserNgo[] @relation("UserNgoAssigner")
+  duplicateRelationshipsAsAdmin DuplicateRelationship[] @relation("DuplicateRelAdmin")
+  duplicateAuditPerformed     DuplicateDetectionAudit[] @relation("DuplicateAuditPerformer")
+  duplicateConfigUpdatedBy    DuplicateDetectionConfig[] @relation("DuplicateConfigUpdater")
+  issuesAssignedTo            Issue[]                     @relation("IssueAssignedTo")
+  issuesAssignedBy            Issue[]                     @relation("IssueAssignedBy")
+  duplicateIgnorePairsAdded   DuplicateIgnorePair[]       @relation("DuplicatePairAddedBy")
+
+  @@index([email])
+  @@index([role])
+  @@index([verification_token])
+
+  @@map("users")
+}
+
+model Issue {
+  id                        Int              @id @default(autoincrement())
+  title                     String           @db.VarChar(500)
+  description               String           @db.Text
+  category                  String           @db.VarChar(100)
+  status                    IssueStatus      @default(PENDING)
+  priority                  IssuePriority    @default(MEDIUM)
+  latitude                  Decimal          @db.Decimal(10, 8)
+  longitude                 Decimal          @db.Decimal(11, 8)
+  location_point            Unsupported("point")?
+  address                   String           @db.VarChar(500)
+  image_url                 String?          @db.LongText
+  reporter_id               Int
+  created_at                DateTime         @default(now())
+  updated_at                DateTime         @default(now()) @updatedAt
+  is_anonymous              Boolean          @default(false)
+  resolution_image_url      String?          @db.LongText
+  possible_duplicate_of     Int?
+  duplicate_confidence      Float?
+  duplicate_status          DuplicateStatus  @default(PENDING)
+  reporter_confirmed_unique Boolean          @default(false)
+  reporter_acknowledgement  String?          @db.VarChar(50)
+  assigned_to               Int?
+  assigned_to_name          String?          @db.VarChar(255)
+  assigned_at               DateTime?        @db.Timestamp(0)
+  assigned_by               Int?
+
+  reporter      User  @relation("IssueReporter", fields: [reporter_id], references: [id], onDelete: Cascade)
+  possibleDup   Issue? @relation("IssuePossibleDuplicate", fields: [possible_duplicate_of], references: [id], onDelete: SetNull)
+  possibleDups  Issue[] @relation("IssuePossibleDuplicate")
+  assignedTo    User? @relation("IssueAssignedTo", fields: [assigned_to], references: [id], onDelete: SetNull)
+  assignedBy    User? @relation("IssueAssignedBy", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  comments                Comment[]
+  votes                   Vote[]
+  appeals                 Appeal[]
+  issueAssignments        IssueAssignment[]
+  issueUpdates            IssueUpdate[]
+  anonymousAuditEntries   AnonymousSubmissionsAudit[]
+  ignorePairsAsFirst      DuplicateIgnorePair[] @relation("IgnorePairFirst")
+  ignorePairsAsSecond     DuplicateIgnorePair[] @relation("IgnorePairSecond")
+  duplicateRelsAsOriginal  DuplicateRelationship[] @relation("DuplicateRelOriginal")
+  duplicateRelsAsDuplicate DuplicateRelationship[] @relation("DuplicateRelDuplicate")
+  duplicateAudits          DuplicateDetectionAudit[]
+
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([reporter_id])
+  @@index([created_at])
+  @@index([latitude, longitude])
+  @@index([status, category])
+  @@index([assigned_to])
+  @@index([assigned_at])
+  @@index([is_anonymous])
+  @@index([duplicate_status])
+  @@index([possible_duplicate_of])
+  @@index([category, status, duplicate_status, created_at])
+
+  @@map("issues")
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  content    String   @db.Text
+  issue_id   Int
+  author_id  Int
+  created_at DateTime @default(now())
+
+  issue  Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [author_id], references: [id], onDelete: Cascade)
+
+  @@index([issue_id])
+  @@index([author_id])
+  @@index([created_at])
+
+  @@map("comments")
+}
+
+model Vote {
+  id         Int      @id @default(autoincrement())
+  issue_id   Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([issue_id, user_id])
+  @@index([issue_id])
+  @@index([user_id])
+
+  @@map("votes")
+}
+
+model Appeal {
+  id               Int          @id @default(autoincrement())
+  issue_id         Int
+  reporter_id      Int
+  reason           String       @db.Text
+  status           AppealStatus @default(PENDING)
+  reviewer_id      Int?
+  reviewer_comment String?      @db.Text
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @default(now()) @updatedAt
+
+  issue    Issue  @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  reporter User   @relation("AppealReporter", fields: [reporter_id], references: [id], onDelete: Cascade)
+  reviewer User?  @relation("AppealReviewer", fields: [reviewer_id], references: [id], onDelete: SetNull)
+
+  @@index([issue_id])
+  @@index([reporter_id])
+  @@index([status])
+  @@index([created_at])
+
+  @@map("appeals")
+}
+
+model Organization {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(255)
+  description String?  @db.Text
+  email       String?  @db.VarChar(255)
+  phone       String?  @db.VarChar(50)
+  address     String?  @db.Text
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  users     UserOrganization[]
+  mappings  CategoryOrganizationMapping[]
+  assignments IssueAssignment[]
+
+  @@index([name])
+  @@index([is_active])
+
+  @@map("organizations")
+}
+
+model UserOrganization {
+  id              Int              @id @default(autoincrement())
+  user_id         Int
+  organization_id Int
+  role            OrganizationRole @default(MEMBER)
+  employee_id     String?          @db.VarChar(100)
+  position        String?          @db.VarChar(255)
+  is_active       Boolean          @default(true)
+  assigned_at     DateTime         @default(now())
+  assigned_by     Int?
+
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  assigner     User?        @relation("UserOrgAssigner", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@unique([user_id, organization_id])
+  @@index([user_id])
+  @@index([organization_id])
+  @@index([role])
+  @@index([is_active])
+
+  @@map("user_organizations")
+}
+
+model CategoryOrganizationMapping {
+  id              Int      @id @default(autoincrement())
+  category        String   @db.VarChar(100)
+  organization_id Int
+  is_primary      Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@unique([category, organization_id])
+  @@index([category])
+  @@index([organization_id])
+  @@index([is_primary])
+
+  @@map("category_organization_mappings")
+}
+
+model IssueAssignment {
+  id              Int      @id @default(autoincrement())
+  issue_id        Int
+  organization_id Int
+  assigned_at     DateTime @default(now())
+  assigned_by     Int?
+
+  issue        Issue        @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  assigner     User?        @relation("IssueAssignmentBy", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@unique([issue_id, organization_id])
+  @@index([issue_id])
+  @@index([organization_id])
+
+  @@map("issue_assignments")
+}
+
+model IssueUpdate {
+  id         Int      @id @default(autoincrement())
+  issue_id   Int
+  user_id    Int
+  message    String   @db.Text
+  image_url  String?  @db.LongText
+  created_at DateTime @default(now())
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([issue_id])
+  @@index([user_id])
+  @@index([created_at])
+
+  @@map("issue_updates")
+}
+
+model AnonymousSubmissionsAudit {
+  id               Int      @id @default(autoincrement())
+  issue_id         Int
+  reporter_id      Int
+  ip_address_hash  String?  @db.VarChar(64)
+  user_agent_hash  String?  @db.VarChar(64)
+  created_at       DateTime @default(now())
+
+  issue    Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  reporter User  @relation(fields: [reporter_id], references: [id], onDelete: Cascade)
+
+  @@index([reporter_id])
+  @@index([issue_id])
+  @@index([created_at])
+
+  @@map("anonymous_submissions_audit")
+}
+
+model DuplicateIgnorePair {
+  id         Int      @id @default(autoincrement())
+  issue_id_1 Int
+  issue_id_2 Int
+  added_by   Int
+  reason     String?  @db.Text
+  created_at DateTime @default(now())
+
+  issue1  Issue @relation("IgnorePairFirst", fields: [issue_id_1], references: [id], onDelete: Cascade)
+  issue2  Issue @relation("IgnorePairSecond", fields: [issue_id_2], references: [id], onDelete: Cascade)
+  addedBy User  @relation("DuplicatePairAddedBy", fields: [added_by], references: [id], onDelete: Restrict)
+
+  @@unique([issue_id_1, issue_id_2])
+  @@index([issue_id_1])
+  @@index([issue_id_2])
+  @@index([added_by])
+  @@index([issue_id_1, issue_id_2])
+
+  @@map("duplicate_ignore_pairs")
+}
+
+enum AiReportStatus {
+  PROCESSING
+  SUMMARY_READY
+  COMPLETED
+  REJECTED
+}
+
+model AiReport {
+  id            Int            @id @default(autoincrement())
+  user_id       Int
+  media_id      String?        @db.VarChar(255)
+  image_url     String?        @db.VarChar(500)
+  summary       String?        @db.Text
+  category      String?        @db.VarChar(100)
+  status        AiReportStatus @default(PROCESSING)
+  latitude      Decimal?       @db.Decimal(10, 8)
+  longitude     Decimal?       @db.Decimal(11, 8)
+  address       String?        @db.VarChar(500)
+  user_feedback String?        @db.Text
+  completed_at  DateTime?      @db.Timestamp(0)
+  created_at    DateTime       @default(now())
+
+  user User @relation("AiReports", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
+
+  @@map("ai_reports")
+}
+
+model Ngo {
+  id                 Int       @id @default(autoincrement())
+  name               String    @unique @db.VarChar(255)
+  description        String?   @db.Text
+  email              String?   @db.VarChar(255)
+  phone              String?   @db.VarChar(50)
+  address            String?   @db.Text
+  registration_number String?  @db.VarChar(100)
+  contact_person     String?   @db.VarChar(255)
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+
+  members UserNgo[]
+
+  @@index([name])
+  @@index([is_active])
+  @@map("ngos")
+}
+
+model UserNgo {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  ngo_id      Int
+  role        String   @default("MEMBER") @db.VarChar(20)
+  position    String?  @db.VarChar(255)
+  is_active   Boolean  @default(true)
+  assigned_at DateTime @default(now())
+  assigned_by Int?
+
+  user      User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  ngo       Ngo   @relation(fields: [ngo_id], references: [id], onDelete: Cascade)
+  assigner  User? @relation("UserNgoAssigner", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@unique([user_id, ngo_id])
+  @@index([user_id])
+  @@index([ngo_id])
+  @@index([role])
+  @@index([is_active])
+  @@map("user_ngos")
+}
+
+model DuplicateRelationship {
+  id                 Int       @id @default(autoincrement())
+  original_issue_id  Int
+  duplicate_issue_id Int
+  action             String    @db.VarChar(20)
+  admin_id           Int
+  admin_comment      String?   @db.Text
+  similarity_score   Float?
+  distance_meters    Float?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+
+  originalIssue  Issue @relation("DuplicateRelOriginal", fields: [original_issue_id], references: [id], onDelete: Cascade)
+  duplicateIssue Issue @relation("DuplicateRelDuplicate", fields: [duplicate_issue_id], references: [id], onDelete: Cascade)
+  admin          User  @relation("DuplicateRelAdmin", fields: [admin_id], references: [id], onDelete: Restrict)
+
+  @@unique([original_issue_id, duplicate_issue_id])
+  @@index([original_issue_id])
+  @@index([duplicate_issue_id])
+  @@index([admin_id])
+  @@index([action])
+  @@map("duplicate_relationships")
+}
+
+model DuplicateDetectionAudit {
+  id               Int      @id @default(autoincrement())
+  issue_id         Int
+  action_type      String   @db.VarChar(20)
+  performed_by     Int?
+  details          Json?
+  similarity_score Float?
+  distance_meters  Float?
+  created_at       DateTime @default(now())
+
+  issue     Issue? @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  performer User?  @relation("DuplicateAuditPerformer", fields: [performed_by], references: [id], onDelete: SetNull)
+
+  @@index([issue_id])
+  @@index([action_type])
+  @@index([performed_by])
+  @@map("duplicate_detection_audit")
+}
+
+model DuplicateDetectionConfig {
+  id           Int      @id @default(autoincrement())
+  config_key   String   @unique @db.VarChar(100)
+  config_value String   @db.VarChar(500)
+  description  String?  @db.Text
+  updated_by   Int?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+
+  updater User? @relation("DuplicateConfigUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@index([config_key])
+  @@map("duplicate_detection_config")
+}
+
+// WhatsApp ↔ web account linking (OTP-verified phone claim).
+model AccountLink {
+  id           Int      @id @default(autoincrement())
+  phone        String   @db.VarChar(20)
+  email        String   @db.VarChar(255)
+  otp          String   @db.VarChar(6)
+  otpExpiresAt DateTime @db.Timestamp(0)
+  userId       Int?
+  user         User?    @relation(fields: [userId], references: [id])
+  attempts     Int      @default(0)
+  status       String   @db.VarChar(20) // PENDING_OTP | LINKED | EXPIRED | CANCELLED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([phone])
+  @@index([status])
+}
