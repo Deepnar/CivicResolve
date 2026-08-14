@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
        SUM(verification_verdict = 'different_issue') AS different_issue,
        SUM(verification_verdict = 'no_issue') AS no_issue,
        SUM(verification_verdict = 'unclear') AS unclear,
-       SUM(status = 'CANDIDATE') AS candidates,
        SUM(resolution_verdict = 'not_fixed') AS resolution_not_fixed,
        SUM(possible_duplicate_of IS NOT NULL AND duplicate_status = 'PENDING') AS duplicate_flags
      FROM issues`
@@ -26,9 +25,9 @@ export async function GET(request: NextRequest) {
   const recentRows = await db.query<Record<string, unknown>[]>(
     `SELECT id, title, category, status, verification_verdict, verification_confidence,
             verification_source, verification_captured_at, verified_at,
-            resolution_verdict, resolution_confidence, discovery_class, discovery_confidence
+            resolution_verdict, resolution_confidence
      FROM issues
-     WHERE verified_at IS NOT NULL OR resolution_checked_at IS NOT NULL OR status = 'CANDIDATE'
+     WHERE verified_at IS NOT NULL OR resolution_checked_at IS NOT NULL
      ORDER BY COALESCE(verified_at, updated_at) DESC
      LIMIT 20`
   )
@@ -42,7 +41,6 @@ export async function GET(request: NextRequest) {
       differentIssue: Number(s.different_issue) || 0,
       noIssue: Number(s.no_issue) || 0,
       unclear: Number(s.unclear) || 0,
-      candidates: Number(s.candidates) || 0,
       resolutionNotFixed: Number(s.resolution_not_fixed) || 0,
       duplicateFlags: Number(s.duplicate_flags) || 0,
     },
@@ -58,8 +56,6 @@ export async function GET(request: NextRequest) {
       verifiedAt: r.verified_at ? new Date(r.verified_at as string) : null,
       resolutionVerdict: r.resolution_verdict,
       resolutionConfidence: r.resolution_confidence,
-      discoveryClass: r.discovery_class,
-      discoveryConfidence: r.discovery_confidence,
     })),
   })
 }

@@ -20,7 +20,6 @@ import mysql from 'mysql2/promise'
 import { runVerification, verifyResolution } from '../lib/verify-core.ts'
 import { visionCheckSameIssue } from '../lib/duplicate-vision.ts'
 import { getStreetImageNear, fetchImageAsBase64 } from '../lib/imagery.ts'
-import { detectDefectsFromUrl } from '../lib/yolo.ts'
 
 const MAX_PER_RUN = Number(process.env.VERIFY_WORKER_MAX ?? 3)
 const DUP_MAX_PER_RUN = Number(process.env.VERIFY_WORKER_DUP_MAX ?? 2)
@@ -230,91 +229,6 @@ async function pass3ResolutionCheck(conn) {
   }
 }
 
-async function pass4Discovery(conn) {
-  if (process.env.ENABLE_AI_DISCOVERY !== 'true') {
-    console.log('[VERIFY-WORKER] ENABLE_AI_DISCOVERY not true — skipping discovery scan.')
-    return
-  }
-
-  const DISCOVERY_MAX = Number(process.env.DISCOVERY_MAX_PER_RUN ?? 3)
-  const DISCOVERY_LOOKBACK_DAYS = Number(process.env.DISCOVERY_LOOKBACK_DAYS ?? 7)
-  const DEDUP_DISTANCE_M = Number(process.env.DISCOVERY_DEDUP_DISTANCE_M ?? 60)
-
-  // System reporter for AI-discovered candidates.
-  await conn.query(
-    `INSERT IGNORE INTO users (name, email, password, role, is_verified)
-     VALUES ('AI Discovery', 'ai-discovery@civicresolve.local', '!', 'ADMIN', TRUE)`
-  )
-  const [sysRows] = await conn.query(
-    `SELECT id FROM users WHERE email = 'ai-discovery@civicresolve.local' LIMIT 1`
-  )
-  if (!sysRows.length) {
-    console.log('[VERIFY-WORKER] pass4: system AI user missing — skipping.')
-    return
-  }
-  const systemUserId = sysRows[0].id
-
-  // Scan points: locations of recently reported issues (active areas).
-  const [points] = await conn.query(
-    `SELECT ROUND(latitude, 4) AS latitude, ROUND(longitude, 4) AS longitude
-     FROM issues
-     WHERE status <> 'CANDIDATE' AND latitude <> 0 AND longitude <> 0
-       AND created_at >= NOW() - INTERVAL ${DISCOVERY_LOOKBACK_DAYS} DAY
-     GROUP BY ROUND(latitude, 4), ROUND(longitude, 4)
-     ORDER BY MAX(created_at) DESC
-     LIMIT ${DISCOVERY_MAX}`
-  )
-
-  if (!points.length) {
-    console.log('[VERIFY-WORKER] pass4: no scan points (recent issue locations).')
-    return
-  }
-
-  console.log(`[VERIFY-WORKER] pass4: discovery scan at ${points.length} location(s)...`)
-  for (const pt of points) {
-    const lat = Number(pt.latitude)
-    const lng = Number(pt.longitude)
-    try {
-      const street = await getStreetImageNear(lat, lng)
-      if (!street) {
-        console.log(`[VERIFY-WORKER]   ${lat.toFixed(5)},${lng.toFixed(5)}: no street imagery — skipped`)
-        continue
-      }
-      const detections = await detectDefectsFromUrl(street.imageUrl)
-      if (!detections.length) {
-        console.log(`[VERIFY-WORKER]   ${lat.toFixed(5)},${lng.toFixed(5)}: no defects detected`)
-        continue
-      }
-      for (const det of detections) {
-        // Dedup: same class already discovered near this point recently?
-        const [existing] = await conn.query(
-          `SELECT id FROM issues
-           WHERE status = 'CANDIDATE' AND discovery_class = ?
-             AND ABS(latitude - ?) < 0.001 AND ABS(longitude - ?) < 0.001
-             AND created_at >= NOW() - INTERVAL 7 DAY
-           LIMIT 1`,
-          [det.className, lat, lng]
-        )
-        if (existing.length) {
-          console.log(`[VERIFY-WORKER]   ${det.className} @ ${lat.toFixed(5)},${lng.toFixed(5)}: already a candidate — skipped`)
-          continue
-        }
-        const title = `AI-discovered ${det.className.replace(/_/g, ' ')}`
-        const description = `Automatically detected from street imagery (${street.source}, ${street.capturedAt ? new Date(street.capturedAt).toISOString().slice(0, 10) : 'date unknown'}). Confidence ${(det.confidence * 100).toFixed(0)}%. Awaits admin verification.`
-        await conn.query(
-          `INSERT INTO issues
-             (title, description, category, status, priority, latitude, longitude, address, image_url, reporter_id, is_anonymous, discovery_class, discovery_confidence, discovery_source)
-           VALUES (?, ?, ?, 'CANDIDATE', 'LOW', ?, ?, ?, ?, ?, FALSE, ?, ?, ?)`,
-          [title, description, det.category, lat, lng, `AI discovery near (${lat.toFixed(5)}, ${lng.toFixed(5)})`, street.imageUrl, systemUserId, det.className, det.confidence, `${street.source}:${street.imageUrl.slice(-40)}`]
-        )
-        console.log(`[VERIFY-WORKER]   + CANDIDATE: ${det.className} @ ${(det.confidence * 100).toFixed(0)}% (${street.source})`)
-      }
-    } catch (err) {
-      console.error(`[VERIFY-WORKER]   ✗ discovery at ${lat.toFixed(5)},${lng.toFixed(5)} failed: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-}
-
 async function main() {
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
@@ -327,7 +241,6 @@ async function main() {
   await pass1AutoVerify(conn)
   await pass2DuplicateSweep(conn)
   await pass3ResolutionCheck(conn)
-  await pass4Discovery(conn)
 
   await conn.end()
   console.log('[VERIFY-WORKER] run complete.')

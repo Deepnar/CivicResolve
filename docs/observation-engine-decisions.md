@@ -65,11 +65,11 @@ would only cover the web path — WhatsApp reports (the highest-volume channel)
 go through a separate bridge we don't control.
 
 **Solution:** a standalone worker (`scripts/verify-worker.mjs`) that sweeps the
-database every 10 minutes, covering **all** report paths. Four idempotent
-passes: auto-verify, vision duplicates, resolution check, discovery. Each pass
-has its own feature flag so the next developer can disable any piece without
-touching code. The worker is installed as a systemd user timer (cron line
-documented for servers).
+database every 10 minutes, covering **all** report paths. Three idempotent
+passes: auto-verify, vision duplicates, resolution check. Each pass has its own
+feature flag so the next developer can disable any piece without touching code.
+The worker is installed as a systemd user timer (cron line documented for
+servers).
 
 ## 5. Why vision-based duplicate detection?
 
@@ -106,48 +106,7 @@ photos, pollute the platform and poison the auto-fill pipeline.
 distance) against recent issue photos for "was this already reported?".
 Validated: a byte-identical re-upload matched its originals at distance 0.
 
-## 8. Why auto-discovery (CANDIDATE issues)?
-
-**Problem:** reactive-only platforms miss everything nobody reports. The
-original proposal doc wanted "automated discovery of issues from imagery."
-
-**Solution:** the worker's 4th pass scans street imagery near recently active
-areas and runs the trained YOLO detector over each photo. Detections above the
-calibrated threshold become **CANDIDATE** issues — a status that is invisible
-to the public (excluded from every public list/map) and exists only in the
-admin review queue. The AI never publishes: an admin clicks Accept (→ PENDING,
-a real issue) or Reject. This is "auto-reporting" done responsibly.
-
-## 9. Why a trained YOLO, and why it is scoped so narrowly?
-
-**The honest numbers:**
-- Vision model call: ~10–20 s + gateway cost per image.
-- YOLO11n on ONNX: ~1 ms per image, free, runs anywhere (CPU/GPU).
-
-**Decision:** train a lightweight detector for the high-volume scanning job
-(discovery), keep the vision model for the judgment jobs (comparisons,
-duplicates, resolution, ambiguity). Evidence from the unseen real-world eval:
-the YOLO detects close-up road defects well (alligator crack at 0.33–0.47 on
-a never-seen photo) but misses wide scenic shots of potholes, and the
-scene-level classes (streetlight/manhole) fire false positives on generic
-urban scenes — so they are calibrated ×0.5 at inference and never trusted for
-localization. The vision model remains the accuracy layer; YOLO is a cheap
-pre-filter. It is deliberately NOT wired into the app's per-report flows.
-
-## 10. Why these datasets, why this class list?
-
-Sources (all in `docs/dataset-plan.md` with licenses): RDD2020 India (7,706
-images, the core road-defect set), Street-Light-Dataset, manhole covers,
-RoadDefects-ISeg. Converted to one unified YOLO format with honest negatives
-(clean roads, working lights, covered manholes — measured to improve
-precision). Classes map to platform categories: pothole / longitudinal /
-alligator crack (ROADS), broken_streetlight (LIGHTING), open_manhole
-(UTILITIES). transverse_crack was dropped after training showed it dead
-(94 boxes, mAP 0.07). Garbage has no trained class yet (TACO download was
-blocked at research time) — garbage scenes correctly escalate to the vision
-model instead of being misclassified.
-
-## 11. Why tests?
+## 8. Why tests?
 
 The vitest suite (9 tests) is small but it already paid for itself: the
 freshness-decay test caught the implementation hitting its 0.4 floor at 3.4
@@ -156,14 +115,33 @@ would have been invisible without the test. The og repo had "no test suite
 yet" in its README; that was the biggest credibility gap for a platform being
 shown to judges.
 
-## 12. What was deliberately NOT done (and why)
+## 9. What was tried and scrapped: the trained detector (YOLO)
 
-- **YOLO in the app's per-report flows** — partial category coverage,
-  scene-class false positives, duplicates the vision model's job. Cost doesn't
-  justify it. (Revisit only for the discovery scanning volume case.)
+**Why it was tried:** the proposal wanted a lightweight local ML model, and a
+trained detector sounded like it could cheaply pre-classify photos.
+
+**What the evidence showed (all measured):**
+- A YOLO11n trained on RDD2020 India + streetlight/manhole sets reached
+  mAP50 0.69 on its own test split — but on **unseen real-world photos** it
+  missed every wide-scene pothole (zero detections even at 0.05 confidence)
+  and its scene-level classes (broken_streetlight, open_manhole — trained on
+  full-image boxes) fired false positives on generic urban scenes.
+- The one thing it did well — close-up road-defect shots — is a small slice,
+  and the cloud vision model already handles that with better quality.
+
+**Decision:** scrapped. The trained model, its ~10 GB of datasets, the ONNX
+runtime integration, and the street-imagery "discovery" pass that depended on
+it (CANDIDATE issues) were all removed from the repo. The engine runs entirely
+on the cloud vision model. Revisit only if a future use case needs
+high-volume cheap scanning of imagery at scale — then the cost equation
+(≈1 ms/image vs ≈10 s/call) changes the math.
+
+## 10. What was deliberately NOT done (and why)
+
 - **Satellite imagery (Bhuvan/Planetary Computer)** — cannot see the problem
   classes; Bhuvan has no download API at all.
-- **Auto-accept of AI discoveries** — never. Candidates only.
+- **Auto-accept of anything** — never. Every AI verdict is evidence for a
+  human decision.
 - **i18n, PWA camera, WhatsApp multi-photo** — deferred: separate bridge repo
   for WhatsApp, and i18n is a large deliberate change best done as its own
   effort.
@@ -178,6 +156,5 @@ shown to judges.
 
 Everything here is replaceable by design: every pass has a flag, every provider
 has a fallback, every AI verdict is evidence for a human decision. Read the
-reference doc for the mechanics, this doc for the reasoning, and `docs/
-dataset-plan.md` for the numbers — then decide what this platform should trust
-the AI with.
+reference doc for the mechanics and this doc for the reasoning — then decide
+what this platform should trust the AI with.

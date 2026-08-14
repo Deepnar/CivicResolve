@@ -26,7 +26,6 @@ enum IssueStatus {
   REJECTED
   UNDER_APPEAL
   CLOSED_DUPLICATE
-  CANDIDATE // AI-discovered from street imagery, awaiting admin review
 }
 
 enum IssuePriority {
@@ -115,10 +114,6 @@ model Issue {
   updated_at                DateTime         @default(now()) @updatedAt
   is_anonymous              Boolean          @default(false)
   resolution_image_url      String?          @db.LongText
-  // AI discovery (auto-detection from street imagery) provenance
-  discovery_class           String?          @db.VarChar(30)
-  discovery_confidence      Float?
-  discovery_source          String?          @db.VarChar(50)
   // AI resolution verification — is the reported issue actually fixed?
   resolution_verdict        String?          @db.VarChar(20) // fixed | not_fixed | unclear
   resolution_confidence     Float?

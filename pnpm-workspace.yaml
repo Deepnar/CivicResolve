@@ -4,4 +4,4 @@ allowBuilds:
   prisma: true
   '@prisma/engines': true
   '@prisma/client': true
-  onnxruntime-node: true
+  onnxruntime-node: set this to true or false

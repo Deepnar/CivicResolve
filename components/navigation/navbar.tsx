@@ -90,7 +90,6 @@ export function Navbar() {
     { name: "Users", href: "/admin/users", icon: User },
     { name: "Organizations", href: "/admin/organizations", icon: Building2 },
     { name: "NGOs", href: "/admin/ngos", icon: Heart },
-    { name: "AI Candidates", href: "/admin/candidates", icon: Radar },
     { name: "AI Verification", href: "/admin/verification", icon: ShieldCheck },
   ]
 

@@ -80,8 +80,6 @@ export async function GET(request: NextRequest) {
           verificationSource: issue.verification_source || null,
           verifiedAt: issue.verified_at ? new Date(issue.verified_at) : null,
           resolutionVerdict: issue.resolution_verdict || null,
-          discoveryClass: issue.discovery_class || null,
-          discoveryConfidence: issue.discovery_confidence ?? null,
           reporterId: issue.reporter_id?.toString(),
           isAnonymous: issue.is_anonymous || false,
           reporter: {

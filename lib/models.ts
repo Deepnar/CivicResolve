@@ -388,9 +388,6 @@ export class IssueModel {
     if (filters?.status && filters.status !== "all") {
       conditions.push(`i.status = ?`)
       params.push(filters.status)
-    } else {
-      // AI-discovered candidates are not public — they live on the admin review page.
-      conditions.push(`i.status <> 'CANDIDATE'`)
     }
 
     if (filters?.priority && filters.priority !== "all") {

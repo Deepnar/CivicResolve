@@ -1,18 +1,23 @@
 # CivicResolve — AI Observation Engine
 
 Everything added in this branch: the full file inventory, every environment
-variable, all street-imagery provider setups, the background worker, and the
-training artifacts. Written so the main developer can read it end-to-end and
-decide what to enable, what to register for, and what to trust.
+variable, all street-imagery provider setups, and the background worker.
+Written so the main developer can read it end-to-end and decide what to
+enable, what to register for, and what to trust.
+
+> The locally-trained YOLO/detector pipeline (datasets, training, ONNX, and
+> the street-imagery "discovery" pass) was tried, measured, and **scrapped**
+> — see `docs/observation-engine-decisions.md` §9 for the evidence. This
+> engine runs entirely on the cloud vision model (opencode gateway, local
+> Ollama fallback).
 
 ---
 
 ## 1. What this is
 
-An AI layer that verifies civic reports against real street imagery and
-proactively discovers issues. Design rule: **AI suggests, humans decide** —
-the engine flags, compares, and evidences; it never auto-rejects, auto-resolves,
-or auto-publishes.
+An AI layer that verifies civic reports against real street imagery. Design
+rule: **AI suggests, humans decide** — the engine flags, compares, and
+evidences; it never auto-rejects, auto-resolves, or auto-publishes.
 
 Pipeline per report:
 ```
@@ -22,8 +27,7 @@ citizen photo
    ├─ [<10 min]     auto-verify  (street imagery vs citizen photo)    → verdict + confidence
    │                  └ freshness decay (old imagery = lower confidence)
    ├─ [<10 min]     duplicate sweep (nearby issues, vision "same?")   → admin queue
-   ├─ [on RESOLVED] resolution check (proof photo vs original)        → "actually fixed?"
-   └─ [every 10 min] discovery scan (street imagery near active areas) → CANDIDATE issues
+   └─ [on RESOLVED] resolution check (proof photo vs original)        → "actually fixed?"
 ```
 
 ---
@@ -38,24 +42,17 @@ citizen photo
 | `lib/verify-core.ts` | Shared verification core (used by BOTH the API route and the background worker so logic never drifts). `runVerification()` + `verifyResolution()` + `computeFreshnessFactor()`. |
 | `lib/duplicate-vision.ts` | Vision duplicate check: "do these two photos show the SAME problem?" (multi-image VLM). |
 | `lib/fake-detect.ts` | Fake-photo guards: VLM screenshot detection + sharp average-hash for reused-photo detection. |
-| `lib/yolo.ts` | Trained YOLO (ONNX) inference: letterbox preprocessing, NMS, per-class calibration multipliers. |
 | `app/api/ai/verify-issue/route.ts` | POST — verify an issue against street imagery. Auth, feature-flag, rate-limited. |
 | `app/api/ai/check-photo/route.ts` | POST — screenshot + reuse check for the report flow. Auth, rate-limited. |
-| `app/api/admin/candidates/route.ts` | GET — AI-discovered candidates (admin only). |
-| `app/api/admin/candidates/[id]/route.ts` | PATCH — accept (→ PENDING) / reject (→ REJECTED). |
 | `app/api/admin/verification-stats/route.ts` | GET — engine stats + recent evidence (admin only). |
 | `components/ai/verification-card.tsx` | Evidence card on the issue page (photos side by side, verdict, confidence, stale badge, Re-verify button). |
-| `components/ui/verification-badge.tsx` | Compact chip for issue cards/lists (AI VERIFIED / CONFLICTED / SUSPECTED FAKE / AI-FOUND). |
-| `app/admin/candidates/page.tsx` | Admin review queue for AI-discovered issues. |
+| `components/ui/verification-badge.tsx` | Compact chip for issue cards/lists (AI VERIFIED / CONFLICTED / SUSPECTED FAKE). |
 | `app/admin/verification/page.tsx` | Admin overview: stat cards + recent-evidence table. |
-| `scripts/verify-worker.mjs` | Background worker, 4 passes (see §5). |
-| `scripts/datasets/rdd_voc_to_yolo.py` | RDD2020/2022 Pascal VOC → unified YOLO converter. |
-| `scripts/datasets/classify_to_yolo.py` | Classification folders → YOLO (full-image boxes) + negatives. |
+| `scripts/verify-worker.mjs` | Background worker, 3 passes (see §5). |
 | `tests/fake-detect.test.ts` | Hash determinism + Hamming-distance tests. |
 | `tests/freshness.test.ts` | Freshness-decay math tests (caught a real bug during development). |
 | `vitest.config.ts` | Vitest config (node env, `tests/**`). |
-| `pnpm-workspace.yaml` | pnpm 11 `allowBuilds` map (sharp, oxide, prisma, onnxruntime-node). |
-| `docs/dataset-plan.md` | Dataset sources, licenses, class mapping, smoke + v2 training results, unseen-eval findings. |
+| `pnpm-workspace.yaml` | pnpm 11 `allowBuilds` map (sharp, oxide, prisma). |
 
 ### Modified files
 
@@ -63,16 +60,16 @@ citizen photo
 |---|---|
 | `lib/ollama.ts` | Multi-image support; gateway model names now come from `OPENCODE_*`; `reasoning_effort` only on text calls (vision models reject it); gateway-first with local-Ollama fallback; `VISION_PROVIDER` override. |
 | `lib/email-service.ts` | `SKIP_EMAIL_SENDING=true` no longer requires SMTP creds (inert jsonTransport) — registration works without a mail server. |
-| `lib/models.ts` | Issue interface + verification/discovery/resolution fields; `getAll()` excludes `CANDIDATE` from public lists. |
+| `lib/models.ts` | Issue interface + verification/resolution fields. |
 | `lib/types.ts` | Frontend Issue type + the same fields (camelCase). |
-| `prisma/schema.prisma` | Issue: `verification_*` (8 cols), `resolution_verdict/confidence/checked_at`, `discovery_class/confidence/source`, `duplicate_vision_checked`; `IssueStatus` + `CANDIDATE`. |
-| `app/api/issues/route.ts` | List response now carries verification/discovery fields (powers the badges). |
+| `prisma/schema.prisma` | Issue: `verification_*` (8 cols), `resolution_verdict/confidence/checked_at`, `duplicate_vision_checked`. |
+| `app/api/issues/route.ts` | List response now carries verification fields (powers the badges). |
 | `app/api/issues/[id]/route.ts` | Detail response carries the full evidence trail. |
 | `app/issues/[id]/page.tsx` | Renders the VerificationCard. |
 | `app/report/page.tsx` | Calls `check-photo` before auto-fill (fake-photo guard). |
 | `components/ui/issue-card.tsx` | VerificationBadge next to status. |
-| `components/navigation/navbar.tsx` | Admin nav: "AI Candidates", "AI Verification". |
-| `package.json` | devDeps: `prisma@^6`, `@prisma/client@^6`, `vitest`, `sharp`, `onnxruntime-node`; `"test": "vitest run"`. |
+| `components/navigation/navbar.tsx` | Admin nav: "AI Verification". |
+| `package.json` | devDeps: `prisma@^6`, `@prisma/client@^6`, `vitest`, `sharp`; `"test": "vitest run"`. |
 | `tsconfig.json` | `allowImportingTsExtensions` (Node type-stripping for the worker). |
 | `.gitignore` | No longer ignores `*.test.*` (the test suite is part of the repo). |
 
@@ -87,7 +84,6 @@ citizen photo
 | `ENABLE_AI_VERIFICATION` | `true` | On/off for `/api/ai/verify-issue`. |
 | `ENABLE_AI_DUPLICATE_VISION` | `true` | Worker pass 2 (vision duplicate sweep). |
 | `ENABLE_AI_RESOLUTION_CHECK` | `true` | Worker pass 3 (proof vs original). |
-| `ENABLE_AI_DISCOVERY` | `true` | Worker pass 4 (street-imagery discovery → CANDIDATE issues). |
 
 ### AI providers
 
@@ -116,9 +112,6 @@ citizen photo
 |---|---|---|
 | `VERIFY_WORKER_MAX` | `3` | Max issues auto-verified per run. |
 | `VERIFY_WORKER_DUP_MAX` | `2` | Max duplicate-vision checks per run. |
-| `DISCOVERY_MAX_PER_RUN` | `3` | Max scan locations per run. |
-| `DISCOVERY_LOOKBACK_DAYS` | `7` | How far back to look for active areas. |
-| `YOLO_ONNX_PATH` | `../datasets/runs/yolo11n-v2/weights/best.onnx` | ONNX model path for discovery. |
 
 ### Database
 
@@ -167,14 +160,13 @@ The street-view flow the code implements (from the OpenAPI spec):
 
 ## 5. Background worker (`scripts/verify-worker.mjs`)
 
-Four passes per run, sequential, idempotent:
+Three passes per run, sequential, idempotent:
 
 | Pass | Job | Guard |
 |---|---|---|
 | 1 | Auto-verify unverified PENDING issues | `ENABLE_AI_VERIFICATION` |
 | 2 | Vision duplicate sweep (nearby same-category pairs) | `ENABLE_AI_DUPLICATE_VISION` |
 | 3 | Resolution check on RESOLVED issues with proof photos | `ENABLE_AI_RESOLUTION_CHECK` |
-| 4 | Discovery: scan street imagery near recent reports → CANDIDATE issues | `ENABLE_AI_DISCOVERY` |
 
 Run manually:
 ```bash
@@ -194,32 +186,7 @@ Without systemd (e.g. a server with cron):
 
 ---
 
-## 6. Training artifacts (outside the repo)
-
-Everything ML lives in `../datasets/` (sibling of the repo, not committed):
-
-| Path | Contents |
-|---|---|
-| `civic-yolo/`, `civic-yolo-v2/` | Unified YOLO datasets (5 classes + negatives, `data.yaml`). |
-| `RDD2020_train/`, `streetlight/`, `manhole/`, `RoadDefects-ISeg/` | Raw sources. |
-| `runs/yolo11n-v2/` | Trained model + `best.onnx` (10.6 MB, imgsz 736). |
-
-Classes: pothole, longitudinal_crack, alligator_crack, broken_streetlight,
-open_manhole. Sources + licenses in `docs/dataset-plan.md`.
-
-Honest limits (measured, not guessed):
-- The YOLO is a **discovery pre-filter**, not the accuracy layer. It detects
-  close-up road defects well; wide scenic shots of potholes miss (unseen-eval).
-- `broken_streetlight` / `open_manhole` are scene-level (full-image boxes) —
-  calibrated ×0.5 at inference and never trusted for localization.
-- Garbage has no trained class yet (TACO download pending) — garbage scenes
-  correctly escalate to the vision model instead.
-- The vision model (gateway mimo-v2.5 / local qwen3-vl) is the semantic layer:
-  comparisons, duplicates, resolution, ambiguity.
-
----
-
-## 7. Verification — how to prove it works
+## 6. Verification — how to prove it works
 
 ```bash
 pnpm install            # first time
@@ -228,22 +195,20 @@ pnpm test               # vitest suite
 node --env-file=.env scripts/verify-worker.mjs   # manual worker run
 ```
 Then in the browser: `/issues/<id>` shows the evidence card (photos, verdict,
-confidence, stale warning). Admin: `/admin/candidates` (review queue),
-`/admin/verification` (stats). Report flow: upload a screenshot → warning;
-re-upload an existing issue's photo → reused warning.
+confidence, stale warning). Admin: `/admin/verification` (stats + evidence).
+Report flow: upload a screenshot → warning; re-upload an existing issue's
+photo → reused warning.
 
 ---
 
-## 8. Known gotchas (read before changing things)
+## 7. Known gotchas (read before changing things)
 
 - `prisma db push` needs `prisma@6` — Prisma 7 removes the `url` in the
   datasource block and rejects this schema. The pin is in `package.json`.
 - pnpm 11: native build permissions live in `pnpm-workspace.yaml`
   (`allowBuilds`), not `package.json`'s `pnpm` field.
 - Node runs the worker via type-stripping: relative TS imports inside
-  `lib/*.ts` MUST keep the `.ts` extension (see `lib/yolo.ts`).
+  `lib/*.ts` MUST keep the `.ts` extension (e.g. `lib/verify-core.ts`).
 - `db.query()` (the wrapper) uses prepared statements — bind params don't work
   in `LIMIT ?` / `INTERVAL ? DAY`; interpolate constants instead.
-- sharp `composite()` with a raw buffer silently corrupts input — use
-  `extend()` for letterbox padding.
 - The `users` table column is `password` (not `password_hash`).

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShieldCheck, ShieldAlert, EyeOff, Radar, AlertTriangle, Copy } from "lucide-react"
+import { ShieldCheck, ShieldAlert, EyeOff, AlertTriangle, Copy } from "lucide-react"
 
 interface Stats {
   totalIssues: number
@@ -12,7 +12,6 @@ interface Stats {
   differentIssue: number
   noIssue: number
   unclear: number
-  candidates: number
   resolutionNotFixed: number
   duplicateFlags: number
 }
@@ -28,8 +27,6 @@ interface Recent {
   verificationCapturedAt: string | null
   verifiedAt: string | null
   resolutionVerdict: string | null
-  discoveryClass: string | null
-  discoveryConfidence: number | null
 }
 
 export default function AdminVerificationPage() {
@@ -50,7 +47,6 @@ export default function AdminVerificationPage() {
     { label: "Same issue confirmed", value: stats?.sameIssue ?? "…", icon: Copy, color: "text-blue-600" },
     { label: "Conflicted", value: stats?.differentIssue ?? "…", icon: ShieldAlert, color: "text-amber-600" },
     { label: "Suspected fake", value: stats?.noIssue ?? "…", icon: EyeOff, color: "text-red-600" },
-    { label: "AI-discovered (candidates)", value: stats?.candidates ?? "…", icon: Radar, color: "text-purple-600" },
     { label: "Resolution fraud flagged", value: stats?.resolutionNotFixed ?? "…", icon: AlertTriangle, color: "text-orange-600" },
   ]
 
@@ -111,18 +107,12 @@ export default function AdminVerificationPage() {
                       </td>
                       <td className="py-2">{r.category}</td>
                       <td className="py-2">
-                        {r.discoveryClass
-                          ? `🤖 ${r.discoveryClass.replace(/_/g, " ")}`
-                          : r.resolutionVerdict
-                            ? `🔧 ${r.resolutionVerdict.replace(/_/g, " ")}`
-                            : verdictLabel[r.verificationVerdict ?? ""] ?? "—"}
+                        {r.resolutionVerdict
+                          ? `🔧 ${r.resolutionVerdict.replace(/_/g, " ")}`
+                          : verdictLabel[r.verificationVerdict ?? ""] ?? "—"}
                       </td>
                       <td className="py-2">
-                        {r.verificationConfidence != null
-                          ? (r.verificationConfidence * 100).toFixed(0) + "%"
-                          : r.discoveryConfidence != null
-                            ? (r.discoveryConfidence * 100).toFixed(0) + "%"
-                            : "—"}
+                        {r.verificationConfidence != null ? (r.verificationConfidence * 100).toFixed(0) + "%" : "—"}
                       </td>
                       <td className="py-2 text-xs text-gray-500">{r.verificationSource ?? "—"}</td>
                     </tr>
