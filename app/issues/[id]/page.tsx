@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Navbar } from "@/components/navigation/navbar"
 import { AppealButton, AppealStatusDisplay, AdminAppealReview } from "@/components/appeals"
+import { VerificationCard } from "@/components/ai/verification-card"
 import { useAuth } from "@/hooks/use-auth"
 import { convertToIST } from "@/lib/date-utils"
 import type { Issue, Comment, Appeal, IssueUpdate } from "@/lib/types"
@@ -439,6 +440,18 @@ export default function IssueDetailPage({ params }: IssueDetailPageProps) {
                         />
                       </div>
                     )}
+
+                    {/* AI Observation Engine — external street-imagery verification */}
+                    <VerificationCard
+                      issue={issue}
+                      canVerify={
+                        !!user &&
+                        (user.role === 'ORGANIZATION_ADMIN' ||
+                          user.role === 'ADMIN' ||
+                          String(user.id) === String(issue.reporterId))
+                      }
+                      onVerified={(updated) => setIssue(updated)}
+                    />
                     
                     <div className="flex items-center justify-between gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-4">

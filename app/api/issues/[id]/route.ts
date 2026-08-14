@@ -145,6 +145,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       assigned_to_name: (rawIssue as any).assigned_to_name,
       assigned_at: (rawIssue as any).assigned_at,
       assigned_by: (rawIssue as any).assigned_by,
+      // AI Observation Engine — persisted verification evidence
+      verificationVerdict: (rawIssue as any).verification_verdict,
+      verificationConfidence: (rawIssue as any).verification_confidence,
+      verificationReason: (rawIssue as any).verification_reason,
+      verificationImageUrl: (rawIssue as any).verification_image_url,
+      verificationSource: (rawIssue as any).verification_source,
+      verificationCapturedAt: (rawIssue as any).verification_captured_at,
+      verificationDistanceM: (rawIssue as any).verification_distance_m,
+      verifiedAt: (rawIssue as any).verified_at,
       hasVoted, // Include user's vote status
       linkedIssues, // Issues that are duplicates of this one
       parentIssue, // Issue this one is a duplicate of (if any)

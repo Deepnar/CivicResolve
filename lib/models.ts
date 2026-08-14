@@ -79,6 +79,15 @@ export interface Issue {
   image_url?: string;
   reporter_id: number;
   is_anonymous: boolean;
+  // AI Observation Engine — external street-imagery verification evidence
+  verification_verdict?: string;
+  verification_confidence?: number;
+  verification_reason?: string;
+  verification_image_url?: string;
+  verification_source?: string;
+  verification_captured_at?: Date;
+  verification_distance_m?: number;
+  verified_at?: Date;
   votes_count: number;
   comments_count: number;
   created_at: Date;
@@ -312,6 +321,39 @@ export class IssueModel {
     return await Database.queryOne(sql, [id]);
   }
 
+  // Persist AI Observation Engine verification evidence (idempotent — a
+  // re-verify overwrites the previous result).
+  static async saveVerification(
+    id: number,
+    data: {
+      verdict: string;
+      confidence: number;
+      reason: string;
+      imageUrl: string;
+      source: string;
+      capturedAt: Date | null;
+      distanceM: number | null;
+    }
+  ): Promise<void> {
+    const sql = `
+      UPDATE issues SET
+        verification_verdict = ?, verification_confidence = ?, verification_reason = ?,
+        verification_image_url = ?, verification_source = ?, verification_captured_at = ?,
+        verification_distance_m = ?, verified_at = NOW()
+      WHERE id = ?
+    `;
+    await Database.query(sql, [
+      data.verdict,
+      data.confidence,
+      data.reason,
+      data.imageUrl,
+      data.source,
+      data.capturedAt,
+      data.distanceM,
+      id,
+    ]);
+  }
+
   static async getAll(filters?: {
     category?: string;
     status?: string;
@@ -346,6 +388,9 @@ export class IssueModel {
     if (filters?.status && filters.status !== "all") {
       conditions.push(`i.status = ?`)
       params.push(filters.status)
+    } else {
+      // AI-discovered candidates are not public — they live on the admin review page.
+      conditions.push(`i.status <> 'CANDIDATE'`)
     }
 
     if (filters?.priority && filters.priority !== "all") {

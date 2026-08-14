@@ -26,6 +26,7 @@ enum IssueStatus {
   REJECTED
   UNDER_APPEAL
   CLOSED_DUPLICATE
+  CANDIDATE // AI-discovered from street imagery, awaiting admin review
 }
 
 enum IssuePriority {
@@ -114,9 +115,27 @@ model Issue {
   updated_at                DateTime         @default(now()) @updatedAt
   is_anonymous              Boolean          @default(false)
   resolution_image_url      String?          @db.LongText
+  // AI discovery (auto-detection from street imagery) provenance
+  discovery_class           String?          @db.VarChar(30)
+  discovery_confidence      Float?
+  discovery_source          String?          @db.VarChar(50)
+  // AI resolution verification — is the reported issue actually fixed?
+  resolution_verdict        String?          @db.VarChar(20) // fixed | not_fixed | unclear
+  resolution_confidence     Float?
+  resolution_checked_at     DateTime?
+  // AI Observation Engine — external street-imagery verification evidence
+  verification_verdict      String?          @db.VarChar(20) // same_issue | different_issue | unclear | no_issue
+  verification_confidence   Float?
+  verification_reason       String?          @db.Text
+  verification_image_url    String?          @db.LongText // external street photo used as evidence
+  verification_source       String?          @db.VarChar(20) // ola | mapillary | kartaview
+  verification_captured_at  DateTime?
+  verification_distance_m   Float?
+  verified_at               DateTime?
   possible_duplicate_of     Int?
   duplicate_confidence      Float?
   duplicate_status          DuplicateStatus  @default(PENDING)
+  duplicate_vision_checked  Boolean          @default(false) // AI vision dup-sweep done (worker)
   reporter_confirmed_unique Boolean          @default(false)
   reporter_acknowledgement  String?          @db.VarChar(50)
   assigned_to               Int?
