@@ -148,6 +148,42 @@ export default function ReportIssuePage() {
     setShowAiReview(false)
     setUseManualInput(false)
 
+    // Fake/abuse guard: screenshot or reused photo?
+    try {
+      const guardRes = await fetch('/api/ai/check-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ imageData }),
+      })
+      if (guardRes.ok) {
+        const guard = await guardRes.json()
+        if (guard.suggestedAction === 'reject') {
+          setIsAnalyzing(false)
+          setUseManualInput(true)
+          toast({
+            variant: 'destructive',
+            title: 'Photo looks like a screenshot',
+            description: guard.screenshotReason || 'Please take a real photo of the issue and try again.',
+          })
+          return
+        }
+        if (guard.suggestedAction === 'warn_reused') {
+          toast({
+            title: 'This photo may already be reported',
+            description: 'A very similar photo was submitted before. You can still continue.',
+          })
+        } else if (guard.suggestedAction === 'warn_screenshot') {
+          toast({
+            title: 'Photo may be a screen capture',
+            description: 'It will be flagged for review. A real photo is more reliable.',
+          })
+        }
+      }
+    } catch (error) {
+      console.warn('✗ [report] photo guard check failed (continuing):', error)
+    }
+
     try {
       const response = await fetch('/api/ai/auto-fill-issue', {
         method: 'POST',
