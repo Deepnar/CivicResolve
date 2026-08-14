@@ -1,6 +1,6 @@
 # CivicResolve — AI Observation Engine: What Was Added and Why
 
-A companion to `docs/ai-observation-engine.md` (the reference: files, env vars,
+A companion to `docs/observation-engine.md` (the reference: files, env vars,
 provider setups). This doc explains **why** each piece exists, what problem it
 solves, and the evidence behind the decisions — so the next developer can
 understand the reasoning and override it deliberately, not by accident.

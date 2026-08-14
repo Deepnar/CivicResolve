@@ -6,10 +6,22 @@ Written so the main developer can read it end-to-end and decide what to
 enable, what to register for, and what to trust.
 
 > The locally-trained YOLO/detector pipeline (datasets, training, ONNX, and
-> the street-imagery "discovery" pass) was tried, measured, and **scrapped**
-> — see `docs/observation-engine-decisions.md` §9 for the evidence. This
+> the street-imagery "discovery" pass) was tried, measured, and **scrapped** —
+> see `docs/observation-engine-decisions.md` §9 for the evidence. This
 > engine runs entirely on the cloud vision model (opencode gateway, local
 > Ollama fallback).
+
+## 0. Removed features (history, so nobody re-builds them blind)
+
+| Feature | What it was | Why removed |
+|---|---|---|
+| Auto-discovery (pass 4) | Background scan of street imagery near active areas → CANDIDATE issues (hidden status, admin review queue) | Depended on the trained YOLO detector; real-world eval showed the model misses wide-scene defects and false-positives on scene classes → the feature's core assumption (trustworthy cheap detection) failed. |
+| Trained YOLO detector | YOLO11n on RDD2020-India + streetlight + manhole sets (mAP50 0.69 test split) | Unseen real-world photos: 0/4 potholes detected even at 0.05 conf; scene classes fired on generic streets. Replaced by the cloud vision model for all judgment. |
+| ML datasets + converters | ~10 GB of RDD2020/streetlight/manhole/TACO data, VOC/classification→YOLO converters | Part of the scrapped pipeline (see `docs/observation-engine-decisions.md` §9). |
+| Ola street-view as primary provider | Implemented per Ola OAS spec (`/sli/v1/streetview/{imageId,coverage,metadata}`) | Still present in `lib/imagery.ts` — just needs `OLA_MAPS_API_KEY` (see §4). |
+
+The git history preserves all of it (`git log --all`); the decisions doc has
+the measurements.
 
 ---
 
