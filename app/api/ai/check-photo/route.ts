@@ -24,6 +24,14 @@ async function handler(req: NextRequest) {
 
   let base64: string | null = null
   if (body.imageData && typeof body.imageData === 'string') {
+    // Server-side size cap (the client also enforces 5MB) — a crafted payload
+    // must not allocate unbounded memory server-side.
+    if (body.imageData.length > 8 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: { message: 'imageData exceeds the 5MB limit', type: 'INVALID_BODY' } },
+        { status: 400 }
+      )
+    }
     base64 = body.imageData.includes(',') ? body.imageData.split(',')[1] : body.imageData
   } else if (body.imageUrl && typeof body.imageUrl === 'string') {
     // SSRF guard: only fetch from this app's own origin (relative paths or
