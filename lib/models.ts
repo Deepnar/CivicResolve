@@ -88,6 +88,11 @@ export interface Issue {
   verification_captured_at?: Date;
   verification_distance_m?: number;
   verified_at?: Date;
+  resolution_verdict?: string;
+  resolution_confidence?: number;
+  resolution_street_url?: string;
+  resolution_street_captured_at?: Date;
+  resolution_street_verdict?: string;
   votes_count: number;
   comments_count: number;
   created_at: Date;

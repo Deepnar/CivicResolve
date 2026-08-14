@@ -84,6 +84,11 @@ export interface Issue {
   address: string
   imageUrl?: string
   resolutionImageUrl?: string  // Photo proof of issue resolution
+  resolutionVerdict?: 'fixed' | 'not_fixed' | 'unclear'
+  resolutionConfidence?: number
+  resolutionStreetUrl?: string
+  resolutionStreetCapturedAt?: string | null
+  resolutionStreetVerdict?: 'still_present' | 'not_present' | 'unclear'
   // AI Observation Engine — external street-imagery verification evidence
   verificationVerdict?: 'same_issue' | 'different_issue' | 'unclear' | 'no_issue'
   verificationConfidence?: number

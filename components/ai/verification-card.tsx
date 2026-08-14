@@ -229,7 +229,47 @@ export function VerificationCard({
             Street photo is {staleDays} days old — may not reflect current condition
           </span>
         )}
-      </div>
+        </div>
+
+        {/* Post-resolution street cross-check (external imagery captured after
+            the resolution timestamp — a real check on whether the fix holds) */}
+        {(issue as any).resolutionStreetUrl && (
+          <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3">
+            <div className="flex items-center gap-2">
+              <Camera className="h-3.5 w-3.5 text-gray-500" />
+              <span className="text-xs font-semibold text-gray-700">Post-resolution street check</span>
+              {(issue as any).resolutionStreetVerdict === "still_present" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                  Still shows the issue
+                </span>
+              )}
+              {(issue as any).resolutionStreetVerdict === "not_present" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                  Area clear
+                </span>
+              )}
+              {(issue as any).resolutionStreetVerdict === "unclear" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                  Unclear
+                </span>
+              )}
+            </div>
+            <img
+              src={(issue as any).resolutionStreetUrl}
+              alt="Street photo captured after resolution"
+              className="mt-2 h-32 w-full rounded-md border object-cover"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              {issue.resolutionVerdict === "not_fixed" && (
+                <span className="font-medium text-red-600">Resolution claim contradicted — </span>
+              )}
+              External street photo
+              {(issue as any).resolutionStreetCapturedAt &&
+                ` captured ${format(new Date((issue as any).resolutionStreetCapturedAt), "d MMM yyyy")}`}
+              {" — after the resolution was marked."}
+            </p>
+          </div>
+        )}
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>

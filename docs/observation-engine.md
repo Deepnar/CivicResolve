@@ -39,7 +39,10 @@ citizen photo
    ├─ [<10 min]     auto-verify  (street imagery vs citizen photo)    → verdict + confidence
    │                  └ freshness decay (old imagery = lower confidence)
    ├─ [<10 min]     duplicate sweep (nearby issues, vision "same?")   → admin queue
-   └─ [on RESOLVED] resolution check (proof photo vs original)        → "actually fixed?"
+   └─ [on RESOLVED] resolution check (proof vs original)        → "actually fixed?"
+                    └ if a street photo exists that was captured AFTER the
+                      resolution date → cross-check it too (date-gated —
+                      old imagery is never used, no wasted vision calls)
 ```
 
 ---
@@ -61,6 +64,7 @@ citizen photo
 | `components/ui/verification-badge.tsx` | Compact chip for issue cards/lists (AI VERIFIED / CONFLICTED / SUSPECTED FAKE). |
 | `app/admin/verification/page.tsx` | Admin overview: stat cards + recent-evidence table. |
 | `scripts/verify-worker.mjs` | Background worker, 3 passes (see §5). |
+| `scripts/add-verification-columns.sql` | Schema migration for the engine columns (repo convention — the app uses raw SQL, not Prisma). |
 | `tests/fake-detect.test.ts` | Hash determinism + Hamming-distance tests. |
 | `tests/freshness.test.ts` | Freshness-decay math tests (caught a real bug during development). |
 | `vitest.config.ts` | Vitest config (node env, `tests/**`). |
@@ -123,6 +127,7 @@ citizen photo
 | Variable | Default | Effect |
 |---|---|---|
 | `VERIFY_WORKER_MAX` | `3` | Max issues auto-verified per run. |
+| `VERIFY_WORKER_RETRY_DAYS` | `7` | Backoff for failed/no-imagery verify attempts (avoids provider quota burn). |
 | `VERIFY_WORKER_DUP_MAX` | `2` | Max duplicate-vision checks per run. |
 
 ### Database

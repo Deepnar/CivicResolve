@@ -25,6 +25,7 @@ const MAX_PER_RUN = Number(process.env.VERIFY_WORKER_MAX ?? 3)
 const DUP_MAX_PER_RUN = Number(process.env.VERIFY_WORKER_DUP_MAX ?? 2)
 const RES_MAX_PER_RUN = Number(process.env.VERIFY_WORKER_RES_MAX ?? 3)
 const LOOKBACK_DAYS = Number(process.env.VERIFY_WORKER_LOOKBACK_DAYS ?? 14)
+const RETRY_AFTER_DAYS = Number(process.env.VERIFY_WORKER_RETRY_DAYS ?? 7)
 const DUP_LOOKBACK_DAYS = Number(process.env.VERIFY_WORKER_DUP_LOOKBACK_DAYS ?? 2)
 const DUP_DISTANCE_M = Number(process.env.VERIFY_WORKER_DUP_DISTANCE_M ?? 100)
 const DUP_MIN_CONFIDENCE = Number(process.env.VERIFY_WORKER_DUP_MIN_CONFIDENCE ?? 0.6)
@@ -41,12 +42,13 @@ async function pass1AutoVerify(conn) {
      FROM issues
      WHERE status = 'PENDING'
        AND verified_at IS NULL
+       AND (verification_attempted_at IS NULL OR verification_attempted_at < NOW() - INTERVAL ? DAY)
        AND latitude <> 0 AND longitude <> 0
        AND image_url IS NOT NULL AND image_url <> ''
        AND created_at >= NOW() - INTERVAL ? DAY
      ORDER BY created_at DESC
      LIMIT ?`,
-    [LOOKBACK_DAYS, MAX_PER_RUN]
+    [RETRY_AFTER_DAYS, LOOKBACK_DAYS, MAX_PER_RUN]
   )
 
   if (!rows.length) {
@@ -66,14 +68,20 @@ async function pass1AutoVerify(conn) {
       const result = await runVerification({ lat, lng, citizenImageUrl: citizenUrl })
       if (!result) {
         console.log(`[VERIFY-WORKER]     no external imagery near this location — leaving for a later run`)
+        // Track the attempt so no-imagery locations get backed off
+        // (RETRY_AFTER_DAYS) instead of hitting all providers every run.
+        await conn.query(
+          `UPDATE issues SET verification_attempted_at = NOW() WHERE id = ?`,
+          [issueId]
+        )
         continue
       }
       await conn.query(
         `UPDATE issues SET
-           verification_verdict = ?, verification_confidence = ?, verification_reason = ?,
-           verification_image_url = ?, verification_source = ?, verification_captured_at = ?,
-           verification_distance_m = ?, verified_at = NOW()
-         WHERE id = ?`,
+          verification_verdict = ?, verification_confidence = ?, verification_reason = ?,
+          verification_image_url = ?, verification_source = ?, verification_captured_at = ?,
+          verification_distance_m = ?, verified_at = NOW(), verification_attempted_at = NOW()
+        WHERE id = ?`,
         [
           result.verdict,
           result.confidence,
@@ -90,6 +98,11 @@ async function pass1AutoVerify(conn) {
       )
     } catch (err) {
       console.error(`[VERIFY-WORKER]     ✗ issue ${issueId} failed: ${err instanceof Error ? err.message : String(err)}`)
+      // Transient failures also get backed off — retry after RETRY_AFTER_DAYS.
+      await conn.query(
+        `UPDATE issues SET verification_attempted_at = NOW() WHERE id = ?`,
+        [issueId]
+      ).catch(() => {})
     }
   }
 }
@@ -153,8 +166,9 @@ async function pass2DuplicateSweep(conn) {
       const result = await visionCheckSameIssue(c.image_url, n.image_url)
 
       if (!result) {
-        await conn.query(`UPDATE issues SET duplicate_vision_checked = true WHERE id = ?`, [c.id])
-        console.log(`[VERIFY-WORKER]     photos failed to download — marked checked`)
+        // Transient (download/VLM) failure — do NOT mark checked; a later run
+        // retries this pair instead of permanently excluding it.
+        console.log(`[VERIFY-WORKER]     photos failed to download — will retry on a later run`)
         continue
       }
 
@@ -188,7 +202,7 @@ async function pass3ResolutionCheck(conn) {
   }
 
   const [rows] = await conn.query(
-    `SELECT id, image_url, resolution_image_url
+    `SELECT id, image_url, resolution_image_url, latitude, longitude, updated_at
      FROM issues
      WHERE status = 'RESOLVED'
        AND resolution_image_url IS NOT NULL AND resolution_image_url <> ''
@@ -213,16 +227,85 @@ async function pass3ResolutionCheck(conn) {
     try {
       const result = await verifyResolution(originalUrl, proofUrl)
       if (!result) {
-        console.log(`[VERIFY-WORKER]     photos failed to download — marked checked`)
-      } else {
-        await conn.query(
-          `UPDATE issues SET resolution_verdict = ?, resolution_confidence = ?, resolution_checked_at = NOW() WHERE id = ?`,
-          [result.verdict, result.confidence, row.id]
-        )
-        console.log(
-          `[VERIFY-WORKER]     ${result.verdict === 'not_fixed' ? '🚩 NOT FIXED' : result.verdict} @ ${result.confidence.toFixed(2)} — ${result.reason.slice(0, 100)}`
-        )
+        // Transient download failure — do NOT mark checked; retry next run.
+        console.log(`[VERIFY-WORKER]     photos failed to download — will retry on a later run`)
+        continue
       }
+
+      // Live cross-check: external street photo captured AFTER the resolution.
+      // DATE CHECK FIRST — only spend a vision call when the street photo is
+      // newer than the resolution timestamp (historical imagery cannot
+      // comment on the fix). updated_at approximates the resolution moment —
+      // the issues table has no dedicated resolved_at column.
+      let streetEvidence = { url: null, capturedAt: null, verdict: null }
+      const lat = Number(row.latitude)
+      const lng = Number(row.longitude)
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
+        const street = await getStreetImageNear(lat, lng).catch(() => null)
+        if (!street) {
+          console.log(`[VERIFY-WORKER]     no street imagery near this location — street cross-check skipped`)
+        } else {
+          const streetDate = street.capturedAt ? new Date(street.capturedAt) : null
+          const resolutionDate = new Date(row.updated_at)
+          if (!streetDate) {
+            console.log(`[VERIFY-WORKER]     street photo has no capture date — street cross-check skipped`)
+          } else if (streetDate < resolutionDate) {
+            console.log(
+              `[VERIFY-WORKER]     street photo (${streetDate.toISOString().slice(0, 10)}) predates the resolution (${resolutionDate.toISOString().slice(0, 10)}) — not usable, skipped`
+            )
+          } else {
+            console.log(
+              `[VERIFY-WORKER]     street photo captured ${streetDate.toISOString().slice(0, 10)} (after report) — cross-checking…`
+            )
+            const streetCheck = await checkStreetResolution(originalUrl, street.imageUrl, street.capturedAt)
+            if (streetCheck) {
+              streetEvidence = {
+                url: street.imageUrl,
+                capturedAt: street.capturedAt,
+                verdict: streetCheck.stillPresent === true
+                  ? 'still_present'
+                  : streetCheck.stillPresent === false
+                    ? 'not_present'
+                    : 'unclear',
+              }
+              console.log(
+                `[VERIFY-WORKER]     street says ${streetEvidence.verdict} @ ${streetCheck.confidence.toFixed(2)} — ${streetCheck.reason.slice(0, 90)}`
+              )
+            } else {
+              console.log(`[VERIFY-WORKER]     street photo download failed — street cross-check skipped`)
+            }
+          }
+        }
+      }
+
+      let verdict = result.verdict
+      let reason = result.reason
+      // A street photo captured AFTER the report that STILL shows the problem
+      // contradicts the "resolved" claim — escalate to not_fixed.
+      if (streetEvidence.verdict === 'still_present') {
+        verdict = 'not_fixed'
+        reason = `${reason} STREET CONTRADICTION: street imagery captured ${String(streetEvidence.capturedAt).slice(0, 10)} still shows the issue.`
+      } else if (streetEvidence.verdict === 'not_present') {
+        reason = `${reason} Consistent with street imagery of ${String(streetEvidence.capturedAt).slice(0, 10)} showing the area without the issue.`
+      }
+
+      await conn.query(
+        `UPDATE issues SET
+           resolution_verdict = ?, resolution_confidence = ?, resolution_checked_at = NOW(),
+           resolution_street_url = ?, resolution_street_captured_at = ?, resolution_street_verdict = ?
+         WHERE id = ?`,
+        [
+          verdict,
+          result.confidence,
+          streetEvidence.url,
+          streetEvidence.capturedAt ? new Date(streetEvidence.capturedAt) : null,
+          streetEvidence.verdict,
+          row.id,
+        ]
+      )
+      console.log(
+        `[VERIFY-WORKER]     ${verdict === 'not_fixed' ? '🚩 NOT FIXED' : verdict} @ ${result.confidence.toFixed(2)} — ${reason.slice(0, 100)}`
+      )
     } catch (err) {
       console.error(`[VERIFY-WORKER]   ✗ resolution check for issue ${row.id} failed: ${err instanceof Error ? err.message : String(err)}`)
     }

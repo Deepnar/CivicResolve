@@ -118,6 +118,11 @@ model Issue {
   resolution_verdict        String?          @db.VarChar(20) // fixed | not_fixed | unclear
   resolution_confidence     Float?
   resolution_checked_at     DateTime?
+  // Post-resolution street cross-check (external imagery captured after the
+  // resolution timestamp — shown on the issue page evidence card).
+  resolution_street_url     String?          @db.LongText
+  resolution_street_captured_at DateTime?
+  resolution_street_verdict String?          @db.VarChar(20) // still_present | not_present | unclear
   // AI Observation Engine — external street-imagery verification evidence
   verification_verdict      String?          @db.VarChar(20) // same_issue | different_issue | unclear | no_issue
   verification_confidence   Float?
@@ -127,6 +132,7 @@ model Issue {
   verification_captured_at  DateTime?
   verification_distance_m   Float?
   verified_at               DateTime?
+  verification_attempted_at DateTime? // last auto-verify attempt (worker backoff)
   possible_duplicate_of     Int?
   duplicate_confidence      Float?
   duplicate_status          DuplicateStatus  @default(PENDING)

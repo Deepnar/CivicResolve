@@ -26,7 +26,29 @@ async function handler(req: NextRequest) {
   if (body.imageData && typeof body.imageData === 'string') {
     base64 = body.imageData.includes(',') ? body.imageData.split(',')[1] : body.imageData
   } else if (body.imageUrl && typeof body.imageUrl === 'string') {
-    base64 = await fetchImageAsBase64(body.imageUrl).catch(() => null)
+    // SSRF guard: only fetch from this app's own origin (relative paths or
+    // the configured public URL). Arbitrary external URLs are rejected.
+    const appOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3111'
+    try {
+      const parsed = new URL(body.imageUrl, appOrigin)
+      const allowed = new URL(appOrigin)
+      const isSameHost =
+        parsed.hostname === allowed.hostname ||
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1'
+      if (!isSameHost) {
+        return NextResponse.json(
+          { success: false, error: { message: 'imageUrl must point to this app', type: 'INVALID_BODY' } },
+          { status: 400 }
+        )
+      }
+      base64 = await fetchImageAsBase64(parsed.toString()).catch(() => null)
+    } catch {
+      return NextResponse.json(
+        { success: false, error: { message: 'Invalid imageUrl', type: 'INVALID_BODY' } },
+        { status: 400 }
+      )
+    }
   }
 
   if (!base64) {

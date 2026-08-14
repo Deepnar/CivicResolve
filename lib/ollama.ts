@@ -29,6 +29,12 @@ interface OllamaGenerateOptions {
 const UA =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 
+// The chat model actually in use, for UI labels: the gateway model when the
+// gateway is configured (key set and not forced local), else the local one.
+export function activeChatModel(): string {
+  return OPENCODE_API_KEY && VISION_PROVIDER !== 'local' ? GATEWAY_CHAT_MODEL : OLLAMA_CHAT_MODEL
+}
+
 export async function ollamaGenerate(opts: OllamaGenerateOptions): Promise<string> {
   // Same manner as the rest of the app: opencode gateway is primary, the local
   // Ollama is the fallback (when no key is set, or the gateway call fails).

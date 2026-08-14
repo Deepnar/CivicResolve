@@ -1,0 +1,18 @@
+# CivicResolve AI observation worker — systemd units.
+# Install (adjust the WorkingDirectory/ExecStart paths first):
+#   sudo cp civicresolve-verify.service civicresolve-verify.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now civicresolve-verify.timer
+# Without systemd, use cron:
+#   */10 * * * * cd /path/to/CivicResolve && node --env-file=.env scripts/verify-worker.mjs >> /tmp/verify-worker.log 2>&1
+[Unit]
+Description=CivicResolve AI observation worker (verify + duplicates + resolution)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/CivicResolve
+ExecStart=/usr/bin/node --env-file=.env scripts/verify-worker.mjs
+
+[Install]
+WantedBy=multi-user.target

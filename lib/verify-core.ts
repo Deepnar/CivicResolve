@@ -226,3 +226,67 @@ export async function verifyResolution(
 
   return { verdict, confidence, reason }
 }
+
+export interface StreetResolutionResult {
+  stillPresent: boolean | null // null = unclear
+  confidence: number
+  reason: string
+}
+
+const STREET_RESOLUTION_PROMPT = `You are a careful, conservative resolution auditor.
+
+Image 1 is the ORIGINAL citizen report photo, showing a civic issue (pothole, garbage, broken infrastructure, etc.) at a specific location.
+Image 2 is an external STREET-LEVEL photo of the same area, captured on a KNOWN DATE (see prompt).
+
+Question: is the reported issue STILL VISIBLE in image 2 (the same problem still present at that spot)?
+
+Rules:
+- ONLY "still present" if you can clearly see the same kind of issue at the same spot in image 2.
+- If image 2 is too old, too blurry, a different spot, or ambiguous → "unclear" (never guess).
+- If image 2 clearly shows the area WITHOUT the reported problem → "not present".
+
+Respond ONLY with JSON: {"stillPresent": true|false|null, "confidence": 0.0-1.0, "reason": "..."}`
+
+/**
+ * Cross-checks resolution against EXTERNAL street imagery captured AFTER the
+ * report date. Historical imagery can never prove a fix, but a street photo
+ * with capturedAt >= issue.createdAt is legitimate evidence of the CURRENT
+ * state — if it still shows the problem, the "resolved" claim is contradicted.
+ * Returns null when either photo fails to download. Throws on model failure.
+ */
+export async function checkStreetResolution(
+  originalPhotoUrl: string,
+  streetImageUrl: string,
+  streetCapturedAt: string | null
+): Promise<StreetResolutionResult | null> {
+  const [a, b] = await Promise.all([
+    fetchImageAsBase64(originalPhotoUrl).catch(() => null),
+    fetchImageAsBase64(streetImageUrl).catch(() => null),
+  ])
+  if (!a || !b) return null
+
+  const dateNote = streetCapturedAt
+    ? `Image 2 was captured on ${new Date(streetCapturedAt).toISOString().slice(0, 10)}.`
+    : 'Image 2 capture date is unknown.'
+
+  const text = await ollamaGenerate({
+    messages: [
+      { role: 'system', content: 'You are a careful, conservative resolution auditor.' },
+      { role: 'user', content: `${STREET_RESOLUTION_PROMPT}\n\n${dateNote}` },
+    ],
+    images: [a, b],
+    format: 'json',
+    temperature: 0.2,
+  })
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error(`Vision model returned no parseable JSON: ${text.slice(0, 200)}`)
+  const parsed = JSON.parse(jsonMatch[0])
+
+  const raw = parsed.stillPresent
+  const stillPresent = raw === true || raw === false ? (raw as boolean) : null
+  const confidence = Math.min(Math.max(Number(parsed.confidence) || 0, 0), 1)
+  const reason = typeof parsed.reason === 'string' ? parsed.reason : ''
+
+  return { stillPresent, confidence, reason }
+}

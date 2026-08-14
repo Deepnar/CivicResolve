@@ -124,6 +124,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       address: (rawIssue as any).address,
       imageUrl: (rawIssue as any).image_url,
       resolutionImageUrl: (rawIssue as any).resolution_image_url,
+      resolutionVerdict: (rawIssue as any).resolution_verdict || null,
+      resolutionConfidence: (rawIssue as any).resolution_confidence ?? null,
+      resolutionStreetUrl: (rawIssue as any).resolution_street_url || null,
+      resolutionStreetCapturedAt: (rawIssue as any).resolution_street_captured_at
+        ? new Date((rawIssue as any).resolution_street_captured_at)
+        : null,
+      resolutionStreetVerdict: (rawIssue as any).resolution_street_verdict || null,
       reporterId: (rawIssue as any).reporter_id?.toString(),
       isAnonymous: (rawIssue as any).is_anonymous || false,
       reporter: {

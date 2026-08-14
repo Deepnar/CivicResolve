@@ -49,4 +49,3 @@ cookies*.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-docs/new_improvements_info.md

@@ -34,6 +34,30 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: 'Issue not found' }, { status: 404 })
     }
 
+    // Ownership/role guard: only the reporter, organization admins, and
+    // system admins may (re)verify. Prevents evidence overwrites and
+    // provider/vision quota burn by arbitrary logged-in users.
+    const isReporter = String(issue.reporter_id) === String(user.id)
+    const role = String(user.role)
+    const isPrivileged = role === 'ADMIN' || role === 'ORGANIZATION_ADMIN' || role === 'ORGANIZATION_MEMBER'
+    if (!isReporter && !isPrivileged) {
+      return NextResponse.json(
+        { error: 'Not authorized to verify this issue' },
+        { status: 403 }
+      )
+    }
+
+    // Throttle re-verification: skip if verified very recently (5 min).
+    if (
+      issue.verified_at &&
+      Date.now() - new Date(issue.verified_at).getTime() < 5 * 60 * 1000
+    ) {
+      return NextResponse.json(
+        { success: false, code: 'RECENTLY_VERIFIED', message: 'This issue was just verified — try again in a few minutes' },
+        { status: 200 }
+      )
+    }
+
     const lat = Number(issue.latitude)
     const lng = Number(issue.longitude)
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
