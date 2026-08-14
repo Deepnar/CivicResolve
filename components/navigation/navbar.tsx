@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone, Building2, Users2, Heart, AlertTriangle } from "lucide-react"
+import { Menu, X, MapPin, PlusCircle, User, LogOut, Settings, BarChart3, Download, Smartphone, Building2, Users2, Heart, AlertTriangle, Radar, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -90,6 +90,8 @@ export function Navbar() {
     { name: "Users", href: "/admin/users", icon: User },
     { name: "Organizations", href: "/admin/organizations", icon: Building2 },
     { name: "NGOs", href: "/admin/ngos", icon: Heart },
+    { name: "AI Candidates", href: "/admin/candidates", icon: Radar },
+    { name: "AI Verification", href: "/admin/verification", icon: ShieldCheck },
   ]
 
   const organizationAdminNavigation = [
