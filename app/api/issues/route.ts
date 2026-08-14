@@ -75,6 +75,11 @@ export async function GET(request: NextRequest) {
           address: issue.address,
           imageUrl: excludeImages ? null : issue.image_url,
           resolutionImageUrl: excludeImages ? null : issue.resolution_image_url,
+          verificationVerdict: issue.verification_verdict || null,
+          verificationConfidence: issue.verification_confidence ?? null,
+          verificationSource: issue.verification_source || null,
+          verifiedAt: issue.verified_at ? new Date(issue.verified_at) : null,
+          resolutionVerdict: issue.resolution_verdict || null,
           reporterId: issue.reporter_id?.toString(),
           isAnonymous: issue.is_anonymous || false,
           reporter: {

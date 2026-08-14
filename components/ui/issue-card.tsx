@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { formatTimeAgo } from "@/lib/date-utils"
 import { StatusBadge } from "./badge-status"
 import { CategoryBadge } from "./badge-category"
+import { VerificationBadge } from "./verification-badge"
 import { PriorityIndicator } from "./priority-indicator"
 import type { Issue } from "@/lib/types"
 import { MessageCircle, ThumbsUp, MapPin, Camera } from "lucide-react"
@@ -97,6 +98,7 @@ export function IssueCard({ issue, onClick, className, showReporter = true }: Is
           <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-3">
             <CategoryBadge category={issue.category} />
             <StatusBadge status={issue.status} />
+            <VerificationBadge verificationVerdict={(issue as any).verificationVerdict} />
             {issue.status === 'RESOLVED' && issue.resolutionImageUrl && (
               <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700">
                 <Camera className="h-3 w-3" />

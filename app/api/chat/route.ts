@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ollamaGenerate, OLLAMA_CHAT_MODEL } from '@/lib/ollama';
+import { ollamaGenerate, OLLAMA_CHAT_MODEL, activeChatModel } from '@/lib/ollama';
 import { AuthUtils } from '@/lib/auth-utils';
 import { Database } from '@/lib/database';
 import { PerformanceMonitor } from '@/lib/performance';
@@ -922,13 +922,13 @@ IMPORTANT: When asked "Who am I?" or similar personal questions, only respond wi
       }
       
       // Generate new response
-      aiResponse = await ollamaGenerate({ messages: chatMessages, model: OLLAMA_CHAT_MODEL, temperature: 0.6 });
+      aiResponse = await ollamaGenerate({ messages: chatMessages, temperature: 0.6 });
       
       // Cache the response for 30 minutes (avoid caching user-specific content)
       await serverCacheSet(cacheKey, aiResponse, SERVER_CACHE_TTL.LONG); // 30 minutes
     } else {
       // Generate response without caching for user-specific queries
-      aiResponse = await ollamaGenerate({ messages: chatMessages, model: OLLAMA_CHAT_MODEL, temperature: 0.6 });
+      aiResponse = await ollamaGenerate({ messages: chatMessages, temperature: 0.6 });
     }
 
     endTimer()
@@ -970,7 +970,7 @@ export async function GET() {
   return NextResponse.json({
     service: 'CivicResolve Chat Assistant',
     status: 'operational',
-    model: `${OLLAMA_CHAT_MODEL} (AI)`,
+    model: `${activeChatModel()} (AI)`,
     features: [
       'Platform guidance',
       'Issue reporting help',
