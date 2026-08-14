@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit",
     "start": "next start",
     "analyze": "ANALYZE=true next build",
-    "test": "echo \"Warning: No tests specified\" && exit 0"
+    "test": "vitest run"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.3.1",
@@ -69,6 +69,7 @@
     "next": "15.2.4",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.6",
+    "onnxruntime-node": "^1.27.0",
     "process": "^0.11.10",
     "react": "^18.2.0",
     "react-day-picker": "9.8.0",
@@ -79,6 +80,7 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.0",
     "redis": "^5.8.2",
+    "sharp": "^0.35.3",
     "sonner": "^1.7.4",
     "stream-browserify": "^3.0.0",
     "tailwind-merge": "^2.5.5",
@@ -89,14 +91,17 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.2.4",
+    "@prisma/client": "6.19.3",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/leaflet": "^1.9.20",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

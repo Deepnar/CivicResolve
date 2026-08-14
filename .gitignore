@@ -27,9 +27,7 @@ yarn-error.log*
 *.tgz
 *.tar.gz
 
-# test files
-*.test.*
-*.spec.*
+# test coverage (keep test sources — vitest suite is part of the repo)
 /coverage/
 /test-results/
 
@@ -51,3 +49,4 @@ cookies*.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+docs/new_improvements_info.md

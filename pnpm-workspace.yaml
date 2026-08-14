@@ -1,0 +1,7 @@
+allowBuilds:
+  '@tailwindcss/oxide': true
+  sharp: true
+  prisma: true
+  '@prisma/engines': true
+  '@prisma/client': true
+  onnxruntime-node: true

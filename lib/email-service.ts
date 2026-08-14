@@ -21,16 +21,27 @@ class EmailService {
   private baseUrl: string;
 
   constructor() {
-    // Environment validation
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    // Dev mode (SKIP_EMAIL_SENDING=true): no SMTP credentials needed — routes
+    // guard their send calls on the flag, so registration etc. still works
+    // locally without a mail server.
+    const skipEmail = process.env.SKIP_EMAIL_SENDING === 'true'
+    if (!skipEmail && (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)) {
       throw new Error('Email configuration missing: EMAIL_USER and EMAIL_PASS must be set');
     }
 
     // Set base URL with proper fallback for production
-    this.baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+    this.baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.NODE_ENV === 'production'
         ? process.env.NEXTAUTH_URL || 'https://dev.raunakcodes.me'
         : 'http://localhost:3000');
+
+    if (skipEmail) {
+      // Dev-skip mode: inert transport — sendMail resolves without a network
+      // call, so every email path works (and logs) without SMTP credentials.
+      this.transporter = nodemailer.createTransport({ jsonTransport: true });
+      return;
+    }
 
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
